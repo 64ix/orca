@@ -165,7 +165,6 @@ function buildAgentResumeInvocation(
       return `${baseCommand} --resume=${sessionArg}`
     case 'claude':
     case 'cursor':
-    case 'gemini':
     case 'grok':
     case 'hermes':
     case 'devin':
