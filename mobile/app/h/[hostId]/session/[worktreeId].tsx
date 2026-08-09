@@ -1900,7 +1900,6 @@ export default function SessionScreen() {
           selectionSource = 'pending-handle-tab'
         } else if (pendingTerminalExists) {
           const nextActiveTabId = getActiveTabIdForHandle(nextTabs, pendingActiveTerminalHandle)
-          selectedSessionTabIdRef.current = nextActiveTabId
           activeSessionTabIdRef.current = nextActiveTabId
           setActiveSessionTabId(nextActiveTabId)
           activeSessionTabTypeRef.current = 'terminal'
@@ -2690,6 +2689,7 @@ export default function SessionScreen() {
     activeHandleRef.current = null
     activeSessionTabTypeRef.current = null
     pendingActiveSessionTabIdRef.current = null
+    selectedSessionTabIdRef.current = null
     pendingActiveTerminalHandleRef.current = null
     pendingBrowserFocusPageIdRef.current = null
     pendingTerminalActivationAttemptRef.current = null

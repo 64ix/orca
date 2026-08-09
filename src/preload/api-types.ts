@@ -24,6 +24,7 @@ import type {
   TerminalTabCloseRequest,
   TerminalTabCloseResponse
 } from '../shared/terminal-tab-close'
+import type { SessionTabCloseRequest, SessionTabCloseResponse } from '../shared/session-tab-close'
 import type { TerminalTabCreateReply } from '../shared/terminal-reveal-identity'
 import type {
   LocalLogTailChangedPayload,
@@ -3294,6 +3295,8 @@ export type PreloadApi = {
     onCloseSessionTab: (
       callback: (data: { tabId: string; worktreeId: string }) => void
     ) => () => void
+    onSessionTabCloseRequest: (callback: (request: SessionTabCloseRequest) => void) => () => void
+    respondSessionTabClose: (response: SessionTabCloseResponse) => void
     onMoveSessionTab: (
       callback: (data: { worktreeId: string } & RuntimeMobileSessionTabMove) => void
     ) => () => void

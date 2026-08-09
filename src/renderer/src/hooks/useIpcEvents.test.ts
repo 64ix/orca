@@ -997,6 +997,8 @@ describe('useIpcEvents browser tab create routing', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -1228,6 +1230,8 @@ describe('useIpcEvents updater integration', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -1599,6 +1603,8 @@ describe('useIpcEvents updater integration', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -2127,6 +2133,8 @@ describe('useIpcEvents updater integration', () => {
           },
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -3064,6 +3072,11 @@ describe('useIpcEvents browser tab close routing', () => {
   type SelectFloatingIndexListener = (payload: { index: number }) => void
   type CloseTerminalListener = (data: { tabId: string; paneRuntimeId?: number | null }) => void
   type CloseSessionTabListener = (data: { tabId: string; worktreeId: string }) => void
+  type SessionTabCloseRequestListener = (data: {
+    requestId: string
+    tabId: string
+    worktreeId: string
+  }) => void
   type TerminalTabCloseRequestListener = (data: { requestId: string; tabId: string }) => void
 
   async function useIpcEventsForCloseRouting({
@@ -3071,6 +3084,8 @@ describe('useIpcEvents browser tab close routing', () => {
     closeFloatingItemListenerRef,
     selectFloatingIndexListenerRef,
     closeSessionTabListenerRef,
+    sessionTabCloseRequestListenerRef,
+    respondSessionTabClose = vi.fn(),
     closeTerminalListenerRef,
     getState,
     requestTabCloseListenerRef,
@@ -3083,6 +3098,8 @@ describe('useIpcEvents browser tab close routing', () => {
     closeFloatingItemListenerRef?: { current: CloseFloatingItemListener | null }
     selectFloatingIndexListenerRef?: { current: SelectFloatingIndexListener | null }
     closeSessionTabListenerRef?: { current: CloseSessionTabListener | null }
+    sessionTabCloseRequestListenerRef?: { current: SessionTabCloseRequestListener | null }
+    respondSessionTabClose?: ReturnType<typeof vi.fn>
     closeTerminalListenerRef?: { current: CloseTerminalListener | null }
     getState: () => Record<string, unknown>
     requestTabCloseListenerRef?: { current: RequestTabCloseListener | null }
@@ -3217,6 +3234,13 @@ describe('useIpcEvents browser tab close routing', () => {
             }
             return () => {}
           },
+          onSessionTabCloseRequest: (listener: SessionTabCloseRequestListener) => {
+            if (sessionTabCloseRequestListenerRef) {
+              sessionTabCloseRequestListenerRef.current = listener
+            }
+            return () => {}
+          },
+          respondSessionTabClose,
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -3377,6 +3401,87 @@ describe('useIpcEvents browser tab close routing', () => {
     // must keep closeUnifiedTab so the editor-only routing stays scoped.
     expect(closeUnifiedTab).toHaveBeenCalledWith('sim-tab-1')
     expect(closeFile).not.toHaveBeenCalled()
+  })
+
+  it('acknowledges a requested session tab close after the store removes it', async () => {
+    const sessionTabCloseRequestListenerRef: {
+      current: SessionTabCloseRequestListener | null
+    } = {
+      current: null
+    }
+    const closeUnifiedTab = vi.fn().mockReturnValue({ id: 'sim-tab-1' })
+    const respondSessionTabClose = vi.fn()
+
+    await useIpcEventsForCloseRouting({
+      sessionTabCloseRequestListenerRef,
+      respondSessionTabClose,
+      getState: () => ({
+        closeUnifiedTab,
+        browserTabsByWorktree: {},
+        openFiles: [],
+        unifiedTabsByWorktree: {
+          'wt-1': [
+            { id: 'sim-tab-1', entityId: 'sim-1', contentType: 'simulator', isPinned: false }
+          ]
+        }
+      })
+    })
+
+    sessionTabCloseRequestListenerRef.current?.({
+      requestId: 'close-session-tab',
+      tabId: 'sim-tab-1',
+      worktreeId: 'wt-1'
+    })
+
+    expect(closeUnifiedTab).toHaveBeenCalledWith('sim-tab-1')
+    expect(respondSessionTabClose).toHaveBeenCalledWith({ requestId: 'close-session-tab' })
+  })
+
+  it('rejects a requested browser session-tab close when its pinned confirmation is canceled', async () => {
+    const sessionTabCloseRequestListenerRef: {
+      current: SessionTabCloseRequestListener | null
+    } = {
+      current: null
+    }
+    const closeBrowserTab = vi.fn()
+    const respondSessionTabClose = vi.fn()
+    const requestPinnedTabCloseConfirm = vi.fn()
+
+    await useIpcEventsForCloseRouting({
+      sessionTabCloseRequestListenerRef,
+      respondSessionTabClose,
+      getState: () => ({
+        closeBrowserTab,
+        requestPinnedTabCloseConfirm,
+        browserTabsByWorktree: { 'wt-1': [{ id: 'workspace-1' }] },
+        openFiles: [],
+        unifiedTabsByWorktree: {
+          'wt-1': [
+            {
+              id: 'browser-unified-1',
+              entityId: 'workspace-1',
+              contentType: 'browser',
+              label: 'Pinned tab',
+              isPinned: true
+            }
+          ]
+        }
+      })
+    })
+
+    sessionTabCloseRequestListenerRef.current?.({
+      requestId: 'close-pinned-session-tab',
+      tabId: 'browser-unified-1',
+      worktreeId: 'wt-1'
+    })
+    const request = requestPinnedTabCloseConfirm.mock.calls[0][0] as { onCancel: () => void }
+    request.onCancel()
+
+    expect(closeBrowserTab).not.toHaveBeenCalled()
+    expect(respondSessionTabClose).toHaveBeenCalledWith({
+      requestId: 'close-pinned-session-tab',
+      error: 'session_tab_close_canceled'
+    })
   })
 
   it('delegates terminal close IPC without a pane id to the shared terminal close flow', async () => {
@@ -3784,6 +3889,8 @@ describe('useIpcEvents browser tab close routing', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -4005,6 +4112,8 @@ describe('useIpcEvents browser tab close routing', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -4221,6 +4330,8 @@ describe('useIpcEvents browser tab close routing', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -4553,6 +4664,8 @@ describe('useIpcEvents CLI-created worktree activation', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -4814,6 +4927,8 @@ describe('useIpcEvents CLI-created worktree activation', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
@@ -5087,6 +5202,8 @@ describe('useIpcEvents agent status snapshot integration', () => {
           onFocusTerminal: () => () => {},
           onFocusEditorTab: () => () => {},
           onCloseSessionTab: () => () => {},
+          onSessionTabCloseRequest: () => () => {},
+          respondSessionTabClose: () => {},
           onMoveSessionTab: () => () => {},
           onOpenFileFromMobile: () => () => {},
           onOpenDiffFromMobile: () => () => {},
