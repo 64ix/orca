@@ -7518,7 +7518,7 @@ export class OrcaRuntimeService {
         snapshot?.tabs.find(
           (candidate) => candidate.type === 'browser' && candidate.browserWorkspaceId === tabId
         ))
-    if (!tab) {
+    if (!snapshot || !tab) {
       throw new Error('tab_not_found')
     }
 
@@ -7900,7 +7900,7 @@ export class OrcaRuntimeService {
       snapshot?.tabs.find(
         (candidate) => candidate.type === 'browser' && candidate.browserWorkspaceId === tabId
       )
-    if (!tab) {
+    if (!snapshot || !tab) {
       throw new Error('tab_not_found')
     }
     if (options.expectedTerminalHandle !== undefined) {
@@ -7923,11 +7923,22 @@ export class OrcaRuntimeService {
         }
       }
     }
+    let closedSelectionTabIds = [tab.id]
+    const forgetClosedSelection = (): void => {
+      this.clientSessionTabSelections.forgetTabs(worktreeId, closedSelectionTabIds)
+    }
     if (tab.type === 'terminal') {
       const parentLeafCount = snapshot!.tabs.filter(
         (candidate) => candidate.type === 'terminal' && candidate.parentTabId === tab.parentTabId
       ).length
       const closingWholeParent = tab.id !== tabId || parentLeafCount <= 1
+      if (closingWholeParent) {
+        closedSelectionTabIds = snapshot.tabs.flatMap((candidate) =>
+          candidate.type === 'terminal' && candidate.parentTabId === tab.parentTabId
+            ? [candidate.id, candidate.parentTabId]
+            : []
+        )
+      }
       // Why: a non-'user' reason is a client-lifecycle echo ("terminal gone"),
       // not authorization to kill. Every destructive branch below can take the
       // whole parent down, so any live PTY under the parent means the echo is a
@@ -7995,6 +8006,7 @@ export class OrcaRuntimeService {
         })
         this.notifyRendererOfHeadlessTerminalClose(tab.parentTabId)
         this.store?.flushOrThrow?.()
+        forgetClosedSelection()
         return { closed: true }
       }
       if (closingWholeParent && this.notifier?.closeTerminalTab) {
@@ -8032,6 +8044,7 @@ export class OrcaRuntimeService {
           this.store?.flushOrThrow?.()
         }
         this.clearRuntimeSessionOwnershipForMobileTab(worktreeId, snapshot!, tab.parentTabId)
+        forgetClosedSelection()
         return { closed: true }
       }
       // Why: notifier implementations without the acknowledged relay may expose
@@ -8040,11 +8053,13 @@ export class OrcaRuntimeService {
         this.closeHeadlessMobileTerminalTab(worktreeId, snapshot!, tab)
         this.notifyRendererOfHeadlessTerminalClose(tab.parentTabId)
         this.store?.flushOrThrow?.()
+        forgetClosedSelection()
         return { closed: true }
       }
       if (!this.notifier?.closeTerminal) {
         this.closeHeadlessMobileTerminalTab(worktreeId, snapshot!, tab)
         this.store?.flushOrThrow?.()
+        forgetClosedSelection()
         return { closed: true }
       }
       if (tab.id === tabId) {
@@ -8067,8 +8082,12 @@ export class OrcaRuntimeService {
       // snapshot so paired clients stop showing it.
       await this.closeHeadlessMobileBrowserTab(worktreeId, snapshot!, tab)
     } else {
-      this.notifier?.closeSessionTab?.(tab.id, worktreeId)
+      if (!this.notifier?.closeSessionTab) {
+        return { closed: true }
+      }
+      this.notifier.closeSessionTab(tab.id, worktreeId)
     }
+    forgetClosedSelection()
     return { closed: true }
   }
 
