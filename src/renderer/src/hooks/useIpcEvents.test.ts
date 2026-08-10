@@ -3054,6 +3054,7 @@ describe('useIpcEvents updater integration', () => {
 
 describe('useIpcEvents browser tab close routing', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     vi.resetModules()
     vi.unstubAllGlobals()
     // Undo a partial mock of this module leaked by an earlier describe so the real
@@ -3076,6 +3077,7 @@ describe('useIpcEvents browser tab close routing', () => {
     requestId: string
     tabId: string
     worktreeId: string
+    expiresAt?: number
   }) => void
   type TerminalTabCloseRequestListener = (data: { requestId: string; tabId: string }) => void
 
@@ -3157,6 +3159,7 @@ describe('useIpcEvents browser tab close routing', () => {
           closeBrowserTab: vi.fn(),
           closeBrowserPage: vi.fn(),
           requestPinnedTabCloseConfirm: vi.fn(),
+          cancelPinnedTabCloseRequest: vi.fn(),
           ...getState()
         })
       }
@@ -3482,6 +3485,59 @@ describe('useIpcEvents browser tab close routing', () => {
       requestId: 'close-pinned-session-tab',
       error: 'session_tab_close_canceled'
     })
+  })
+
+  it('expires a pending pinned close without allowing a late confirmation', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
+    const sessionTabCloseRequestListenerRef: {
+      current: SessionTabCloseRequestListener | null
+    } = { current: null }
+    const closeBrowserTab = vi.fn()
+    const respondSessionTabClose = vi.fn()
+    const requestPinnedTabCloseConfirm = vi.fn()
+    const cancelPinnedTabCloseRequest = vi.fn()
+
+    await useIpcEventsForCloseRouting({
+      sessionTabCloseRequestListenerRef,
+      respondSessionTabClose,
+      getState: () => ({
+        closeBrowserTab,
+        requestPinnedTabCloseConfirm,
+        cancelPinnedTabCloseRequest,
+        browserTabsByWorktree: { 'wt-1': [{ id: 'workspace-1' }] },
+        openFiles: [],
+        unifiedTabsByWorktree: {
+          'wt-1': [
+            {
+              id: 'browser-unified-1',
+              entityId: 'workspace-1',
+              contentType: 'browser',
+              label: 'Pinned tab',
+              isPinned: true
+            }
+          ]
+        }
+      })
+    })
+
+    sessionTabCloseRequestListenerRef.current?.({
+      requestId: 'expiring-close',
+      tabId: 'browser-unified-1',
+      worktreeId: 'wt-1',
+      expiresAt: 2_000
+    })
+    const request = requestPinnedTabCloseConfirm.mock.calls[0][0] as { onConfirm: () => void }
+    vi.advanceTimersByTime(1_000)
+
+    expect(cancelPinnedTabCloseRequest).toHaveBeenCalledWith(request)
+    expect(respondSessionTabClose).toHaveBeenCalledWith({
+      requestId: 'expiring-close',
+      error: 'session_tab_close_timeout'
+    })
+    request.onConfirm()
+    expect(closeBrowserTab).not.toHaveBeenCalled()
+    expect(respondSessionTabClose).toHaveBeenCalledTimes(1)
   })
 
   it('delegates terminal close IPC without a pane id to the shared terminal close flow', async () => {
