@@ -5,8 +5,10 @@ export const STATUS_METHODS: RpcMethod[] = [
   defineMethod({
     name: 'status.get',
     params: null,
-    handler: (_params, { runtime }) => {
-      const snapshot = getRemoteServerUpdaterSnapshot(runtime.getRuntimeId())
+    handler: (_params, { runtime, clientCapabilities }) => {
+      const snapshot = getRemoteServerUpdaterSnapshot(runtime.getRuntimeId(), {
+        clientCapabilities
+      })
       return {
         ...runtime.getStatus(),
         appVersion: snapshot.appVersion,
