@@ -204,8 +204,12 @@ export class SshPtyProvider implements IPtyProvider {
     })
   }
 
-  write(id: string, data: string): void {
+  write(id: string, data: string): boolean {
+    if (this.mux.isDisposed()) {
+      return false
+    }
     this.mux.notify('pty.data', { id: this.toRelayPtyId(id), data })
+    return !this.mux.isDisposed()
   }
 
   resize(id: string, cols: number, rows: number): void {

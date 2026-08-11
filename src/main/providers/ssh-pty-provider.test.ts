@@ -48,6 +48,13 @@ describe('SshPtyProvider', () => {
     expect(provider.canProvideAuthoritativeBufferSnapshot(scopedPty1)).toBe(false)
   })
 
+  it('rejects writes synchronously after the SSH transport is disposed', () => {
+    mux.isDisposed.mockReturnValue(true)
+
+    expect(provider.write(scopedPty1, 'pointer')).toBe(false)
+    expect(mux.notify).not.toHaveBeenCalled()
+  })
+
   it('keeps a shared claim probe alive when one waiter disconnects', async () => {
     let finishProbe!: (result: { agentSessionClaimVersion: number }) => void
     mux.request.mockReturnValueOnce(
