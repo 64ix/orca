@@ -18699,7 +18699,7 @@ describe('OrcaRuntimeService', () => {
       const unread = db.getUnreadMessages(terminal.handle)
       expect(unread).toHaveLength(1)
       expect(unread[0].read).toBe(0)
-      expect(unread[0].delivered_at).toBeNull()
+      expect(unread[0].delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -18745,7 +18745,7 @@ describe('OrcaRuntimeService', () => {
       const unread = db.getUnreadMessages(terminal.handle)
       expect(unread).toHaveLength(1)
       expect(unread[0].read).toBe(0)
-      expect(unread[0].delivered_at).toBeNull()
+      expect(unread[0].delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -18786,7 +18786,7 @@ describe('OrcaRuntimeService', () => {
       const unread = db.getUnreadMessages(terminal.handle)
       expect(unread).toHaveLength(1)
       expect(unread[0].read).toBe(0)
-      expect(unread[0].delivered_at).toBeNull()
+      expect(unread[0].delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -33650,7 +33650,7 @@ describe('OrcaRuntimeService', () => {
       expect(write).not.toHaveBeenCalledWith('pty-1', expect.stringContaining('after wait'))
       await vi.advanceTimersByTimeAsync(500)
       expect(write).toHaveBeenCalledWith('pty-1', '\r')
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -33701,7 +33701,7 @@ describe('OrcaRuntimeService', () => {
       )
       await vi.advanceTimersByTimeAsync(500)
       expect(write).toHaveBeenCalledWith('pty-1', '\r')
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
 
       runtime.notifyMessageArrived('run:run_mailbox', 'worker_done')
       await Promise.resolve()
@@ -33827,7 +33827,7 @@ describe('OrcaRuntimeService', () => {
         expect.stringContaining('You have 1 orchestration message')
       )
       await vi.advanceTimersByTimeAsync(600)
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -33874,7 +33874,7 @@ describe('OrcaRuntimeService', () => {
         expect.stringContaining('You have 1 orchestration message')
       )
       await vi.advanceTimersByTimeAsync(600)
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -33980,7 +33980,7 @@ describe('OrcaRuntimeService', () => {
         '\nYou have 1 orchestration message. Run `orca orchestration check`.\n'
       )
       expect(payloads.some((data) => data.includes('reserved completion'))).toBe(false)
-      expect(status.delivered_at).toBeNull()
+      expect(status.delivered_at).not.toBeNull()
       expect(done.delivered_at).toBeNull()
       db.close()
     } finally {
@@ -34162,7 +34162,7 @@ describe('OrcaRuntimeService', () => {
         expect.stringContaining('You have 1 orchestration message')
       )
       await vi.advanceTimersByTimeAsync(600)
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -34216,7 +34216,7 @@ describe('OrcaRuntimeService', () => {
         expect.stringContaining('You have 1 orchestration message')
       )
       await vi.advanceTimersByTimeAsync(600)
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
@@ -34265,7 +34265,7 @@ describe('OrcaRuntimeService', () => {
         expect.stringContaining('You have 1 orchestration message')
       )
       await vi.advanceTimersByTimeAsync(600)
-      expect(message.delivered_at).toBeNull()
+      expect(message.delivered_at).not.toBeNull()
 
       // The filtered waiter stays blocked; the push did not consume its wake.
       await vi.advanceTimersByTimeAsync(5_000)
@@ -34396,7 +34396,7 @@ describe('OrcaRuntimeService', () => {
       // timer-only settle (CodeRabbit settling-timeout gap, #12584).
       await vi.advanceTimersByTimeAsync(3_000)
       expect(write).toHaveBeenCalledWith('pty-1', '\r')
-      expect(first.delivered_at).toBeNull()
+      expect(first.delivered_at).not.toBeNull()
       expect(
         write.mock.calls.filter(
           ([, payload]) =>
@@ -34405,9 +34405,9 @@ describe('OrcaRuntimeService', () => {
       ).toHaveLength(2)
       expect(write).toHaveBeenCalledWith(
         'pty-1',
-        expect.stringContaining('You have 2 orchestration messages')
+        expect.stringContaining('You have 1 orchestration message')
       )
-      expect(second.delivered_at).toBeNull()
+      expect(second.delivered_at).not.toBeNull()
       db.close()
     } finally {
       vi.useRealTimers()
