@@ -868,39 +868,39 @@ describe('agent hook completion notifications', () => {
   it('skips tab scans until a pane-liveness slice changes', async () => {
     seedManyLivePanes()
     const {
-      observeAgentHookCompletionForNotification,
+      observeAgentHookCompletionsForNotification,
       syncAgentHookCompletionNotificationSettings
     } = await import('./agent-hook-completion-notifications')
 
-    for (const pane of MANY_PANES) {
-      observeAgentHookCompletionForNotification({
-        paneKey: `${pane.tabId}:${pane.leafId}`,
-        worktreeId: 'wt-1',
-        payload: hookStatus('working')
-      })
-    }
-
     // Count full tab-map enumerations rather than cheap reference reads.
-    const realTabs = mockStoreState.tabsByWorktree
     let tabEnumerationCount = 0
-    mockStoreState.tabsByWorktree = new Proxy(realTabs, {
+    mockStoreState.tabsByWorktree = new Proxy(mockStoreState.tabsByWorktree, {
       ownKeys(target) {
         tabEnumerationCount += 1
         return Reflect.ownKeys(target)
       }
     })
-
-    syncAgentHookCompletionNotificationSettings()
+    observeAgentHookCompletionsForNotification(
+      MANY_PANES.map((pane) => ({
+        paneKey: `${pane.tabId}:${pane.leafId}`,
+        worktreeId: 'wt-1',
+        payload: hookStatus('working')
+      }))
+    )
 
     expect(tabEnumerationCount).toBe(1)
 
     syncAgentHookCompletionNotificationSettings()
 
-    expect(tabEnumerationCount).toBe(1)
+    expect(tabEnumerationCount).toBe(2)
+
+    syncAgentHookCompletionNotificationSettings()
+
+    expect(tabEnumerationCount).toBe(2)
 
     mockStoreState.ptyIdsByTabId = { ...mockStoreState.ptyIdsByTabId }
     syncAgentHookCompletionNotificationSettings()
 
-    expect(tabEnumerationCount).toBe(2)
+    expect(tabEnumerationCount).toBe(3)
   })
 })

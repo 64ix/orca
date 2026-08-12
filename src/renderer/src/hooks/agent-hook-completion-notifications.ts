@@ -269,21 +269,20 @@ function createCoordinator(paneKey: string, worktreeId: string): AgentCompletion
   })
 }
 
-export function observeAgentHookCompletionForNotification({
-  paneKey,
-  worktreeId,
-  payload
-}: {
+export type AgentHookCompletionNotificationObservation = {
   paneKey: string
   worktreeId: string
   payload: AgentCompletionStatusSnapshot
-}): void {
-  pruneClosedPaneCoordinators()
-  if (!paneCanReceiveHookCompletion(paneKey)) {
+}
+
+function observeAgentHookCompletionForNotificationWithIndex(
+  { paneKey, worktreeId, payload }: AgentHookCompletionNotificationObservation,
+  tabIndex: TabIndex | undefined,
+  trackingEnabled: boolean
+): void {
+  if (!paneCanReceiveHookCompletion(paneKey, tabIndex)) {
     return
   }
-
-  const trackingEnabled = syncAgentHookCompletionNotificationSettings()
 
   let entry = coordinatorsByPaneKey.get(paneKey)
   if (!entry || entry.worktreeId !== worktreeId) {
@@ -303,6 +302,31 @@ export function observeAgentHookCompletionForNotification({
     paneKeysRequiringFreshWorking.delete(paneKey)
   }
   entry.coordinator.observeHookStatus(payload)
+}
+
+export function observeAgentHookCompletionForNotification(
+  observation: AgentHookCompletionNotificationObservation
+): void {
+  pruneClosedPaneCoordinators()
+  observeAgentHookCompletionForNotificationWithIndex(
+    observation,
+    undefined,
+    syncAgentHookCompletionNotificationSettings()
+  )
+}
+
+export function observeAgentHookCompletionsForNotification(
+  observations: readonly AgentHookCompletionNotificationObservation[]
+): void {
+  if (observations.length === 0) {
+    return
+  }
+  pruneClosedPaneCoordinators()
+  const trackingEnabled = syncAgentHookCompletionNotificationSettings()
+  const tabIndex = buildTabIndex(useAppStore.getState().tabsByWorktree)
+  for (const observation of observations) {
+    observeAgentHookCompletionForNotificationWithIndex(observation, tabIndex, trackingEnabled)
+  }
 }
 
 export function resetAgentHookCompletionNotificationCoordinators(): void {

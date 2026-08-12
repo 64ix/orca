@@ -133,6 +133,7 @@ async function renderHeadlessTerminalState(
 
 const toastInfo = vi.fn()
 const notifyCodexPaneBoundForStaleSweep = vi.fn()
+const mockGetTransientAgentStatusTransitions = vi.fn()
 const LEAF_1 = '11111111-1111-4111-8111-111111111111' as const
 const LEAF_2 = '22222222-2222-4222-8222-222222222222' as const
 const UUID_RE = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
@@ -237,6 +238,7 @@ type StoreState = {
   consumePendingSnapshot: ReturnType<typeof vi.fn>
   runtimePaneTitlesByTabId: Record<string, Record<number, string>>
   agentStatusByPaneKey: Record<string, unknown>
+  getTransientAgentStatusTransitions: ReturnType<typeof vi.fn>
   retainedAgentsByPaneKey: Record<string, { agentType: AgentType }>
   paneForegroundAgentByPaneKey: Record<string, PaneForegroundAgentEntry>
   sleepingAgentSessionsByPaneKey: Record<string, unknown>
@@ -904,6 +906,7 @@ describe('connectPanePty', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    mockGetTransientAgentStatusTransitions.mockReturnValue([])
     transportFactoryQueue = []
     createdTransportOptions = []
     storeSubscribers = []
@@ -949,6 +952,7 @@ describe('connectPanePty', () => {
       consumePendingSnapshot: vi.fn(() => null),
       runtimePaneTitlesByTabId: {},
       agentStatusByPaneKey: {},
+      getTransientAgentStatusTransitions: mockGetTransientAgentStatusTransitions,
       retainedAgentsByPaneKey: {},
       paneForegroundAgentByPaneKey: {},
       sleepingAgentSessionsByPaneKey: {},
@@ -23081,6 +23085,266 @@ describe('connectPanePty', () => {
       expect(pane.terminal.write).toHaveBeenCalledWith(
         `${RESET_TERMINAL_CURSOR_STYLE}${RESET_KITTY_KEYBOARD_PROTOCOL}`,
         expect.any(Function)
+      )
+    } finally {
+      restoreUserAgent()
+    }
+  })
+
+  it('resets stale keyboard state when a batched done→working→done burst lands as one publication', async () => {
+    const restoreUserAgent = temporarilySetNavigatorUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    )
+    const { connectPanePty } = await import('./pty-connection')
+    const transport = createMockTransport()
+    transportFactoryQueue.push(transport)
+
+    try {
+      const paneKey = makePaneKey('tab-1', LEAF_1)
+      const firstDoneAt = Date.now()
+      mockStoreState.agentStatusByPaneKey[paneKey] = {
+        state: 'done',
+        prompt: 'first turn',
+        updatedAt: firstDoneAt,
+        stateStartedAt: firstDoneAt,
+        agentType: 'codex',
+        paneKey,
+        stateHistory: [{ state: 'working', prompt: 'first turn', startedAt: firstDoneAt - 5_000 }]
+      }
+      const pane = createPane(1)
+      const manager = createManager(1)
+      const deps = createDeps()
+
+      connectPanePty(pane as never, manager as never, deps as never)
+      expect(pane.terminal.write).not.toHaveBeenCalled()
+
+      // The burst's intermediate `working` never publishes, so the entry stays `done` end-to-end;
+      // only the stateHistory row proves a second turn ran and re-armed the kitty protocol.
+      // Main accepts ordered transitions within one millisecond; timestamp equality must not
+      // collapse the second completion edge.
+      const secondDoneAt = firstDoneAt
+      mockStoreState.agentStatusByPaneKey[paneKey] = {
+        state: 'done',
+        prompt: 'second turn',
+        updatedAt: secondDoneAt,
+        stateStartedAt: secondDoneAt,
+        agentType: 'codex',
+        paneKey,
+        stateHistory: [
+          { state: 'working', prompt: 'first turn', startedAt: firstDoneAt - 5_000 },
+          { state: 'done', prompt: 'first turn', startedAt: firstDoneAt },
+          { state: 'working', prompt: 'second turn', startedAt: secondDoneAt }
+        ]
+      }
+      notifyStoreSubscribers()
+
+      expect(pane.terminal.write).toHaveBeenCalledWith(
+        `${RESET_TERMINAL_CURSOR_STYLE}${RESET_KITTY_KEYBOARD_PROTOCOL}`,
+        expect.any(Function)
+      )
+    } finally {
+      restoreUserAgent()
+    }
+  })
+
+  it('resets stale keyboard state when a batched burst ends on working after a completed turn', async () => {
+    const restoreUserAgent = temporarilySetNavigatorUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    )
+    const { connectPanePty } = await import('./pty-connection')
+    const transport = createMockTransport()
+    transportFactoryQueue.push(transport)
+
+    try {
+      const paneKey = makePaneKey('tab-1', LEAF_1)
+      const startedAt = Date.now()
+      mockStoreState.agentStatusByPaneKey[paneKey] = {
+        state: 'working',
+        prompt: 'ship it',
+        updatedAt: startedAt,
+        stateStartedAt: startedAt,
+        agentType: 'codex',
+        paneKey,
+        stateHistory: []
+      }
+      const pane = createPane(1)
+      const manager = createManager(1)
+      const deps = createDeps()
+
+      connectPanePty(pane as never, manager as never, deps as never)
+      notifyStoreSubscribers()
+      expect(pane.terminal.write).not.toHaveBeenCalled()
+
+      mockStoreState.agentStatusByPaneKey[paneKey] = {
+        state: 'working',
+        prompt: 'follow-up',
+        updatedAt: startedAt + 8_000,
+        stateStartedAt: startedAt + 8_000,
+        agentType: 'codex',
+        paneKey,
+        stateHistory: [
+          { state: 'working', prompt: 'ship it', startedAt },
+          { state: 'done', prompt: 'ship it', startedAt: startedAt + 4_000 }
+        ]
+      }
+      notifyStoreSubscribers()
+
+      expect(pane.terminal.write).toHaveBeenCalledWith(
+        `${RESET_TERMINAL_CURSOR_STYLE}${RESET_KITTY_KEYBOARD_PROTOCOL}`,
+        expect.any(Function)
+      )
+    } finally {
+      restoreUserAgent()
+    }
+  })
+
+  it('resets stale keyboard state for a folded session-boundary done edge', async () => {
+    const restoreUserAgent = temporarilySetNavigatorUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    )
+    const { connectPanePty } = await import('./pty-connection')
+    const transport = createMockTransport()
+    transportFactoryQueue.push(transport)
+
+    try {
+      const paneKey = makePaneKey('tab-1', LEAF_1)
+      const startedAt = Date.now()
+      const workingStatus = {
+        state: 'working' as const,
+        prompt: 'ship it',
+        updatedAt: startedAt,
+        stateStartedAt: startedAt,
+        agentType: 'codex' as const,
+        paneKey,
+        stateHistory: []
+      }
+      mockStoreState.agentStatusByPaneKey[paneKey] = workingStatus
+      const pane = createPane(1)
+
+      connectPanePty(pane as never, createManager(1) as never, createDeps() as never)
+      notifyStoreSubscribers()
+      expect(pane.terminal.write).not.toHaveBeenCalled()
+
+      const finalWorkingStatus = {
+        ...workingStatus,
+        prompt: 'follow-up',
+        updatedAt: startedAt + 2,
+        stateStartedAt: startedAt + 2
+      }
+      mockGetTransientAgentStatusTransitions.mockReturnValue([
+        {
+          ...workingStatus,
+          state: 'done',
+          sessionBoundary: true,
+          updatedAt: startedAt + 1,
+          stateStartedAt: startedAt + 1
+        },
+        finalWorkingStatus
+      ])
+      mockStoreState.agentStatusByPaneKey[paneKey] = finalWorkingStatus
+      notifyStoreSubscribers()
+
+      expect(pane.terminal.write).toHaveBeenCalledWith(
+        `${RESET_TERMINAL_CURSOR_STYLE}${RESET_KITTY_KEYBOARD_PROTOCOL}`,
+        expect.any(Function)
+      )
+    } finally {
+      restoreUserAgent()
+    }
+  })
+
+  it('resets stale keyboard state when provider-only cleanup removes the final row', async () => {
+    const restoreUserAgent = temporarilySetNavigatorUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    )
+    const { connectPanePty } = await import('./pty-connection')
+    const transport = createMockTransport()
+    transportFactoryQueue.push(transport)
+
+    try {
+      const paneKey = makePaneKey('tab-1', LEAF_1)
+      const startedAt = Date.now()
+      const workingStatus = {
+        state: 'working' as const,
+        prompt: 'ship it',
+        updatedAt: startedAt,
+        stateStartedAt: startedAt,
+        agentType: 'codex' as const,
+        paneKey,
+        stateHistory: []
+      }
+      mockStoreState.agentStatusByPaneKey[paneKey] = workingStatus
+      const pane = createPane(1)
+      pane.terminal.modes.sendFocusMode = true
+      connectPanePty(pane as never, createManager(1) as never, createDeps() as never)
+
+      mockGetTransientAgentStatusTransitions.mockReturnValue([
+        workingStatus,
+        {
+          ...workingStatus,
+          state: 'done',
+          updatedAt: startedAt + 1,
+          stateStartedAt: startedAt + 1
+        }
+      ])
+      delete mockStoreState.agentStatusByPaneKey[paneKey]
+      notifyStoreSubscribers()
+
+      expect(pane.terminal.write).toHaveBeenCalledWith(
+        `${RESET_TERMINAL_CURSOR_STYLE}${RESET_KITTY_KEYBOARD_PROTOCOL}`,
+        expect.any(Function)
+      )
+      transport.sendInput.mockClear()
+      sendTerminalInputThroughPane(pane, '\x1b[O')
+      sendTerminalInputThroughPane(pane, '\x1b[I')
+      expect(transport.sendInput).not.toHaveBeenCalled()
+    } finally {
+      restoreUserAgent()
+    }
+  })
+
+  it('keeps native Windows same-turn done repaints from re-resetting keyboard state', async () => {
+    const restoreUserAgent = temporarilySetNavigatorUserAgent(
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    )
+    const { connectPanePty } = await import('./pty-connection')
+    const transport = createMockTransport()
+    transportFactoryQueue.push(transport)
+
+    try {
+      const paneKey = makePaneKey('tab-1', LEAF_1)
+      const doneAt = Date.now()
+      const pane = createPane(1)
+      const manager = createManager(1)
+      const deps = createDeps()
+
+      connectPanePty(pane as never, manager as never, deps as never)
+
+      mockStoreState.agentStatusByPaneKey[paneKey] = {
+        state: 'done',
+        prompt: 'ship it',
+        updatedAt: doneAt,
+        stateStartedAt: doneAt,
+        agentType: 'codex',
+        paneKey,
+        stateHistory: []
+      }
+      notifyStoreSubscribers()
+      const writesAfterDone = (pane.terminal.write as ReturnType<typeof vi.fn>).mock.calls.length
+
+      mockStoreState.agentStatusByPaneKey[paneKey] = {
+        state: 'done',
+        prompt: 'ship it',
+        updatedAt: doneAt + 1_000,
+        stateStartedAt: doneAt,
+        agentType: 'codex',
+        paneKey,
+        stateHistory: []
+      }
+      notifyStoreSubscribers()
+
+      expect((pane.terminal.write as ReturnType<typeof vi.fn>).mock.calls.length).toBe(
+        writesAfterDone
       )
     } finally {
       restoreUserAgent()

@@ -193,6 +193,7 @@ import { e2eConfig } from '@/lib/e2e-config'
 import {
   isFreshNonDoneAgentStatus,
   type AgentStatusEntry,
+  type AgentStateHistoryEntry,
   type AgentType
 } from '../../../../shared/agent-status-types'
 import { isWebTerminalSurfaceTabId } from '@/runtime/web-terminal-surface-id'
@@ -1079,6 +1080,80 @@ function isSetupSplitGeometryReady(
     splitAxis - paneAxis > SPLIT_GEOMETRY_EPSILON_PX &&
     splitAxis - siblingAxis > SPLIT_GEOMETRY_EPSILON_PX &&
     isPaneGridAlignedWithFit(pane)
+  )
+}
+
+function agentStateHistoryEntriesEqual(
+  left: AgentStateHistoryEntry,
+  right: AgentStateHistoryEntry
+): boolean {
+  return (
+    left.state === right.state &&
+    left.prompt === right.prompt &&
+    left.startedAt === right.startedAt &&
+    left.interrupted === right.interrupted
+  )
+}
+
+function getAgentStateHistoryOverlap(
+  previous: readonly AgentStateHistoryEntry[],
+  current: readonly AgentStateHistoryEntry[]
+): number {
+  for (let overlap = Math.min(previous.length, current.length); overlap > 0; overlap -= 1) {
+    const previousOffset = previous.length - overlap
+    if (
+      current
+        .slice(0, overlap)
+        .every((entry, index) =>
+          agentStateHistoryEntriesEqual(entry, previous[previousOffset + index])
+        )
+    ) {
+      return overlap
+    }
+  }
+  return 0
+}
+
+/** Whether an ordered publication contains a newly entered real done state. */
+function hasNewAgentDoneTransition(
+  previous: AgentStatusEntry | undefined,
+  current: AgentStatusEntry | undefined,
+  transientTransitions: readonly AgentStatusEntry[]
+): boolean {
+  if (transientTransitions.length > 0) {
+    let previousState = previous?.state
+    for (const transition of transientTransitions) {
+      if (transition.state === 'done' && previousState !== 'done') {
+        return true
+      }
+      previousState = transition.state
+    }
+    return false
+  }
+  if (!current) {
+    return false
+  }
+  const previousHistory = previous?.stateHistory ?? []
+  const currentHistory = current.stateHistory ?? []
+  const overlap = getAgentStateHistoryOverlap(previousHistory, currentHistory)
+  const appendedHistory = currentHistory.slice(overlap)
+  if (appendedHistory.length === 0) {
+    return current.state === 'done' && previous?.state !== 'done'
+  }
+  const firstAppendedRepeatsPrevious = previous
+    ? agentStateHistoryEntriesEqual(appendedHistory[0], {
+        state: previous.state,
+        prompt: previous.prompt,
+        startedAt: previous.stateStartedAt,
+        interrupted: previous.interrupted
+      })
+    : false
+  const enteredThenExitedStates = firstAppendedRepeatsPrevious
+    ? appendedHistory.slice(1)
+    : appendedHistory
+  return (
+    enteredThenExitedStates.some((entry) => entry.state === 'done') ||
+    (current.state === 'done' && appendedHistory.at(-1)?.state !== 'done')
   )
 }
 
@@ -3599,10 +3674,10 @@ export function connectPanePty(
   const shouldApplyNativeWindowsRewriteRefresh = isNativeWindowsConpty
   const shouldApplyWindowsRendererUnicodeRefresh = CLIENT_PLATFORM === 'win32'
   const shouldProtectNativeWindowsSynchronizedOutput = isNativeWindowsConpty
-  let lastAgentStatusState = state.agentStatusByPaneKey[cacheKey]?.state
   let unsubscribeWindowsDoneTerminalModeReset: (() => void) | null = null
   if (isNativeWindowsConpty) {
     const initialAgentStatus = state.agentStatusByPaneKey[cacheKey]
+    let lastObservedAgentStatus = initialAgentStatus
     if (
       !initialAgentStatus &&
       paneStartup?.telemetry?.launch_source === 'sidebar' &&
@@ -3618,16 +3693,27 @@ export function connectPanePty(
     }
     unsubscribeWindowsDoneTerminalModeReset = useAppStore.subscribe((nextState) => {
       const nextAgentStatus = nextState.agentStatusByPaneKey[cacheKey]
+      const transientTransitions = nextState.getTransientAgentStatusTransitions(cacheKey)
       const nextAgentStatusState = nextAgentStatus?.state
-      if (nextAgentStatusState === 'done') {
-        setFocusReportSuppressionForAgentCompletion(undefined, nextAgentStatus.agentType)
-        if (lastAgentStatusState !== 'done') {
-          queueAgentIdleTerminalModeReset()
+      if (transientTransitions.length > 0) {
+        for (const transition of transientTransitions) {
+          if (transition.state === 'done') {
+            setFocusReportSuppressionForAgentCompletion(undefined, transition.agentType)
+          } else {
+            suppressNativeWindowsIdleCodexFocusReports = false
+          }
         }
+      } else if (nextAgentStatusState === 'done') {
+        setFocusReportSuppressionForAgentCompletion(undefined, nextAgentStatus.agentType)
       } else if (nextAgentStatusState) {
         suppressNativeWindowsIdleCodexFocusReports = false
       }
-      lastAgentStatusState = nextAgentStatusState
+      if (
+        hasNewAgentDoneTransition(lastObservedAgentStatus, nextAgentStatus, transientTransitions)
+      ) {
+        queueAgentIdleTerminalModeReset()
+      }
+      lastObservedAgentStatus = nextAgentStatus
     })
   }
 

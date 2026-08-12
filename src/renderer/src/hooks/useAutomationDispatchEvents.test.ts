@@ -1,10 +1,12 @@
 import type * as ReactModule from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { makeEvictedAutomationCompletionLedger } from './automation-transient-status-ledger-test-fixture'
 
 const mockLaunchAgentBackgroundSession = vi.fn()
 const mockLaunchWorktreeBackgroundTerminals = vi.fn()
 const mockFindReusableAutomationSession = vi.fn()
 const mockObserveExistingAutomationSession = vi.fn()
+const mockSubmitPromptToAgentPty = vi.fn()
 const mockCreateWorktree = vi.fn()
 const mockMarkDispatchResult = vi.fn()
 const mockOnDispatchRequested = vi.fn()
@@ -14,6 +16,12 @@ const mockReleaseTerminalOwnership = vi.fn()
 const mockSshNeedsPassphrasePrompt = vi.fn()
 const mockSshGetState = vi.fn()
 const mockSshConnect = vi.fn()
+const mockGetTransientAgentStatusTransitions = vi.fn()
+let latestStoreSubscriber: (() => void) | null = null
+const mockStoreSubscribe = vi.fn((listener: () => void) => {
+  latestStoreSubscriber = listener
+  return () => {}
+})
 
 const setupLaunch = {
   runnerScriptPath: '/tmp/setup.sh',
@@ -54,6 +62,7 @@ const state = {
   worktreesByRepo: {} as Record<string, TestWorktree[]>,
   detectedWorktreesByRepo: {},
   agentStatusByPaneKey: {},
+  getTransientAgentStatusTransitions: mockGetTransientAgentStatusTransitions,
   allWorktrees: vi.fn<() => TestWorktree[]>(() => []),
   getKnownWorktreeById: vi.fn<(worktreeId: string) => TestWorktree | undefined>(() => undefined),
   createWorktree: mockCreateWorktree,
@@ -124,7 +133,9 @@ vi.mock('@/lib/launch-worktree-background-terminals', () => ({
   launchWorktreeBackgroundTerminals: mockLaunchWorktreeBackgroundTerminals
 }))
 
-vi.mock('@/lib/agent-paste-draft', () => ({}))
+vi.mock('@/lib/agent-paste-draft', () => ({
+  submitPromptToAgentPty: mockSubmitPromptToAgentPty
+}))
 
 vi.mock('@/lib/automation-session-reuse', () => ({
   findReusableAutomationSession: mockFindReusableAutomationSession
@@ -137,9 +148,20 @@ vi.mock('@/lib/automation-session-observer', () => ({
 vi.mock('@/components/automations/automation-run-output-snapshot', () => ({
   createAutomationRunOutputSnapshotBuffer: () => ({
     append: vi.fn(),
-    snapshot: () => ''
+    snapshot: () => null
   }),
-  selectAutomationRunOutputSnapshot: () => null
+  selectAutomationRunOutputSnapshot: (
+    assistantMessage: string | null | undefined,
+    terminalSnapshot: unknown
+  ) =>
+    assistantMessage
+      ? {
+          format: 'plain_text',
+          content: assistantMessage,
+          capturedAt: 1,
+          truncated: false
+        }
+      : terminalSnapshot
 }))
 
 vi.mock('@/i18n/i18n', () => ({
@@ -153,7 +175,7 @@ vi.mock('@/lib/browser-uuid', () => ({
 vi.mock('@/store', () => ({
   useAppStore: {
     getState: () => state,
-    subscribe: vi.fn(() => () => {})
+    subscribe: mockStoreSubscribe
   }
 }))
 
@@ -171,6 +193,7 @@ describe('useAutomationDispatchEvents setup launch', () => {
     state.projectGroups = []
     state.worktreesByRepo = {}
     state.agentStatusByPaneKey = {}
+    latestStoreSubscriber = null
     state.allWorktrees.mockReturnValue([])
     state.getKnownWorktreeById.mockReturnValue(undefined)
     mockCreateWorktree.mockResolvedValue({ worktree: createdWorktree, setup: setupLaunch })
@@ -189,6 +212,8 @@ describe('useAutomationDispatchEvents setup launch', () => {
     mockSshNeedsPassphrasePrompt.mockResolvedValue(false)
     mockSshGetState.mockResolvedValue({ status: 'connected' })
     mockSshConnect.mockResolvedValue({ status: 'connected' })
+    mockSubmitPromptToAgentPty.mockResolvedValue(true)
+    mockGetTransientAgentStatusTransitions.mockReturnValue([])
     vi.stubGlobal('window', {
       api: {
         automations: {
@@ -579,6 +604,128 @@ describe('useAutomationDispatchEvents setup launch', () => {
 
     launchArgs.onAgentStatus?.({ state: 'done' })
     await vi.waitFor(() => expect(mockFinalizeTerminalOwnership).toHaveBeenCalledOnce())
+  })
+
+  it('associates automation output when provider-only cleanup removes the final row', async () => {
+    await registerAndDispatch()
+    const transitionStartedAt = Date.now() + 1
+    const { transitions } = makeEvictedAutomationCompletionLedger(transitionStartedAt)
+    mockGetTransientAgentStatusTransitions.mockReturnValue(transitions)
+    state.agentStatusByPaneKey = {}
+    latestStoreSubscriber?.()
+
+    await vi.waitFor(() => expect(mockFinalizeTerminalOwnership).toHaveBeenCalledOnce())
+    expect(mockMarkDispatchResult).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: 'run-1',
+        status: 'completed',
+        outputSnapshot: {
+          format: 'plain_text',
+          content: 'Summary.\n\nDetails.',
+          capturedAt: 1,
+          truncated: false
+        }
+      })
+    )
+  })
+
+  it('does not replay a transient done after later working authorizes history', async () => {
+    const paneKey = 'agent-tab:7c6fb4e5-3bf1-4ff4-8259-03f7ae81c40d'
+    mockFindReusableAutomationSession.mockReturnValue({
+      tabId: 'agent-tab',
+      paneKey,
+      ptyId: 'agent-pty'
+    })
+    mockObserveExistingAutomationSession.mockResolvedValue(() => {})
+
+    await registerAndDispatch(makeAutomation({ reuseSession: true }))
+    const transitionStartedAt = Date.now() + 1
+    mockGetTransientAgentStatusTransitions.mockReturnValue([
+      {
+        state: 'done',
+        prompt: 'old turn',
+        stateStartedAt: transitionStartedAt
+      },
+      {
+        state: 'working',
+        prompt: 'new turn',
+        stateStartedAt: transitionStartedAt + 1
+      }
+    ])
+    state.agentStatusByPaneKey = {
+      [paneKey]: {
+        paneKey,
+        state: 'working',
+        prompt: 'new turn',
+        agentType: 'claude',
+        updatedAt: transitionStartedAt + 1,
+        stateStartedAt: transitionStartedAt + 1,
+        stateHistory: [{ state: 'done', prompt: 'old turn', startedAt: transitionStartedAt }]
+      }
+    }
+    if (!latestStoreSubscriber) {
+      throw new Error('agent status observer was not registered')
+    }
+
+    latestStoreSubscriber()
+    await vi.waitFor(() => expect(mockObserveExistingAutomationSession).toHaveBeenCalledOnce())
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(mockMarkDispatchResult).not.toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'completed' })
+    )
+  })
+
+  // Why: transport loss, PTY exit and cap eviction all drop and recreate the live
+  // entry with an empty stateHistory. The working edge is only in the observer's
+  // own bookkeeping by then, so it must survive a zero-overlap rescan.
+  it('completes a reuse-session run when the entry is recreated with no history', async () => {
+    const paneKey = 'agent-tab:7c6fb4e5-3bf1-4ff4-8259-03f7ae81c40d'
+    mockFindReusableAutomationSession.mockReturnValue({
+      tabId: 'agent-tab',
+      paneKey,
+      ptyId: 'agent-pty'
+    })
+    mockObserveExistingAutomationSession.mockResolvedValue(() => {})
+
+    await registerAndDispatch(makeAutomation({ reuseSession: true }))
+    const workingStartedAt = Date.now() + 1
+    state.agentStatusByPaneKey = {
+      [paneKey]: {
+        paneKey,
+        state: 'working',
+        prompt: 'turn',
+        agentType: 'claude',
+        updatedAt: workingStartedAt,
+        stateStartedAt: workingStartedAt,
+        stateHistory: [{ state: 'working', prompt: 'turn', startedAt: workingStartedAt }]
+      }
+    }
+    if (!latestStoreSubscriber) {
+      throw new Error('agent status observer was not registered')
+    }
+    latestStoreSubscriber()
+    await Promise.resolve()
+
+    // The entry is dropped and recreated: same pane, now done, history gone.
+    state.agentStatusByPaneKey = {
+      [paneKey]: {
+        paneKey,
+        state: 'done',
+        prompt: 'turn',
+        agentType: 'claude',
+        updatedAt: workingStartedAt + 2,
+        stateStartedAt: workingStartedAt + 2,
+        stateHistory: []
+      }
+    }
+    latestStoreSubscriber()
+    await Promise.resolve()
+
+    expect(mockMarkDispatchResult).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'completed' })
+    )
   })
 
   it('consumes duplicate done and zero-exit completion through one finalizer', async () => {
