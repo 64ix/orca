@@ -22,6 +22,15 @@ Never use vague names like `helpers`, `utils`, `common`, `misc`, or `shared-stuf
 ## Type Declarations: Prefer `.ts` Over `.d.ts`
 
 # Considerations
+## Fork and Upstream Discipline
+
+This repo is a fork: `origin` is **64ix/orca** (the fork — where all work lives), `upstream` is **stablyai/orca** (read-only). See [`FORK.md`](./FORK.md) for the full model.
+
+- **Every branch** is cut from `origin/main`; **every PR, issue, and comment goes to 64ix/orca** — never to `stablyai/orca`.
+- **`gh` resolves a fork's base repo to the parent**, so `gh pr create` without `--repo 64ix/orca` opens the PR on upstream. Always name the repo explicitly. Do not create issues or PRs on upstream — ever, even "helpfully".
+- **`upstream` is fetch-only** (its push URL is `DISABLED`). Fetch for rebases; push only to `origin`.
+- PreToolUse guards block these writes with the correct form on stderr: `.claude/hooks/guard-fork-remote.sh` (Claude Code, Codex) and `.opencode/plugins/guard-fork-upstream.js` (opencode). If a guard blocks you, it means the command was aimed at the wrong repo — retarget, don't work around the guard.
+
 ## Worktree Safety
 
 Always use the primary working directory (the worktree) for all file reads and edits. Never follow absolute paths from subagent results that point to the main repo.
@@ -67,3 +76,21 @@ Source-control and review changes must consider GitLab and other supported git p
 ## GitHub CLI Usage
 
 Be mindful of the user's `gh` CLI API rate limit — batch requests where possible and avoid unnecessary calls. All code, commands, and scripts must be compatible with macOS, Linux, and Windows.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues on **64ix/orca** — the fork, never the upstream parent. Always name `--repo 64ix/orca` on gh writes. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Spec implementation runner
+
+Base branch `main`. Validate a change from the worktree root with `pnpm test` (the gate); also run `pnpm typecheck` and `pnpm lint` when relevant and format with `pnpm format`. Coding standards live in `AGENTS.md` and `docs/STYLEGUIDE.md`. E2E specs under `tests/e2e/` need the built app and report `not-run` when it is unavailable. Specs follow the conventions in `docs/agents/implement-spec.md`.

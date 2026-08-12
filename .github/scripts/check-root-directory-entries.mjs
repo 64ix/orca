@@ -21,7 +21,14 @@ function checkRootDirectoryEntries(argv) {
 
   const [baseSha, headSha] = argv
   const baseEntries = new Set(readRootEntries(baseSha))
-  const blockedEntries = readRootEntries(headSha).filter((entry) => !baseEntries.has(entry))
+  // Why: 64ix/orca fork-owned files must live at the root (agents read
+  // FORK.md; .claude/ and .opencode/ are discovered from the worktree root).
+  // Upstream pr.yml runs this guard against the fork's PRs, so exempting them
+  // here is what keeps the fork's own setup shippable.
+  const forkAllowedRootEntries = new Set(['FORK.md', '.claude', '.opencode'])
+  const blockedEntries = readRootEntries(headSha).filter(
+    (entry) => !baseEntries.has(entry) && !forkAllowedRootEntries.has(entry)
+  )
 
   if (blockedEntries.length === 0) {
     console.log('Root directory guard passed: no new root-level files or folders.')
