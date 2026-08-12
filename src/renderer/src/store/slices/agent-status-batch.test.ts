@@ -147,9 +147,11 @@ describe('setAgentStatuses', () => {
       }
     })
     sequentialStore.setState({
+      settings: { ...sequentialStore.getState().settings, tabAutoGenerateTitle: true },
       setGeneratedTabTitleFromAgentPrompt: sequentialTitleGeneration
     } as Partial<AppState>)
     batchStore.setState({
+      settings: { ...batchStore.getState().settings, tabAutoGenerateTitle: true },
       setGeneratedTabTitlesFromAgentPrompts: batchTitleGenerationBulk
     } as Partial<AppState>)
     const updates = makeUpdates()
@@ -198,9 +200,8 @@ describe('setAgentStatuses', () => {
       batchStore.getState().agentStatusByPaneKey[FIRST_PANE].stateHistory.at(-1)
     ).toMatchObject({ state: 'done' })
     expect(transientCompletionOutput).toBe('Finished.')
+    expect(batchTitleGenerationBulk).toHaveBeenCalledTimes(1)
     expect(batchTitleGeneration.mock.calls).toEqual(sequentialTitleGeneration.mock.calls)
-    expect(batchTitleGeneration).not.toHaveBeenCalled()
-    expect(batchTitleGenerationBulk).not.toHaveBeenCalled()
     await flushMicrotasks()
     expect(batchStore.getState().refreshGitHubForWorktreeIfStale).toHaveBeenCalledTimes(1)
     expect(sequentialStore.getState().refreshGitHubForWorktreeIfStale).toHaveBeenCalledTimes(1)

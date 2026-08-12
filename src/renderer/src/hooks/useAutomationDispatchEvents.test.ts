@@ -1,6 +1,9 @@
 import type * as ReactModule from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { makeEvictedAutomationCompletionLedger } from './automation-transient-status-ledger-test-fixture'
+import {
+  makeEvictedAutomationCompletionLedger,
+  makePreDispatchDoneFallback
+} from './automation-transient-status-ledger-test-fixture'
 
 const mockLaunchAgentBackgroundSession = vi.fn()
 const mockLaunchWorktreeBackgroundTerminals = vi.fn()
@@ -629,27 +632,23 @@ describe('useAutomationDispatchEvents setup launch', () => {
     )
   })
 
-  it('does not replay a transient done after later working authorizes history', async () => {
-    const paneKey = 'agent-tab:7c6fb4e5-3bf1-4ff4-8259-03f7ae81c40d'
-    mockFindReusableAutomationSession.mockReturnValue({
-      tabId: 'agent-tab',
-      paneKey,
-      ptyId: 'agent-pty'
-    })
+  it('does not replay transient done but keeps the current-entry fallback reachable', async () => {
+    const paneKey = 'agent-tab:leaf'
+    mockFindReusableAutomationSession.mockReturnValue({ tabId: 'agent-tab', paneKey, ptyId: 'pty' })
     mockObserveExistingAutomationSession.mockResolvedValue(() => {})
 
     await registerAndDispatch(makeAutomation({ reuseSession: true }))
-    const transitionStartedAt = Date.now() + 1
+    const at = Date.now() + 1
     mockGetTransientAgentStatusTransitions.mockReturnValue([
       {
         state: 'done',
         prompt: 'old turn',
-        stateStartedAt: transitionStartedAt
+        stateStartedAt: at
       },
       {
         state: 'working',
         prompt: 'new turn',
-        stateStartedAt: transitionStartedAt + 1
+        stateStartedAt: at + 1
       }
     ])
     state.agentStatusByPaneKey = {
@@ -658,22 +657,34 @@ describe('useAutomationDispatchEvents setup launch', () => {
         state: 'working',
         prompt: 'new turn',
         agentType: 'claude',
-        updatedAt: transitionStartedAt + 1,
-        stateStartedAt: transitionStartedAt + 1,
-        stateHistory: [{ state: 'done', prompt: 'old turn', startedAt: transitionStartedAt }]
+        updatedAt: at + 1,
+        stateStartedAt: at + 1,
+        stateHistory: [{ state: 'done', prompt: 'old turn', startedAt: at }]
       }
     }
     if (!latestStoreSubscriber) {
       throw new Error('agent status observer was not registered')
     }
 
+    mockGetTransientAgentStatusTransitions.mockClear()
     latestStoreSubscriber()
-    await vi.waitFor(() => expect(mockObserveExistingAutomationSession).toHaveBeenCalledOnce())
-    await Promise.resolve()
-    await Promise.resolve()
+    await vi.waitFor(() => expect(mockGetTransientAgentStatusTransitions).toHaveBeenCalledOnce())
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(mockMarkDispatchResult).not.toHaveBeenCalledWith(
       expect.objectContaining({ status: 'completed' })
+    )
+    const fallback = makePreDispatchDoneFallback(paneKey, at - 1_000, at + 2)
+    mockGetTransientAgentStatusTransitions.mockReturnValue(fallback.transitions)
+    state.agentStatusByPaneKey = { [paneKey]: fallback.entry }
+    latestStoreSubscriber()
+    await vi.waitFor(() =>
+      expect(mockMarkDispatchResult).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'completed',
+          outputSnapshot: expect.objectContaining({ content: 'Finished after dispatch.' })
+        })
+      )
     )
   })
 

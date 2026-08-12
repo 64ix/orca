@@ -1409,6 +1409,8 @@ export const createAgentStatusSlice: StateCreator<AppState, [], [], AgentStatusS
       batchedCompletionRefreshWorktreeIds = null
       batchedAgentStatusFreshnessRequested = false
       try {
+        // Why: if a subscriber throws, withhold dependent effects rather than acknowledge a
+        // batch that the remaining synchronous subscribers never observed.
         if (nextState !== initialState) {
           storeSet(buildAgentStatusBatchPatch(initialState, nextState), false)
         }

@@ -193,9 +193,12 @@ import { e2eConfig } from '@/lib/e2e-config'
 import {
   isFreshNonDoneAgentStatus,
   type AgentStatusEntry,
-  type AgentStateHistoryEntry,
   type AgentType
 } from '../../../../shared/agent-status-types'
+import {
+  agentStateHistoryEntriesEqual,
+  getAgentStateHistoryOverlap
+} from '../../../../shared/agent-state-history-overlap'
 import { isWebTerminalSurfaceTabId } from '@/runtime/web-terminal-surface-id'
 import {
   createAgentInterruptInference,
@@ -1081,37 +1084,6 @@ function isSetupSplitGeometryReady(
     splitAxis - siblingAxis > SPLIT_GEOMETRY_EPSILON_PX &&
     isPaneGridAlignedWithFit(pane)
   )
-}
-
-function agentStateHistoryEntriesEqual(
-  left: AgentStateHistoryEntry,
-  right: AgentStateHistoryEntry
-): boolean {
-  return (
-    left.state === right.state &&
-    left.prompt === right.prompt &&
-    left.startedAt === right.startedAt &&
-    left.interrupted === right.interrupted
-  )
-}
-
-function getAgentStateHistoryOverlap(
-  previous: readonly AgentStateHistoryEntry[],
-  current: readonly AgentStateHistoryEntry[]
-): number {
-  for (let overlap = Math.min(previous.length, current.length); overlap > 0; overlap -= 1) {
-    const previousOffset = previous.length - overlap
-    if (
-      current
-        .slice(0, overlap)
-        .every((entry, index) =>
-          agentStateHistoryEntriesEqual(entry, previous[previousOffset + index])
-        )
-    ) {
-      return overlap
-    }
-  }
-  return 0
 }
 
 /** Whether an ordered publication contains a newly entered real done state. */
