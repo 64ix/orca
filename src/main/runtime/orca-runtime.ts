@@ -440,7 +440,7 @@ import {
   resolveTuiAgentLaunchArgs,
   resolveTuiAgentLaunchEnv
 } from '../../shared/tui-agent-launch-defaults'
-import { resolveLocalWindowsAgentStartupShell } from '../../shared/windows-terminal-shell'
+import { resolveHostAgentStartupShell } from '../host-agent-startup-shell'
 import {
   getTuiAgentLaunchCommand,
   isTuiAgent,
@@ -21275,7 +21275,7 @@ export class OrcaRuntimeService {
     // Linux over SSH. Startup command quoting must target the shell that runs it.
     const agentLaunchPlatform = this.getAgentLaunchPlatformForRepo(repo)
     const isRemote = repoIsRemote(repo)
-    const queuedShell = resolveLocalWindowsAgentStartupShell({
+    const queuedShell = resolveHostAgentStartupShell({
       platform: agentLaunchPlatform,
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
@@ -21349,7 +21349,7 @@ export class OrcaRuntimeService {
     // the workspace shell rather than the client shell.
     const agentLaunchPlatform = this.getAgentLaunchPlatformForRepo(repo)
     const isRemote = repoIsRemote(repo)
-    const queuedShell = resolveLocalWindowsAgentStartupShell({
+    const queuedShell = resolveHostAgentStartupShell({
       platform: agentLaunchPlatform,
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
@@ -25039,7 +25039,7 @@ export class OrcaRuntimeService {
     const settings = store.getSettings()
     const platform = this.getAgentLaunchPlatformForWorkspace(workspace)
     const isRemote = workspace.repo ? repoIsRemote(workspace.repo) : Boolean(workspace.connectionId)
-    const queuedShell = resolveLocalWindowsAgentStartupShell({
+    const queuedShell = resolveHostAgentStartupShell({
       platform,
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
@@ -25197,7 +25197,7 @@ export class OrcaRuntimeService {
     }
     const platform = this.getAgentLaunchPlatformForWorkspace(workspace)
     const isRemote = workspace.repo ? repoIsRemote(workspace.repo) : Boolean(workspace.connectionId)
-    const shell = resolveLocalWindowsAgentStartupShell({
+    const shell = resolveHostAgentStartupShell({
       platform,
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
@@ -25361,7 +25361,7 @@ export class OrcaRuntimeService {
       const isRemote = workspace.repo
         ? repoIsRemote(workspace.repo)
         : Boolean(workspace.connectionId)
-      const shell = resolveLocalWindowsAgentStartupShell({
+      const shell = resolveHostAgentStartupShell({
         platform,
         isRemote,
         terminalWindowsShell: settings.terminalWindowsShell
@@ -26407,7 +26407,7 @@ export class OrcaRuntimeService {
     const platform = this.getAgentLaunchPlatformForWorkspace(workspace)
     // Why: SSH runs the CLI through the relay shim (plain `orca`), so the Linux-only `orca-ide` rename must not apply.
     const isRemote = workspace.repo ? repoIsRemote(workspace.repo) : repoIsRemote(workspace)
-    const queuedShell = resolveLocalWindowsAgentStartupShell({
+    const queuedShell = resolveHostAgentStartupShell({
       platform,
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
