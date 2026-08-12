@@ -164,11 +164,20 @@ export class RuntimeEmulatorCommands {
       try {
         const currentWorktreeId = await this.resolveWorktreeId(params.worktree)
         if (currentWorktreeId !== worktreeId) {
-          throw new Error('selector_not_found')
+          throw new EmulatorError(
+            'emulator_no_active',
+            'The workspace changed while the emulator was starting. Reattach the emulator.'
+          )
         }
       } catch (error) {
         // Why: the workspace can disappear while a slow Android device boots.
         await lease.release({ cleanupIfUnused: true }).catch(() => {})
+        if (error instanceof Error && error.message === 'selector_not_found') {
+          throw new EmulatorError(
+            'emulator_no_active',
+            'The workspace changed while the emulator was starting. Reattach the emulator.'
+          )
+        }
         throw error
       }
       bridge.registerActiveEmulator(worktreeId, info, { managed: true })

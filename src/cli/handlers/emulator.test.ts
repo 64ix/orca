@@ -91,7 +91,7 @@ describe('orca emulator CLI handlers', () => {
 
   it('uses the folder workspace exported by the current Orca terminal', async () => {
     process.env.ORCA_WORKSPACE_ID = 'folder:folder-1'
-    process.env.ORCA_WORKTREE_ID = 'folder:folder-1'
+    delete process.env.ORCA_WORKTREE_ID
     callMock.mockResolvedValue(
       okFixture('req_attach', {
         attached: true,

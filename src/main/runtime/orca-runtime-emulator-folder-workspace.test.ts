@@ -149,7 +149,10 @@ describe('RuntimeEmulatorCommands folder workspace routing', () => {
       runtime.emulatorShutdown({ worktree: FOLDER_WORKSPACE_KEY, managedOnly: true })
     ).resolves.toEqual({ ok: true, deviceUdid: undefined })
     finishHelperStart?.({ info: EMULATOR_INFO, release })
-    await expect(attach).rejects.toThrow('selector_not_found')
+    await expect(attach).rejects.toMatchObject({
+      code: 'emulator_no_active',
+      message: 'The workspace changed while the emulator was starting. Reattach the emulator.'
+    })
 
     expect(bridge.registerActiveEmulator).not.toHaveBeenCalled()
     expect(bridge.shutdownActiveManagedForWorktree).toHaveBeenCalledWith(FOLDER_WORKSPACE_KEY)
