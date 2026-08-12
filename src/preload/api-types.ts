@@ -1624,6 +1624,9 @@ export type PreloadApi = {
         transformed?: boolean
         background?: boolean
         droppedOutput?: boolean
+        /** Hidden-gated bytes for raw-byte sidecars only; the view must not
+         *  render or reply to them (main answered their queries). */
+        sidecarOnly?: boolean
       }) => void
     ) => () => void
     onReplay: (callback: (data: { id: string; data: string }) => void) => () => void
