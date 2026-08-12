@@ -7,16 +7,7 @@ import {
   parseExecutionHostId,
   type ExecutionHostId
 } from '../../../shared/execution-host'
-import {
-  redactKagiSessionToken,
-  SEARCH_ENGINE_LABELS,
-  type SearchEngine
-} from '../../../shared/browser-url'
-import { createBrowserUuid } from './browser-uuid'
-import {
-  discardKagiPrivateInitialNavigation,
-  queueKagiPrivateInitialNavigation
-} from './kagi-private-initial-navigation'
+import { SEARCH_ENGINE_LABELS, type SearchEngine } from '../../../shared/browser-url'
 import { resolveWorktreeOperationRoute } from './worktree-operation-route'
 
 export type WorkspaceBrowserTabIntent = { kind: 'url' } | { kind: 'search'; engine: SearchEngine }
@@ -98,30 +89,18 @@ function createClientBrowserTab(
   hostId: ExecutionHostId,
   presentation: { error: string; title: string }
 ): void {
-  const modelUrl = redactKagiSessionToken(request.url)
-  const privatePageId = modelUrl === request.url ? null : createBrowserUuid()
   try {
-    if (privatePageId) {
-      queueKagiPrivateInitialNavigation(privatePageId, request.url)
-    }
-    const created = state.createBrowserTab(request.workspaceId, modelUrl, {
+    state.createBrowserTab(request.workspaceId, request.url, {
       activate: true,
       browserRuntimeEnvironmentId: null,
       focusAddressBar: false,
-      ...(privatePageId ? { initialPageId: privatePageId } : {}),
       sessionProfileId:
         state.defaultBrowserSessionProfileIdByHostId[hostId] ??
         state.defaultBrowserSessionProfileId,
       targetGroupId: request.targetGroupId,
       title: presentation.title
     })
-    if (privatePageId && created.activePageId !== privatePageId) {
-      throw new Error('Browser page was not created.')
-    }
   } catch (error) {
-    if (privatePageId) {
-      discardKagiPrivateInitialNavigation(privatePageId)
-    }
     throw openFailure(presentation.error, 'client tab creation rejected', error)
   }
 }
@@ -174,10 +153,19 @@ export async function openWorkspaceBrowserTab(
     throw openFailure(presentation.error, 'runtime browser tab creation failed', error)
   }
   if (!created) {
+    const fallbackState = useAppStore.getState()
+    const fallbackRoute = resolveWorktreeOperationRoute(fallbackState, request.workspaceId)
+    if (
+      !fallbackRoute ||
+      fallbackRoute.executionHostId !== route.executionHostId ||
+      (fallbackRoute.runtimeEnvironmentId?.trim() || null) !== environmentId
+    ) {
+      throw openFailure(presentation.error, 'worktree route changed during runtime fallback')
+    }
     // Why: a soft runtime failure still opens client-side, so keep the
     // workspace's own session profile rather than collapsing every remote
     // host onto the local cookie jar.
     const fallbackHostId = host && host.kind !== 'runtime' ? host.id : LOCAL_EXECUTION_HOST_ID
-    createClientBrowserTab(state, request, fallbackHostId, presentation)
+    createClientBrowserTab(fallbackState, request, fallbackHostId, presentation)
   }
 }
