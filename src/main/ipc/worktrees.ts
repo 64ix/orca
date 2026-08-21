@@ -230,6 +230,7 @@ import {
   UNREGISTERED_MISSING_WORKTREE_MESSAGE
 } from '../worktree-removal-safety'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
+import { isWorkflowStage } from '../../shared/workflow-stages'
 import {
   FOLDER_WORKSPACE_INSTANCE_SEPARATOR,
   getRepoIdFromWorktreeId,
@@ -3155,6 +3156,14 @@ export function registerWorktreeHandlers(
     'worktrees:updateMeta',
     (_event, args: { worktreeId: string; updates: Partial<WorktreeMeta> }) => {
       const validatedUpdates = normalizeLinkedWorkItemFields(args.updates)
+      // Boundary check: drop invalid stage writes instead of persisting garbage.
+      if (
+        'workflowStage' in validatedUpdates &&
+        validatedUpdates.workflowStage !== null &&
+        !isWorkflowStage(validatedUpdates.workflowStage)
+      ) {
+        delete validatedUpdates.workflowStage
+      }
       const updates =
         validatedUpdates.displayName !== undefined
           ? {

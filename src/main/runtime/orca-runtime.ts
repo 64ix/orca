@@ -18487,6 +18487,7 @@ export class OrcaRuntimeService {
         | 'sortOrder'
         | 'manualOrder'
         | 'workspaceStatus'
+        | 'workflowStage'
         | 'createdWithAgent'
         | 'pendingFirstAgentMessageRename'
         | 'firstAgentMessageRenameError'

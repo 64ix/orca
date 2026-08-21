@@ -12,6 +12,7 @@ import {
   TriStateLinkedIssue
 } from '../schemas'
 import { TaskSourceContextSchema } from '../../../../shared/task-source-context-schema'
+import { WorkflowStageSchema } from '../../../../shared/workflow-stage-schema'
 import { WorkspaceLinkedItemSchema } from '../../../../shared/workspace-linked-item-schema'
 import { isWorkspaceLinkedItemSourceContextMatch } from '../../../../shared/workspace-linked-item-source-context'
 
@@ -252,6 +253,7 @@ export const WorktreeSet = WorktreeSelector.extend({
   sparsePresetId: OptionalString,
   baseRef: OptionalString,
   workspaceStatus: OptionalString,
+  workflowStage: WorkflowStageSchema,
   pushTarget: z
     .object({
       remoteName: z.string(),
