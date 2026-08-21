@@ -1,6 +1,8 @@
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
-import type { Repo, Worktree, WorktreeMeta } from '../../shared/types'
-import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree-id'
+import type { Repo } from '../../shared/repo-types'
+import type { WorktreeMeta } from '../../shared/worktree/meta-types'
+import type { Worktree } from '../../shared/worktree/types'
+import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree/id'
 import { normalizeWorkflowStage } from '../../shared/workflow-stages'
 import { normalizeWorkspaceCreatorProvenance } from '../../shared/workspace-creator-provenance'
 
@@ -23,7 +25,7 @@ export function isRuntimeFolderWorkspaceIdForRepo(repo: Repo, worktreeId: string
 export function mergeRuntimeFolderWorkspace(
   repo: Repo,
   worktreeId: string,
-  meta: WorktreeMeta
+  meta: Partial<WorktreeMeta>
 ): Worktree {
   const creatorProvenance = normalizeWorkspaceCreatorProvenance(meta.creatorProvenance)
   const workflowStage = normalizeWorkflowStage(meta.workflowStage)

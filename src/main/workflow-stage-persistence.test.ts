@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { writeFileSync, readFileSync, mkdirSync, rmSync, mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { PersistedState } from '../shared/types'
+import type { PersistedState } from '../shared/persisted-state-types'
 import { mergeWorktree } from './ipc/worktree-metadata-merge'
 
 const testState = { dir: '' }

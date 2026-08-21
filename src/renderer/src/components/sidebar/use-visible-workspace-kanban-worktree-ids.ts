@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import type { Repo, Worktree } from '../../../../shared/types'
-import { computeVisibleWorktreeIds } from './visible-worktrees'
+import type { Repo } from '../../../../shared/repo-types'
+import type { Worktree } from '../../../../shared/worktree/types'
+import { computeVisibleWorktrees } from './visible-worktrees'
 import { isStagedWorkspace } from './workspace-stage-exclusivity'
 import { getWorktreeIdsWithLiveAgent } from '@/lib/worktree-activity-state'
 import { getSettingsFocusedExecutionHostId } from '../../../../shared/execution-host'
@@ -10,6 +11,7 @@ import {
   EMPTY_PAIRED_DEVICE_IDS_BY_ENVIRONMENT,
   getPairedDeviceIdsByEnvironment
 } from './workspace-creator-visibility'
+import { getWorktreeHostIdentity } from '../../../../shared/worktree/host-qualified-identity'
 
 type UseVisibleWorkspaceKanbanWorktreeIdsParams = {
   allWorktrees: readonly Worktree[]
@@ -17,7 +19,7 @@ type UseVisibleWorkspaceKanbanWorktreeIdsParams = {
 }
 
 type ClassicDrawerVisibilityOptions = Omit<
-  Parameters<typeof computeVisibleWorktreeIds>[2],
+  Parameters<typeof computeVisibleWorktrees>[2],
   'worktreeLineageById' | 'injectLineageAncestors'
 >
 
@@ -31,7 +33,7 @@ export function computeClassicDrawerWorktreeIds(
   allWorktrees: readonly Worktree[],
   options: ClassicDrawerVisibilityOptions
 ): ReadonlySet<string> {
-  const visibleIds = computeVisibleWorktreeIds(
+  const visibleRows = computeVisibleWorktrees(
     worktreesByRepo,
     allWorktrees.map((worktree) => worktree.id),
     {
@@ -44,8 +46,7 @@ export function computeClassicDrawerWorktreeIds(
   )
   // Why post-filter: visibility reads its rows from worktreesByRepo, so staged
   // rows must be dropped from the computed result.
-  const stagedIds = new Set(allWorktrees.filter(isStagedWorkspace).map((w) => w.id))
-  return new Set(visibleIds.filter((id) => !stagedIds.has(id)))
+  return new Set(visibleRows.filter((row) => !isStagedWorkspace(row)).map(getWorktreeHostIdentity))
 }
 
 const EMPTY_WORKTREE_ID_SET: ReadonlySet<string> = new Set()

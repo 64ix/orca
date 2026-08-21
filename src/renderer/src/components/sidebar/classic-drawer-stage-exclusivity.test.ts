@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { computeVisibleWorktreeIds } from './visible-worktrees'
 import { computeClassicDrawerWorktreeIds } from './use-visible-workspace-kanban-worktree-ids'
-import type { Repo, Worktree } from '../../../../shared/types'
+import type { Repo } from '../../../../shared/repo-types'
+import type { Worktree } from '../../../../shared/worktree/types'
+import { getWorktreeIdFromHostIdentity } from '../../../../shared/worktree/host-qualified-identity'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import {
   WORKFLOW_STAGE_IDS,
@@ -76,7 +78,7 @@ function drawerProjection(
 ): string[] {
   return [
     ...computeClassicDrawerWorktreeIds({ repo1: worktrees }, worktrees, drawerOptions(overrides))
-  ]
+  ].map(getWorktreeIdFromHostIdentity)
 }
 
 describe('classic drawer stage exclusivity (#40)', () => {
