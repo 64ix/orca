@@ -255,6 +255,7 @@ import { normalizeTerminalLineHeight } from '../shared/terminal-line-height-sett
 import { normalizeUiLanguage } from '../shared/ui-language'
 import { normalizeBrowserPageZoomLevel } from '../shared/browser-page-zoom'
 import { persistedUIValuesEqual } from '../shared/persisted-ui-equality'
+import { normalizeWorkflowStage } from '../shared/workflow-stages'
 import { ActiveViewPreference } from './active-view-preference'
 import {
   normalizeFolderWorkspaceName,
@@ -4547,6 +4548,7 @@ export class Store {
         | 'sortOrder'
         | 'manualOrder'
         | 'workspaceStatus'
+        | 'workflowStage'
         | 'createdWithAgent'
         | 'pendingFirstAgentMessageRename'
         | 'firstAgentMessageRenameError'
@@ -4611,6 +4613,15 @@ export class Store {
     }
     if (updates.workspaceStatus !== undefined) {
       workspace.workspaceStatus = updates.workspaceStatus
+    }
+    if (updates.workflowStage !== undefined) {
+      // Invalid values clear to unstaged; workspaceStatus is never touched here.
+      const workflowStage = normalizeWorkflowStage(updates.workflowStage)
+      if (workflowStage) {
+        workspace.workflowStage = workflowStage
+      } else {
+        delete workspace.workflowStage
+      }
     }
     if (updates.createdWithAgent !== undefined) {
       workspace.createdWithAgent = updates.createdWithAgent
@@ -5468,6 +5479,13 @@ export class Store {
     const existing = this.state.worktreeMeta[worktreeId] || getDefaultWorktreeMeta()
     const updated = { ...existing, ...meta }
     updated.linkedWorkItem = normalizeWorkspaceLinkedItem(updated.linkedWorkItem)
+    // Invalid stage values never persist; absent key reads as unstaged.
+    const workflowStage = normalizeWorkflowStage(updated.workflowStage)
+    if (workflowStage) {
+      updated.workflowStage = workflowStage
+    } else {
+      delete updated.workflowStage
+    }
     const linkedTaskSourceContext = normalizeStoredTaskSourceContext(
       updated.linkedTaskSourceContext
     )

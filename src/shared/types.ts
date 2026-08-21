@@ -27,6 +27,7 @@ import type {
   FeatureInteractionTelemetryBucketState
 } from './feature-interactions'
 import type { GitBranchChangeStatus } from './git-status-types'
+import type { WorkflowStage } from './workflow-stages'
 import type { KeybindingOverrides, TerminalShortcutPolicy } from './keybindings'
 import type { RepoIcon } from './repo-icon'
 import type { AppIconId } from './app-icon'
@@ -351,6 +352,8 @@ export type FolderWorkspace = {
   /** User-authored sidebar ordering. Higher values render earlier in Manual sort. */
   manualOrder?: number
   workspaceStatus?: WorkspaceStatus
+  /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. */
+  workflowStage?: WorkflowStage | null
   createdWithAgent?: TuiAgent
   pendingFirstAgentMessageRename?: boolean
   firstAgentMessageRenameError?: string | null
@@ -556,6 +559,8 @@ export type Worktree = {
   /** Path-derived worktree ids this worktree had before folder renames. */
   priorWorktreeIds?: string[]
   workspaceStatus?: WorkspaceStatus
+  /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. */
+  workflowStage?: WorkflowStage | null
   diffComments?: DiffComment[]
   mobileDiffReview?: MobileDiffReviewState
   automationProvenance?: AutomationWorkspaceProvenance
@@ -683,6 +688,8 @@ export type WorktreeMeta = {
   orcaCreationWorkspaceLayout?: OrcaWorkspaceLayout
   /** User-assigned workspace board status for manual sidebar organization. */
   workspaceStatus?: WorkspaceStatus
+  /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. Kept independent of workspaceStatus. */
+  workflowStage?: WorkflowStage | null
   diffComments?: DiffComment[]
   /** Path-derived worktree ids this worktree had before its folder was renamed
    *  on disk (the id embeds the path). Lets the daemon's session GC and registry

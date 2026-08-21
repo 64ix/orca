@@ -875,6 +875,24 @@ describe('registerWorktreeHandlers', () => {
     expect(runtimeStub.notifyWorktreesChangedForRemoteClients).toHaveBeenCalledWith('repo-1')
   })
 
+  it('drops invalid workflowStage writes at the updateMeta boundary', () => {
+    store.setWorktreeMeta.mockImplementation((_worktreeId, meta) => meta)
+
+    handlers['worktrees:updateMeta'](null, {
+      worktreeId: 'repo-1::/workspace/feature-wt',
+      updates: { workflowStage: 'implementing' }
+    })
+    expect(store.setWorktreeMeta).toHaveBeenCalledWith('repo-1::/workspace/feature-wt', {
+      workflowStage: 'implementing'
+    })
+
+    handlers['worktrees:updateMeta'](null, {
+      worktreeId: 'repo-1::/workspace/feature-wt',
+      updates: { workflowStage: 'not-a-stage' }
+    })
+    expect(store.setWorktreeMeta).toHaveBeenLastCalledWith('repo-1::/workspace/feature-wt', {})
+  })
+
   it('does not trust renderer-authored automation provenance during local create', async () => {
     store.setWorktreeMeta.mockImplementation((_worktreeId, meta) => meta)
     listWorktreesMock.mockResolvedValue([

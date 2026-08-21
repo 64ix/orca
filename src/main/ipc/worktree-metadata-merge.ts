@@ -1,6 +1,7 @@
 import { basename } from 'node:path'
 import type { GitWorktreeInfo, Worktree, WorktreeMeta } from '../../shared/types'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
+import { normalizeWorkflowStage } from '../../shared/workflow-stages'
 import { getLinkedWorkItemMetadata } from './worktree-linked-work-item-metadata'
 import { normalizeWorkspaceCreatorProvenance } from '../../shared/workspace-creator-provenance'
 
@@ -15,6 +16,8 @@ export function mergeWorktree(
 ): Worktree {
   const branchShort = git.branch.replace(/^refs\/heads\//, '')
   const creatorProvenance = normalizeWorkspaceCreatorProvenance(meta?.creatorProvenance)
+  // Read-time degradation: corrupt persisted stages surface as unstaged.
+  const workflowStage = normalizeWorkflowStage(meta?.workflowStage)
   return {
     id: `${repoId}::${git.path}`,
     ...(meta?.instanceId !== undefined ? { instanceId: meta.instanceId } : {}),
@@ -68,6 +71,7 @@ export function mergeWorktree(
     ...(meta?.pushTarget !== undefined ? { pushTarget: meta.pushTarget } : {}),
     ...(meta?.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
     workspaceStatus: meta?.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
+    ...(workflowStage ? { workflowStage } : {}),
     // Why: diff comments are persisted on WorktreeMeta and forwarded verbatim
     // so the renderer store mirrors on-disk state.
     diffComments: meta?.diffComments,

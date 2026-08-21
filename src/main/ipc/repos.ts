@@ -39,6 +39,7 @@ import {
 } from '../../shared/cross-platform-path'
 import { isTuiAgent } from '../../shared/tui-agent-config'
 import { TaskSourceContextSchema } from '../../shared/task-source-context-schema'
+import { WorkflowStageSchema } from '../../shared/workflow-stage-schema'
 import { WorkspaceLinkedItemSchema } from '../../shared/workspace-linked-item-schema'
 import { isWorkspaceLinkedItemSourceContextMatch } from '../../shared/workspace-linked-item-source-context'
 import { invalidateAuthorizedRootsCache } from './filesystem-auth'
@@ -948,6 +949,7 @@ const FolderWorkspaceUpdateArgs = z.object({
       sortOrder: z.number().finite().optional(),
       manualOrder: z.number().finite().optional(),
       workspaceStatus: z.string().optional(),
+      workflowStage: WorkflowStageSchema,
       createdWithAgent: z.string().refine(isTuiAgent).optional(),
       pendingFirstAgentMessageRename: z.boolean().optional(),
       firstAgentMessageRenameError: z.string().nullable().optional(),

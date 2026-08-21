@@ -230,6 +230,7 @@ import {
   UNREGISTERED_MISSING_WORKTREE_MESSAGE
 } from '../worktree-removal-safety'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
+import { isWorkflowStage, normalizeWorkflowStage } from '../../shared/workflow-stages'
 import {
   FOLDER_WORKSPACE_INSTANCE_SEPARATOR,
   getRepoIdFromWorktreeId,
@@ -916,6 +917,7 @@ function isFolderWorkspaceIdForRepo(repo: Repo, worktreeId: string): boolean {
 }
 
 function mergeFolderWorkspace(repo: Repo, worktreeId: string, meta: WorktreeMeta): Worktree {
+  const workflowStage = normalizeWorkflowStage(meta.workflowStage)
   return {
     id: worktreeId,
     ...(meta.instanceId !== undefined ? { instanceId: meta.instanceId } : {}),
@@ -958,6 +960,7 @@ function mergeFolderWorkspace(repo: Repo, worktreeId: string, meta: WorktreeMeta
     ...(meta.cliProvenance !== undefined ? { cliProvenance: meta.cliProvenance } : {}),
     ...(meta.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
     workspaceStatus: meta.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
+    ...(workflowStage ? { workflowStage } : {}),
     diffComments: meta.diffComments,
     mobileDiffReview: meta.mobileDiffReview
   }
@@ -3155,6 +3158,14 @@ export function registerWorktreeHandlers(
     'worktrees:updateMeta',
     (_event, args: { worktreeId: string; updates: Partial<WorktreeMeta> }) => {
       const validatedUpdates = normalizeLinkedWorkItemFields(args.updates)
+      // Boundary check: drop invalid stage writes instead of persisting garbage.
+      if (
+        'workflowStage' in validatedUpdates &&
+        validatedUpdates.workflowStage !== null &&
+        !isWorkflowStage(validatedUpdates.workflowStage)
+      ) {
+        delete validatedUpdates.workflowStage
+      }
       const updates =
         validatedUpdates.displayName !== undefined
           ? {
