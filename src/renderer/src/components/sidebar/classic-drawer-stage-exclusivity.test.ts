@@ -3,7 +3,11 @@ import { computeVisibleWorktreeIds } from './visible-worktrees'
 import { computeClassicDrawerWorktreeIds } from './use-visible-workspace-kanban-worktree-ids'
 import type { Repo, Worktree } from '../../../../shared/types'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
-import { WORKFLOW_STAGE_IDS, normalizeWorkflowStage } from '../../../../shared/workflow-stages'
+import {
+  WORKFLOW_STAGE_IDS,
+  normalizeWorkflowStage,
+  type WorkflowStage
+} from '../../../../shared/workflow-stages'
 
 /**
  * Projection-level tests for #40 — two-board exclusivity. The classic kanban
@@ -40,26 +44,30 @@ function makeWorktree(id: string): Worktree & { instanceId: string } {
 
 const repoMap = new Map<string, Repo>([['repo1', makeRepo('repo1')]])
 
-type DrawerOptions = Parameters<typeof computeClassicDrawerWorktreeIds>[3]
+type DrawerOptions = Parameters<typeof computeClassicDrawerWorktreeIds>[2]
 
 function drawerOptions(overrides: Partial<DrawerOptions> = {}): DrawerOptions {
-  return {
-    filterRepoIds: [],
-    showSleepingWorkspaces: true,
-    tabsByWorktree: {},
-    ptyIdsByTabId: {},
-    browserTabsByWorktree: {},
-    worktreeIdsWithLiveAgent: new Set(),
-    hideDefaultBranchWorkspace: false,
-    hideAutomationGeneratedWorkspaces: false,
-    hideCliCreatedWorkspaces: false,
-    hideDetachedHeadWorkspaces: false,
-    hideWorkspacesFromOtherDevices: false,
-    pairedDeviceIdsByEnvironment: new Map(),
-    workspaceHostScope: 'all',
-    defaultHostId: LOCAL_EXECUTION_HOST_ID,
-    ...overrides
-  }
+  // Object.assign keeps required props required where a Partial spread would widen them.
+  return Object.assign(
+    {
+      filterRepoIds: [],
+      showSleepingWorkspaces: true,
+      tabsByWorktree: {},
+      ptyIdsByTabId: {},
+      browserTabsByWorktree: {},
+      worktreeIdsWithLiveAgent: new Set(),
+      hideDefaultBranchWorkspace: false,
+      hideAutomationGeneratedWorkspaces: false,
+      hideCliCreatedWorkspaces: false,
+      hideDetachedHeadWorkspaces: false,
+      hideWorkspacesFromOtherDevices: false,
+      pairedDeviceIdsByEnvironment: new Map(),
+      workspaceHostScope: 'all',
+      repoMap,
+      defaultHostId: LOCAL_EXECUTION_HOST_ID
+    },
+    overrides
+  )
 }
 
 function drawerProjection(
@@ -67,12 +75,7 @@ function drawerProjection(
   overrides: Partial<DrawerOptions> = {}
 ): string[] {
   return [
-    ...computeClassicDrawerWorktreeIds(
-      { repo1: worktrees },
-      worktrees,
-      repoMap,
-      drawerOptions(overrides)
-    )
+    ...computeClassicDrawerWorktreeIds({ repo1: worktrees }, worktrees, drawerOptions(overrides))
   ]
 }
 
@@ -99,14 +102,17 @@ describe('classic drawer stage exclusivity (#40)', () => {
     expect(drawerProjection([nullStage, legacy])).toEqual([nullStage.id, legacy.id])
   })
 
-  it('keeps a corrupt stage value on the drawer because projections degrade it to unstaged first', () => {
-    // The read-side projection normalizes unknown persisted values to null
-    // before visibility runs, so only valid stages can hide a workspace.
-    const degradedStage = normalizeWorkflowStage('not-a-stage')
-    expect(degradedStage).toBeNull()
-    const degraded = { ...makeWorktree('degraded'), workflowStage: degradedStage }
+  it('keeps a corrupt stage value on the drawer because it degrades to unstaged', () => {
+    // Read-side projections normalize persisted values upstream (#32), and the
+    // exclusivity predicate degrades again itself, so only valid stages can
+    // hide a workspace even if raw data reaches this layer.
+    expect(normalizeWorkflowStage('not-a-stage')).toBeNull()
+    const corrupted = {
+      ...makeWorktree('degraded'),
+      workflowStage: 'not-a-stage' as unknown as WorkflowStage
+    }
 
-    expect(drawerProjection([degraded])).toEqual([degraded.id])
+    expect(drawerProjection([corrupted])).toEqual([corrupted.id])
   })
 
   it('preserves the manual status in data while a workspace is staged', () => {
@@ -123,10 +129,10 @@ describe('classic drawer stage exclusivity (#40)', () => {
   })
 
   it('returns an unstaged workspace to the drawer with its previous status', () => {
-    const returning = {
+    const returning: Worktree & { instanceId: string } = {
       ...makeWorktree('returning'),
       workspaceStatus: 'status-todo',
-      workflowStage: 'implementing' as const
+      workflowStage: 'implementing'
     }
 
     expect(drawerProjection([returning])).toEqual([])
@@ -144,7 +150,6 @@ describe('classic drawer stage exclusivity (#40)', () => {
 
     const result = computeVisibleWorktreeIds({ repo1: [staged] }, [staged.id], {
       ...drawerOptions(),
-      repoMap,
       worktreeLineageById: {}
     })
 

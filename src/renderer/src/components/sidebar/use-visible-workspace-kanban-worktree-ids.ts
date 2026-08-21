@@ -29,7 +29,6 @@ type ClassicDrawerVisibilityOptions = Omit<
 export function computeClassicDrawerWorktreeIds(
   worktreesByRepo: Record<string, Worktree[]>,
   allWorktrees: readonly Worktree[],
-  repoMap: Map<string, Repo>,
   options: ClassicDrawerVisibilityOptions
 ): ReadonlySet<string> {
   const visibleIds = computeVisibleWorktreeIds(
@@ -99,7 +98,7 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
   return useMemo(() => {
     // Why: the board has its own status ordering, but visibility must match
     // the sidebar filters exactly so hidden workspaces do not reappear here.
-    return computeClassicDrawerWorktreeIds(worktreesByRepo, allWorktrees, repoMap, {
+    return computeClassicDrawerWorktreeIds(worktreesByRepo, allWorktrees, {
       filterRepoIds,
       showSleepingWorkspaces,
       tabsByWorktree,
