@@ -1328,6 +1328,7 @@ export type PreloadApi = {
           | 'sortOrder'
           | 'manualOrder'
           | 'workspaceStatus'
+          | 'workflowStage'
           | 'createdWithAgent'
           | 'pendingFirstAgentMessageRename'
           | 'firstAgentMessageRenameError'
