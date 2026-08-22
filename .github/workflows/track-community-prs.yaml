@@ -17,9 +17,17 @@ jobs:
   track-community-pr:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      # Forks (and any repo without the app secret) skip cleanly instead of failing.
+      BUFO_BOT_KEY_CONFIGURED: ${{ secrets.BUFO_BOT_PRIVATE_KEY != '' }}
     steps:
+      - name: Skip when bufo-bot key is absent
+        if: env.BUFO_BOT_KEY_CONFIGURED != 'true'
+        run: echo "BUFO_BOT_PRIVATE_KEY not configured on this repo; skipping community-PR tracking."
+
       - name: Generate bufo-bot token
         id: app-token
+        if: env.BUFO_BOT_KEY_CONFIGURED == 'true'
         uses: actions/create-github-app-token@v3
         with:
           app-id: 2590194
@@ -27,6 +35,7 @@ jobs:
           owner: stablyai
 
       - name: Add PR to project
+        if: env.BUFO_BOT_KEY_CONFIGURED == 'true'
         uses: actions/github-script@v8
         env:
           PROJECT_OWNER: stablyai
