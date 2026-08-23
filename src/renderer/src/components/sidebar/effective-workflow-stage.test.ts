@@ -7,6 +7,7 @@ import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import { issueCacheKey as getIssueCacheKey } from '@/store/slices/github'
 import { computeClassicDrawerWorktreeIds } from './use-visible-workspace-kanban-worktree-ids'
 import { deriveEffectiveWorkflowStage } from './effective-workflow-stage'
+import { createGitHubStageFactSource } from '../../../../shared/stage-derivation/github-stage-fact-source'
 import { getWorktreeIdFromHostIdentity } from '../../../../shared/worktree/host-qualified-identity'
 
 /**
@@ -67,6 +68,7 @@ type CacheInputs = {
   repo?: Repo | null
   prCache?: Record<string, { data: PRInfo | null } | undefined>
   issueCache?: Record<string, { data: IssueInfo | null } | undefined>
+  factSource?: ReturnType<typeof createGitHubStageFactSource> | null
 }
 
 function derive(worktree: Worktree, inputs: CacheInputs = {}) {
@@ -74,7 +76,8 @@ function derive(worktree: Worktree, inputs: CacheInputs = {}) {
     repo: inputs.repo === undefined ? makeRepo() : inputs.repo,
     settings: SETTINGS,
     prCache: inputs.prCache,
-    issueCache: inputs.issueCache
+    issueCache: inputs.issueCache,
+    factSource: inputs.factSource
   })
 }
 
@@ -227,61 +230,86 @@ describe('deriveEffectiveWorkflowStage', () => {
   })
 })
 
-describe('fact stages drive classic drawer exclusivity (#38)', () => {
-  function drawerProjection(
-    rows: (Worktree & { instanceId: string })[],
-    prCache: CacheInputs['prCache']
-  ) {
+describe('derivation flows through the fact-source seam (#38)', () => {
+  it('a custom source overrides what the caches would say', () => {
+    const worktree = makeWorktree({ workflowStage: 'implementing' })
+    const prCache = { [prCacheKey(makeRepo(), worktree)]: { data: openPR() } }
+    const mergedSource = createGitHubStageFactSource(() => ({
+      pullRequest: { ...openPR(), state: 'merged', headSha: worktree.head }
+    }))
+    expect(derive(worktree, { prCache })).toMatchObject({
+      stage: 'review',
+      reason: 'open-pull-request'
+    })
+    expect(derive(worktree, { prCache, factSource: mergedSource })).toMatchObject({
+      stage: 'shipped',
+      reason: 'merged-pull-request'
+    })
+  })
+
+  it('a source reporting nothing keeps the declared stage despite cached facts', () => {
+    const worktree = makeWorktree({ workflowStage: 'idea' })
+    const emptySource = createGitHubStageFactSource(() => null)
+    expect(
+      derive(worktree, {
+        prCache: { [prCacheKey(makeRepo(), worktree)]: { data: openPR() } },
+        factSource: emptySource
+      })
+    ).toEqual({ stage: 'idea', reason: 'declared-stage', factId: null })
+  })
+
+  it('an injected source sees the row as its requested subject', () => {
+    const worktree = makeWorktree()
+    let seenSubject: string | null = null
+    const probingSource = createGitHubStageFactSource((subject) => {
+      seenSubject = subject.worktreeId
+      return null
+    })
+    derive(worktree, { factSource: probingSource })
+    expect(seenSubject).toBe(worktree.id)
+  })
+})
+
+describe('classic drawer exclusivity stays declared-only (#38)', () => {
+  // Spec 22 keeps the two-board model out of scope, so fact-derived stages
+  // must not hide rows from the classic drawer before a feature board exists.
+  function drawerProjection(rows: (Worktree & { instanceId: string })[]) {
     const repo = makeRepo()
-    const effectiveStage = (worktree: Worktree) =>
-      deriveEffectiveWorkflowStage(worktree, {
-        repo,
-        settings: SETTINGS,
-        prCache,
-        issueCache: {}
-      }).stage
     return [
-      ...computeClassicDrawerWorktreeIds(
-        { repo1: rows },
-        rows,
-        {
-          filterRepoIds: [],
-          showSleepingWorkspaces: true,
-          tabsByWorktree: {},
-          ptyIdsByTabId: {},
-          browserTabsByWorktree: {},
-          worktreeIdsWithLiveAgent: new Set(),
-          hideDefaultBranchWorkspace: false,
-          hideAutomationGeneratedWorkspaces: false,
-          hideCliCreatedWorkspaces: false,
-          hideDetachedHeadWorkspaces: false,
-          hideWorkspacesFromOtherDevices: false,
-          pairedDeviceIdsByEnvironment: new Map(),
-          workspaceHostScope: 'all',
-          repoMap: new Map([['repo1', repo]]),
-          defaultHostId: 'local' as const
-        },
-        effectiveStage
-      )
+      ...computeClassicDrawerWorktreeIds({ repo1: rows }, rows, {
+        filterRepoIds: [],
+        showSleepingWorkspaces: true,
+        tabsByWorktree: {},
+        ptyIdsByTabId: {},
+        browserTabsByWorktree: {},
+        worktreeIdsWithLiveAgent: new Set(),
+        hideDefaultBranchWorkspace: false,
+        hideAutomationGeneratedWorkspaces: false,
+        hideCliCreatedWorkspaces: false,
+        hideDetachedHeadWorkspaces: false,
+        hideWorkspacesFromOtherDevices: false,
+        pairedDeviceIdsByEnvironment: new Map(),
+        workspaceHostScope: 'all',
+        repoMap: new Map([['repo1', repo]]),
+        defaultHostId: 'local' as const
+      })
     ].map(getWorktreeIdFromHostIdentity)
   }
 
-  it('hides a fact-staged workspace from the classic drawer without any declared stage', () => {
+  it('keeps a fact-staged row on the drawer when nothing is declared', () => {
     const row = makeWorktree()
     const prCache = { [prCacheKey(makeRepo(), row)]: { data: openPR() } }
-    expect(drawerProjection([row], prCache)).toEqual([])
-    expect(drawerProjection([row], {})).toEqual([row.id])
+    expect(drawerProjection([row])).toEqual([row.id])
+    // The derived stage still moves even though the drawer ignores it.
+    expect(derive(row, { prCache }).stage).toBe('review')
   })
 
-  it('returns a de-shipped row to the drawer once its merge is consumed', () => {
-    const shipped = makeWorktree()
-    const merged: PRInfo = { ...openPR(), state: 'merged', headSha: shipped.head }
-    const prCache = { [prCacheKey(makeRepo(), shipped)]: { data: merged } }
-
-    expect(drawerProjection([shipped], prCache)).toEqual([])
-
+  it('keeps a shipped-but-consumed row on the drawer regardless of cached merges', () => {
     const deShipped = makeWorktree({ consumedMergedPRNumbers: [12] })
+    const merged: PRInfo = { ...openPR(), state: 'merged', headSha: deShipped.head }
+    const prCache = { [prCacheKey(makeRepo(), deShipped)]: { data: merged } }
 
-    expect(drawerProjection([deShipped], prCache)).toEqual([deShipped.id])
+    expect(drawerProjection([deShipped])).toEqual([deShipped.id])
+    expect(derive(deShipped, { prCache }).stage).toBeNull()
   })
 })

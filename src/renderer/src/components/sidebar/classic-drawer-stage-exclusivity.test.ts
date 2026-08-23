@@ -12,9 +12,10 @@ import {
 } from '../../../../shared/workflow-stages'
 
 /**
- * Projection-level tests for #40 — two-board exclusivity. The classic kanban
- * drawer shows only unstaged workspaces; staged ones belong to the feature
- * board. Exclusivity is a display rule: no field is rewritten.
+ * Projection-level tests for #40 — stage exclusivity over declared stages.
+ * The classic kanban drawer hides workspaces with a valid declared stage;
+ * fact-derived stages never hide a row here. Exclusivity is a display rule:
+ * no field is rewritten.
  */
 
 function makeRepo(id: string): Repo {

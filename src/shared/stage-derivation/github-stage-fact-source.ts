@@ -84,14 +84,37 @@ type GitHubStageFactSnapshotLoader = (
   | Promise<GitHubStageFactSnapshot | null | undefined>
 
 /**
+ * The GitHub source as the single fact seam: the neutral async boundary for
+ * task-tree loads plus a synchronous per-subject face for read-time callers
+ * whose snapshots already sit in memory (#38).
+ */
+export type GitHubStageFactSource = WorkflowStageFactSource & {
+  /** Null when no snapshot is known or the loader is asynchronous and still pending. */
+  factsForSubject(subject: WorkflowStageFactSubject): WorkflowWorktreeFacts | null
+}
+
+function isPendingSnapshot(
+  snapshot: ReturnType<GitHubStageFactSnapshotLoader>
+): snapshot is Promise<GitHubStageFactSnapshot | null | undefined> {
+  return typeof (snapshot as { then?: unknown } | null | undefined)?.then === 'function'
+}
+
+/**
  * Real `WorkflowStageFactSource` over client-resolved GitHub state. Loaders may
  * resolve synchronously when facts already sit in memory; the neutral interface
  * stays async so remote/RPC loaders can slot in without an engine change.
  */
 export function createGitHubStageFactSource(
   loadSnapshot: GitHubStageFactSnapshotLoader
-): WorkflowStageFactSource {
+): GitHubStageFactSource {
   return {
+    factsForSubject(subject) {
+      const snapshot = loadSnapshot(subject)
+      if (!snapshot || isPendingSnapshot(snapshot)) {
+        return null
+      }
+      return worktreeFactsFromGitHubSnapshot(snapshot)
+    },
     async loadTaskTreeFacts(subjects) {
       const byWorktreeId: Record<string, WorkflowWorktreeFacts> = {}
       for (const subject of subjects) {
