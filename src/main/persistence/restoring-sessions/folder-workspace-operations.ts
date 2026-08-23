@@ -6,6 +6,7 @@ import { normalizeFolderWorkspaceName } from '../../../shared/folder-workspaces'
 import { getNextProjectGroupOrder } from '../../../shared/project-groups'
 import { normalizeStoredTaskSourceContext } from '../../../shared/task-source-context'
 import { normalizeWorkspaceLinkedItem } from '../../../shared/workspace-linked-item'
+import { normalizeWorkflowStage } from '../../../shared/workflow-stages'
 import { isWorkspaceLinkedItemSourceContextMatch } from '../../../shared/workspace-linked-item-source-context'
 import { folderWorkspaceKey } from '../../../shared/workspace-scope'
 import type { StoreOwnedPersistedState } from '../loading-store/store-owned-state'
@@ -122,6 +123,7 @@ export class FolderWorkspacePersistenceOperations {
         | 'sortOrder'
         | 'manualOrder'
         | 'workspaceStatus'
+        | 'workflowStage'
         | 'createdWithAgent'
         | 'pendingFirstAgentMessageRename'
         | 'firstAgentMessageRenameError'
@@ -187,6 +189,15 @@ export class FolderWorkspacePersistenceOperations {
     }
     if (updates.workspaceStatus !== undefined) {
       workspace.workspaceStatus = updates.workspaceStatus
+    }
+    if (updates.workflowStage !== undefined) {
+      // Invalid values clear to unstaged; workspaceStatus is never touched here.
+      const workflowStage = normalizeWorkflowStage(updates.workflowStage)
+      if (workflowStage) {
+        workspace.workflowStage = workflowStage
+      } else {
+        delete workspace.workflowStage
+      }
     }
     if (updates.createdWithAgent !== undefined) {
       workspace.createdWithAgent = updates.createdWithAgent

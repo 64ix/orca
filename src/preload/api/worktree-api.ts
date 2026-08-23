@@ -165,6 +165,7 @@ export type FolderWorkspacesApi = {
         | 'sortOrder'
         | 'manualOrder'
         | 'workspaceStatus'
+        | 'workflowStage'
         | 'createdWithAgent'
         | 'pendingFirstAgentMessageRename'
         | 'firstAgentMessageRenameError'

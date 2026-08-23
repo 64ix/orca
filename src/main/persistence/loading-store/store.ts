@@ -28,6 +28,7 @@ import type {
   AutomationUpdateInput
 } from '../../../shared/automations-types'
 import { normalizeProxyUrl } from '../../../shared/network-proxy'
+import { normalizeWorkflowStage } from '../../../shared/workflow-stages'
 import { normalizeKagiSessionLink } from '../../../shared/browser-url'
 import type { FolderWorkspace, WorkspaceKey } from '../../../shared/folder-workspace-types'
 import type { GlobalSettings } from '../../../shared/global-settings-types'
@@ -2508,6 +2509,13 @@ export class Store {
       : null
     if (!updated.instanceId) {
       updated.instanceId = randomUUID()
+    }
+    // Invalid stage values never persist; absent key reads as unstaged.
+    const workflowStage = normalizeWorkflowStage(updated.workflowStage)
+    if (workflowStage) {
+      updated.workflowStage = workflowStage
+    } else {
+      delete updated.workflowStage
     }
     this.state.worktreeMeta[worktreeId] = updated
     this.scheduleSave()

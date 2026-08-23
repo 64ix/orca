@@ -515,6 +515,7 @@ import { parsePtySessionId } from '../../shared/pty-session-id-format'
 import { clampLinearIssueListLimit } from '../../shared/linear/issue-read-limits'
 import { isFolderRepo } from '../../shared/repo-kind'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
+import { normalizeWorkflowStage } from '../../shared/workflow-stages'
 import {
   buildSetupRunnerCommand,
   getSetupRunnerCommandPlatformForPath
@@ -19970,6 +19971,7 @@ export class OrcaRuntimeService {
       // not the raw store entry — shipped mobile clients trust parentWorktreeId as-is,
       // so a stale same-path entry would nest replacement checkouts under old parents.
       const lineage = worktree.lineage
+      const workflowStage = normalizeWorkflowStage(meta?.workflowStage)
       summaries.set(worktree.id, {
         // Why: mobile mirrors desktop workspace grouping/order from persisted
         // metadata, while older runtimes may not have hydrated every field yet.
@@ -19995,6 +19997,7 @@ export class OrcaRuntimeService {
         childWorktreeIds: worktree.childWorktreeIds,
         displayName: worktree.displayName,
         workspaceStatus: meta?.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
+        ...(workflowStage ? { workflowStage } : {}),
         sortOrder: meta?.sortOrder ?? 0,
         ...(meta?.manualOrder !== undefined ? { manualOrder: meta.manualOrder } : {}),
         lastActivityAt: worktree.lastActivityAt,
@@ -20044,6 +20047,7 @@ export class OrcaRuntimeService {
         childWorktreeIds: [],
         displayName: worktree.displayName,
         workspaceStatus: worktree.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
+        ...(worktree.workflowStage ? { workflowStage: worktree.workflowStage } : {}),
         sortOrder: worktree.sortOrder ?? 0,
         ...(worktree.manualOrder !== undefined ? { manualOrder: worktree.manualOrder } : {}),
         lastActivityAt: worktree.lastActivityAt,
@@ -20790,6 +20794,7 @@ export class OrcaRuntimeService {
         | 'sortOrder'
         | 'manualOrder'
         | 'workspaceStatus'
+        | 'workflowStage'
         | 'createdWithAgent'
         | 'pendingFirstAgentMessageRename'
         | 'firstAgentMessageRenameError'

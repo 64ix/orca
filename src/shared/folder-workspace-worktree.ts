@@ -3,10 +3,12 @@ import type { Worktree } from './worktree/types'
 import { folderWorkspaceKey } from './workspace-scope'
 import { parseExecutionHostId, toSshExecutionHostId } from './execution-host'
 import { normalizeWorkspaceCreatorProvenance } from './workspace-creator-provenance'
+import { normalizeWorkflowStage } from './workflow-stages'
 
 export function folderWorkspaceToWorktree(folderWorkspace: FolderWorkspace): Worktree {
   const linkedTask = folderWorkspace.linkedTask
   const creatorProvenance = normalizeWorkspaceCreatorProvenance(folderWorkspace.creatorProvenance)
+  const workflowStage = normalizeWorkflowStage(folderWorkspace.workflowStage)
   const hostId =
     folderWorkspace.executionHostId ??
     (folderWorkspace.connectionId ? toSshExecutionHostId(folderWorkspace.connectionId) : 'local')
@@ -41,6 +43,7 @@ export function folderWorkspaceToWorktree(folderWorkspace: FolderWorkspace): Wor
     pendingFirstAgentMessageRename: folderWorkspace.pendingFirstAgentMessageRename,
     firstAgentMessageRenameError: folderWorkspace.firstAgentMessageRenameError,
     workspaceStatus: folderWorkspace.workspaceStatus,
+    ...(workflowStage ? { workflowStage } : {}),
     diffComments: folderWorkspace.diffComments,
     path: folderWorkspace.folderPath,
     head: '',

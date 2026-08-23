@@ -3,6 +3,7 @@ import { defineMethod, type RpcMethod } from '../core'
 import { OptionalFiniteNumber, OptionalString, requiredString } from '../schemas'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
 import { TaskSourceContextSchema } from '../../../../shared/task-source-context-schema'
+import { WorkflowStageSchema } from '../../../../shared/workflow-stage-schema'
 import { WorkspaceLinkedItemSchema } from '../../../../shared/workspace-linked-item-schema'
 import { isWorkspaceLinkedItemSourceContextMatch } from '../../../../shared/workspace-linked-item-source-context'
 import { resolveRpcWorkspaceCreatorProvenance } from '../workspace-creator-context'
@@ -57,6 +58,7 @@ const FolderWorkspaceUpdate = z.object({
       sortOrder: OptionalFiniteNumber,
       manualOrder: OptionalFiniteNumber,
       workspaceStatus: OptionalString,
+      workflowStage: WorkflowStageSchema,
       createdWithAgent: z.string().refine(isTuiAgent).optional(),
       pendingFirstAgentMessageRename: z.boolean().optional(),
       firstAgentMessageRenameError: z.string().nullable().optional(),

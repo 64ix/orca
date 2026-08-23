@@ -2,6 +2,7 @@ import type { ExecutionHostId } from './execution-host'
 import type { TaskSourceContext } from './task-source-context'
 import type { TuiAgent } from './tui-agent'
 import type { DiffComment } from './diff-comment-types'
+import type { WorkflowStage } from './workflow-stages'
 import type {
   WorkspaceCreatorProvenance,
   WorkspaceLinkedItem,
@@ -35,6 +36,8 @@ export type FolderWorkspace = {
   /** User-authored sidebar ordering. Higher values render earlier in Manual sort. */
   manualOrder?: number
   workspaceStatus?: WorkspaceStatus
+  /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. Kept independent of workspaceStatus. */
+  workflowStage?: WorkflowStage | null
   createdWithAgent?: TuiAgent
   pendingFirstAgentMessageRename?: boolean
   firstAgentMessageRenameError?: string | null

@@ -3,6 +3,7 @@ import { useAppStore } from '@/store'
 import type { Repo } from '../../../../shared/repo-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { computeVisibleWorktrees } from './visible-worktrees'
+import { isStagedWorkspace } from './workspace-stage-exclusivity'
 import { getWorktreeIdsWithLiveAgent } from '@/lib/worktree-activity-state'
 import { getSettingsFocusedExecutionHostId } from '../../../../shared/execution-host'
 import type { AppState } from '@/store/types'
@@ -15,6 +16,37 @@ import { getWorktreeHostIdentity } from '../../../../shared/worktree/host-qualif
 type UseVisibleWorkspaceKanbanWorktreeIdsParams = {
   allWorktrees: readonly Worktree[]
   repoMap: Map<string, Repo>
+}
+
+type ClassicDrawerVisibilityOptions = Omit<
+  Parameters<typeof computeVisibleWorktrees>[2],
+  'worktreeLineageById' | 'injectLineageAncestors'
+>
+
+/**
+ * What the classic kanban drawer shows: sidebar-filtered workspaces minus
+ * staged ones (#40). Exclusivity is a display rule — staged workspaces keep
+ * their manual workspaceStatus in data and reappear here once unstaged.
+ */
+export function computeClassicDrawerWorktreeIds(
+  worktreesByRepo: Record<string, Worktree[]>,
+  allWorktrees: readonly Worktree[],
+  options: ClassicDrawerVisibilityOptions
+): ReadonlySet<string> {
+  const visibleRows = computeVisibleWorktrees(
+    worktreesByRepo,
+    allWorktrees.map((worktree) => worktree.id),
+    {
+      ...options,
+      worktreeLineageById: {},
+      // Why: the board has no nested lineage presentation. Ancestor injection
+      // would make filtered-out parents appear as ordinary cards.
+      injectLineageAncestors: false
+    }
+  )
+  // Why post-filter: visibility reads its rows from worktreesByRepo, so staged
+  // rows must be dropped from the computed result.
+  return new Set(visibleRows.filter((row) => !isStagedWorkspace(row)).map(getWorktreeHostIdentity))
 }
 
 const EMPTY_WORKTREE_ID_SET: ReadonlySet<string> = new Set()
@@ -67,34 +99,27 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
   return useMemo(() => {
     // Why: the board has its own status ordering, but visibility must match
     // the sidebar filters exactly so hidden workspaces do not reappear here.
-    const sortedIds = allWorktrees.map((worktree) => worktree.id)
-    return new Set(
-      computeVisibleWorktrees(worktreesByRepo, sortedIds, {
-        filterRepoIds,
-        showSleepingWorkspaces,
-        tabsByWorktree,
-        ptyIdsByTabId,
-        browserTabsByWorktree,
-        worktreeIdsWithLiveAgent,
-        hideDefaultBranchWorkspace,
-        hideAutomationGeneratedWorkspaces,
-        hideCliCreatedWorkspaces,
-        hideDetachedHeadWorkspaces,
-        hideWorkspacesFromOtherDevices,
-        pairedDeviceIdsByEnvironment: hideWorkspacesFromOtherDevices
-          ? getPairedDeviceIdsByEnvironment(runtimeEnvironments, runtimeStatusByEnvironmentId)
-          : EMPTY_PAIRED_DEVICE_IDS_BY_ENVIRONMENT,
-        alwaysShowDefaultBranchWorkspace,
-        repoMap,
-        workspaceHostScope,
-        visibleWorkspaceHostIds,
-        defaultHostId: getSettingsFocusedExecutionHostId(settings),
-        worktreeLineageById: {},
-        // Why: the board has no nested lineage presentation. Ancestor injection
-        // would make filtered-out parents appear as ordinary cards.
-        injectLineageAncestors: false
-      }).map(getWorktreeHostIdentity)
-    )
+    return computeClassicDrawerWorktreeIds(worktreesByRepo, allWorktrees, {
+      filterRepoIds,
+      showSleepingWorkspaces,
+      tabsByWorktree,
+      ptyIdsByTabId,
+      browserTabsByWorktree,
+      worktreeIdsWithLiveAgent,
+      hideDefaultBranchWorkspace,
+      hideAutomationGeneratedWorkspaces,
+      hideCliCreatedWorkspaces,
+      hideDetachedHeadWorkspaces,
+      hideWorkspacesFromOtherDevices,
+      pairedDeviceIdsByEnvironment: hideWorkspacesFromOtherDevices
+        ? getPairedDeviceIdsByEnvironment(runtimeEnvironments, runtimeStatusByEnvironmentId)
+        : EMPTY_PAIRED_DEVICE_IDS_BY_ENVIRONMENT,
+      alwaysShowDefaultBranchWorkspace,
+      repoMap,
+      workspaceHostScope,
+      visibleWorkspaceHostIds,
+      defaultHostId: getSettingsFocusedExecutionHostId(settings)
+    })
   }, [
     allWorktrees,
     browserTabsByWorktree,

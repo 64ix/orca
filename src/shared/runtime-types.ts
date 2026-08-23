@@ -5,6 +5,7 @@ import type {
   AgentStatusState,
   AgentType
 } from './agent-status-types'
+import type { WorkflowStage } from './workflow-stages'
 import type {
   BrowserCertificateFailure,
   BrowserCookieImportResult,
@@ -849,6 +850,8 @@ export type RuntimeWorktreePsSummary = {
   childWorktreeIds: string[]
   displayName: string
   workspaceStatus: string
+  /** Feature-stage pipeline assignment; absent = unstaged. */
+  workflowStage?: WorkflowStage | null
   sortOrder: number
   manualOrder?: number
   lastActivityAt?: number

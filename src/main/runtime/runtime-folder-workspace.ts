@@ -3,6 +3,7 @@ import type { Repo } from '../../shared/repo-types'
 import type { WorktreeMeta } from '../../shared/worktree/meta-types'
 import type { Worktree } from '../../shared/worktree/types'
 import { FOLDER_WORKSPACE_INSTANCE_SEPARATOR } from '../../shared/worktree/id'
+import { normalizeWorkflowStage } from '../../shared/workflow-stages'
 import { normalizeWorkspaceCreatorProvenance } from '../../shared/workspace-creator-provenance'
 
 export function getRuntimeFolderWorkspaceRootId(repo: Repo): string {
@@ -27,6 +28,7 @@ export function mergeRuntimeFolderWorkspace(
   meta: Partial<WorktreeMeta>
 ): Worktree {
   const creatorProvenance = normalizeWorkspaceCreatorProvenance(meta.creatorProvenance)
+  const workflowStage = normalizeWorkflowStage(meta.workflowStage)
   return {
     id: worktreeId,
     ...(meta.instanceId !== undefined ? { instanceId: meta.instanceId } : {}),
@@ -70,6 +72,7 @@ export function mergeRuntimeFolderWorkspace(
     ...(meta.cliProvenance !== undefined ? { cliProvenance: meta.cliProvenance } : {}),
     ...(meta.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
     workspaceStatus: meta.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
+    ...(workflowStage ? { workflowStage } : {}),
     diffComments: meta.diffComments,
     mobileDiffReview: meta.mobileDiffReview
   }

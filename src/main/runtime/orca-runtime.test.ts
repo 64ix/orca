@@ -27650,6 +27650,32 @@ describe('OrcaRuntimeService', () => {
     ).toBe(false)
   })
 
+  it('surfaces workflowStage in worktree.ps and degrades corrupt values to unstaged', async () => {
+    const metaById: Record<string, WorktreeMeta> = {
+      [TEST_WORKTREE_ID]: makeWorktreeMeta({
+        workspaceStatus: 'in-review',
+        // Corrupt on purpose: the summary must drop it instead of echoing it.
+        workflowStage: { rank: 2.5 } as never
+      })
+    }
+    const runtime = new OrcaRuntimeService({
+      ...store,
+      getAllWorktreeMeta: () => metaById,
+      getWorktreeMeta: (worktreeId: string) => metaById[worktreeId]
+    } as never)
+
+    const summaries = await runtime.getWorktreePs()
+    const summary = summaries.worktrees.find((worktree) => worktree.worktreeId === TEST_WORKTREE_ID)
+    expect(summary).not.toHaveProperty('workflowStage')
+    expect(summary?.workspaceStatus).toBe('in-review')
+
+    metaById[TEST_WORKTREE_ID] = makeWorktreeMeta({ workflowStage: 'spec' })
+    const staged = await runtime.getWorktreePs()
+    expect(
+      staged.worktrees.find((worktree) => worktree.worktreeId === TEST_WORKTREE_ID)?.workflowStage
+    ).toBe('spec')
+  })
+
   it('materializes pending mobile session terminals without focusing desktop clients', async () => {
     const persistedPtyId = `${TEST_WORKTREE_ID}@@mobile-only-pty`
     const spawn = vi.fn().mockResolvedValue({ id: persistedPtyId })
