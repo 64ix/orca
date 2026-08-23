@@ -12,8 +12,7 @@ import {
   deriveWorkItemCheckSummary,
   type MainWorkItem
 } from './work-item-field-coercion'
-// Why: REST /issues/{n} and `gh issue view` can hand back a PR; its merge
-// timestamp hides inside the issue-shaped pull_request object.
+// Why: issues endpoints can hand back a PR; its merge timestamp hides in the pull_request object.
 function pullRequestMergedAt(value: unknown): string | null {
   if (typeof value !== 'object' || value === null) {
     return null
@@ -23,22 +22,21 @@ function pullRequestMergedAt(value: unknown): string | null {
 }
 
 export function mapIssueWorkItem(item: Record<string, unknown>): MainWorkItem {
-  // Why: type stays 'issue' — the id prefix keys linked-issue lookups — but a
-  // merged PR must not render as plain 'closed'.
+  // Why: type stays 'issue' (id prefix keys linked-issue lookups) but a merged PR must not render 'closed'.
   return {
     id: `issue:${String(item.number)}`,
     type: 'issue',
     number: Number(item.number),
     title: String(item.title ?? ''),
-    state: mapIssueState(
-      String(item.state ?? 'open'),
-      pullRequestMergedAt(item.pull_request),
-      typeof item.merged_at === 'string'
-        ? item.merged_at
-        : typeof item.mergedAt === 'string'
-          ? item.mergedAt
-          : null
-    ),
+    state: mapIssueState(String(item.state ?? 'open'), {
+      prMergedAt: pullRequestMergedAt(item.pull_request),
+      mergedAt:
+        typeof item.merged_at === 'string'
+          ? item.merged_at
+          : typeof item.mergedAt === 'string'
+            ? item.mergedAt
+            : null
+    }),
     url: String(item.html_url ?? item.url ?? ''),
     labels: Array.isArray(item.labels)
       ? item.labels

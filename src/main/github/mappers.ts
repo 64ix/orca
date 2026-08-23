@@ -127,17 +127,17 @@ export function mapPRState(state: string, isDraft?: boolean): PRInfo['state'] {
 // REST API returns html_url + lowercase state; gh issue view returns url + mixed-case state.
 // This helper normalises both shapes into IssueInfo.
 
-// Why: the issues endpoints also serve PRs, whose issue-shaped payload reports
-// state 'closed' even after merge — merge evidence upgrades it to 'merged'.
+// Why: issues endpoints also serve PRs, whose issue-shaped payload reports 'closed' even after merge.
 export function mapIssueState(
   state: string,
-  prMergedAt?: string | null,
-  mergedAt?: string | null
+  mergeEvidence?: { prMergedAt?: string | null; mergedAt?: string | null }
 ): IssueInfo['state'] {
-  if (state?.toLowerCase() === 'open') {
+  if (state.toLowerCase() === 'open') {
     return 'open'
   }
-  return state?.toLowerCase() === 'merged' || prMergedAt || mergedAt ? 'merged' : 'closed'
+  return state.toLowerCase() === 'merged' || mergeEvidence?.prMergedAt || mergeEvidence?.mergedAt
+    ? 'merged'
+    : 'closed'
 }
 
 export function mapIssueInfo(data: {
@@ -155,7 +155,10 @@ export function mapIssueInfo(data: {
   return {
     number: data.number,
     title: data.title,
-    state: mapIssueState(data.state, data.pull_request?.merged_at ?? null, data.mergedAt ?? null),
+    state: mapIssueState(data.state, {
+      prMergedAt: data.pull_request?.merged_at ?? null,
+      mergedAt: data.mergedAt ?? null
+    }),
     url: data.html_url ?? data.url ?? '',
     labels: (data.labels || []).map((l) => l.name),
     ...(typeof data.body === 'string' ? { description: data.body } : {})
