@@ -99,6 +99,27 @@ describe('SidebarUsageGauge', () => {
     expect(terminalBar?.style.width).toBe('100%')
   })
 
+  it('keeps outlier categories visible instead of rounding their bar to 0%', async () => {
+    mocks.state = {
+      featureInteractions: {
+        'workspace-board': record(300),
+        tasks: record(1)
+      }
+    }
+
+    const { container } = await renderGauge()
+
+    const workspaceBar = container.querySelector<HTMLElement>(
+      '[data-sidebar-usage-gauge-bar="workspace"]'
+    )
+    const tasksBar = container.querySelector<HTMLElement>(
+      '[data-sidebar-usage-gauge-bar="task_management"]'
+    )
+    expect(workspaceBar?.style.width).toBe('100%')
+    // Smallest nonzero share still renders a visible bar next to its count.
+    expect(Number.parseFloat(tasksBar?.style.width ?? '')).toBeGreaterThan(0)
+  })
+
   it('follows store updates on rerender', async () => {
     mocks.state = {
       featureInteractions: { 'terminal-tabs': record(4) }

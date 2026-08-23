@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { FeatureInteractionState } from '../../../../shared/feature-interactions'
 import {
+  getSidebarUsageGaugeBarWidthPercent,
   getSidebarUsageGaugeRows,
   SIDEBAR_USAGE_GAUGE_MAX_ROWS,
+  SIDEBAR_USAGE_GAUGE_MIN_BAR_WIDTH_PERCENT,
   type SidebarUsageGaugeRow
 } from './sidebar-usage-gauge-model'
 
@@ -77,5 +79,24 @@ describe('sidebar usage gauge rows', () => {
     const rows = getSidebarUsageGaugeRows(state)
 
     expect(rows.map((row: SidebarUsageGaugeRow) => row.category)).toEqual(['terminal'])
+  })
+})
+
+describe('sidebar usage gauge bar width percent', () => {
+  it('keeps exactly-zero shares flat', () => {
+    expect(getSidebarUsageGaugeBarWidthPercent(0)).toBe(0)
+  })
+
+  it('clamps sub-rounding nonzero shares to the smallest visible width', () => {
+    // 1 vs 300 rounds to 0% without the clamp.
+    expect(getSidebarUsageGaugeBarWidthPercent(1 / 300)).toBe(
+      SIDEBAR_USAGE_GAUGE_MIN_BAR_WIDTH_PERCENT
+    )
+  })
+
+  it('rounds ordinary shares unchanged', () => {
+    expect(getSidebarUsageGaugeBarWidthPercent(0.5)).toBe(50)
+    expect(getSidebarUsageGaugeBarWidthPercent(1)).toBe(100)
+    expect(getSidebarUsageGaugeBarWidthPercent(0.254)).toBe(25)
   })
 })

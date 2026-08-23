@@ -2,7 +2,11 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
-import { getSidebarUsageGaugeRowLabel, getSidebarUsageGaugeRows } from './sidebar-usage-gauge-model'
+import {
+  getSidebarUsageGaugeBarWidthPercent,
+  getSidebarUsageGaugeRowLabel,
+  getSidebarUsageGaugeRows
+} from './sidebar-usage-gauge-model'
 
 // Why: memo boundary needs its own language subscription — see SidebarToolbar.
 const SidebarUsageGauge = React.memo(function SidebarUsageGauge() {
@@ -41,7 +45,7 @@ const SidebarUsageGauge = React.memo(function SidebarUsageGauge() {
               <div
                 data-sidebar-usage-gauge-bar={row.category}
                 className="h-full rounded-full bg-worktree-sidebar-foreground/40"
-                style={{ width: `${Math.round(row.shareOfMax * 100)}%` }}
+                style={{ width: `${getSidebarUsageGaugeBarWidthPercent(row.shareOfMax)}%` }}
               />
             </div>
           </li>
