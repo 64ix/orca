@@ -2,8 +2,10 @@ import { useMemo } from 'react'
 import { useAppStore } from '@/store'
 import type { Repo } from '../../../../shared/repo-types'
 import type { Worktree } from '../../../../shared/worktree/types'
+import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { computeVisibleWorktrees } from './visible-worktrees'
 import { isStagedWorkspace } from './workspace-stage-exclusivity'
+import { deriveEffectiveWorkflowStage } from './effective-workflow-stage'
 import { getWorktreeIdsWithLiveAgent } from '@/lib/worktree-activity-state'
 import { getSettingsFocusedExecutionHostId } from '../../../../shared/execution-host'
 import type { AppState } from '@/store/types'
@@ -27,11 +29,14 @@ type ClassicDrawerVisibilityOptions = Omit<
  * What the classic kanban drawer shows: sidebar-filtered workspaces minus
  * staged ones (#40). Exclusivity is a display rule — staged workspaces keep
  * their manual workspaceStatus in data and reappear here once unstaged.
+ * `effectiveStage` lets fact-derived stages count as staged too (#38); absent,
+ * only the declared stage excludes a row.
  */
 export function computeClassicDrawerWorktreeIds(
   worktreesByRepo: Record<string, Worktree[]>,
   allWorktrees: readonly Worktree[],
-  options: ClassicDrawerVisibilityOptions
+  options: ClassicDrawerVisibilityOptions,
+  effectiveStage?: (worktree: Worktree) => WorkflowStage | null
 ): ReadonlySet<string> {
   const visibleRows = computeVisibleWorktrees(
     worktreesByRepo,
@@ -46,7 +51,11 @@ export function computeClassicDrawerWorktreeIds(
   )
   // Why post-filter: visibility reads its rows from worktreesByRepo, so staged
   // rows must be dropped from the computed result.
-  return new Set(visibleRows.filter((row) => !isStagedWorkspace(row)).map(getWorktreeHostIdentity))
+  return new Set(
+    visibleRows
+      .filter((row) => !isStagedWorkspace(row, effectiveStage))
+      .map(getWorktreeHostIdentity)
+  )
 }
 
 const EMPTY_WORKTREE_ID_SET: ReadonlySet<string> = new Set()
@@ -76,6 +85,8 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
   const workspaceHostScope = useAppStore((s) => s.workspaceHostScope)
   const visibleWorkspaceHostIds = useAppStore((s) => s.visibleWorkspaceHostIds)
   const settings = useAppStore((s) => s.settings)
+  const prCache = useAppStore((s) => s.prCache)
+  const issueCache = useAppStore((s) => s.issueCache)
   const filterRepoIds = useAppStore((s) => s.filterRepoIds)
   const tabsByWorktree = useAppStore((s) => (!showSleepingWorkspaces ? s.tabsByWorktree : null))
   const ptyIdsByTabId = useAppStore((s) => (!showSleepingWorkspaces ? s.ptyIdsByTabId : null))
@@ -96,33 +107,52 @@ export function useVisibleWorkspaceKanbanWorktreeIds({
       : EMPTY_WORKTREE_ID_SET
   }, [agentStatusEpoch, showSleepingWorkspaces, tabsByWorktree])
 
+  // Why memoize the projector: PR refresh events re-drive derivation by
+  // replacing prCache identity, so this must be stable per cache snapshot.
+  const effectiveStageOf = useMemo(
+    () => (worktree: Worktree) =>
+      deriveEffectiveWorkflowStage(worktree, {
+        repo: repoMap.get(worktree.repoId) ?? null,
+        settings,
+        prCache,
+        issueCache
+      }).stage,
+    [repoMap, settings, prCache, issueCache]
+  )
+
   return useMemo(() => {
     // Why: the board has its own status ordering, but visibility must match
     // the sidebar filters exactly so hidden workspaces do not reappear here.
-    return computeClassicDrawerWorktreeIds(worktreesByRepo, allWorktrees, {
-      filterRepoIds,
-      showSleepingWorkspaces,
-      tabsByWorktree,
-      ptyIdsByTabId,
-      browserTabsByWorktree,
-      worktreeIdsWithLiveAgent,
-      hideDefaultBranchWorkspace,
-      hideAutomationGeneratedWorkspaces,
-      hideCliCreatedWorkspaces,
-      hideDetachedHeadWorkspaces,
-      hideWorkspacesFromOtherDevices,
-      pairedDeviceIdsByEnvironment: hideWorkspacesFromOtherDevices
-        ? getPairedDeviceIdsByEnvironment(runtimeEnvironments, runtimeStatusByEnvironmentId)
-        : EMPTY_PAIRED_DEVICE_IDS_BY_ENVIRONMENT,
-      alwaysShowDefaultBranchWorkspace,
-      repoMap,
-      workspaceHostScope,
-      visibleWorkspaceHostIds,
-      defaultHostId: getSettingsFocusedExecutionHostId(settings)
-    })
+    return computeClassicDrawerWorktreeIds(
+      worktreesByRepo,
+      allWorktrees,
+      {
+        filterRepoIds,
+        showSleepingWorkspaces,
+        tabsByWorktree,
+        ptyIdsByTabId,
+        browserTabsByWorktree,
+        worktreeIdsWithLiveAgent,
+        hideDefaultBranchWorkspace,
+        hideAutomationGeneratedWorkspaces,
+        hideCliCreatedWorkspaces,
+        hideDetachedHeadWorkspaces,
+        hideWorkspacesFromOtherDevices,
+        pairedDeviceIdsByEnvironment: hideWorkspacesFromOtherDevices
+          ? getPairedDeviceIdsByEnvironment(runtimeEnvironments, runtimeStatusByEnvironmentId)
+          : EMPTY_PAIRED_DEVICE_IDS_BY_ENVIRONMENT,
+        alwaysShowDefaultBranchWorkspace,
+        repoMap,
+        workspaceHostScope,
+        visibleWorkspaceHostIds,
+        defaultHostId: getSettingsFocusedExecutionHostId(settings)
+      },
+      effectiveStageOf
+    )
   }, [
     allWorktrees,
     browserTabsByWorktree,
+    effectiveStageOf,
     filterRepoIds,
     hideDefaultBranchWorkspace,
     hideAutomationGeneratedWorkspaces,

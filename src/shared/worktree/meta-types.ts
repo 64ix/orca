@@ -80,6 +80,8 @@ export type WorktreeMeta = {
   workspaceStatus?: WorkspaceStatus
   /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. Kept independent of workspaceStatus. */
   workflowStage?: WorkflowStage | null
+  /** Merged PR numbers a human already de-shipped once; consumed merges never re-drive fact stages (#22). */
+  consumedMergedPRNumbers?: number[]
   diffComments?: DiffComment[]
   /** Path-derived worktree ids this worktree had before its folder was renamed
    *  on disk (the id embeds the path). Lets the daemon's session GC and registry

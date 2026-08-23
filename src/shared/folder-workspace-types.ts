@@ -38,6 +38,8 @@ export type FolderWorkspace = {
   workspaceStatus?: WorkspaceStatus
   /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. Kept independent of workspaceStatus. */
   workflowStage?: WorkflowStage | null
+  /** Merged PR numbers a human already de-shipped once; consumed merges never re-drive fact stages (#22). */
+  consumedMergedPRNumbers?: number[]
   createdWithAgent?: TuiAgent
   pendingFirstAgentMessageRename?: boolean
   firstAgentMessageRenameError?: string | null

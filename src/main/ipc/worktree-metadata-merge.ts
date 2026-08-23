@@ -76,6 +76,9 @@ export function mergeWorktree(
     ...(meta?.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
     workspaceStatus: meta?.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
     ...(workflowStage ? { workflowStage } : {}),
+    ...(meta?.consumedMergedPRNumbers?.length
+      ? { consumedMergedPRNumbers: meta.consumedMergedPRNumbers }
+      : {}),
     // Why: diff comments are persisted on WorktreeMeta and forwarded verbatim
     // so the renderer store mirrors on-disk state.
     diffComments: meta?.diffComments,
