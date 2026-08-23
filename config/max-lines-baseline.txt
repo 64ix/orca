@@ -118,7 +118,6 @@ inline src/renderer/src/components/settings/AccountsPane.tsx
 inline src/renderer/src/components/settings/AgentsPane.tsx
 inline src/renderer/src/components/settings/RepositoryHooksSection.tsx
 inline src/renderer/src/components/settings/RuntimeEnvironmentsPane.tsx
-inline src/renderer/src/components/settings/Settings.tsx
 inline src/renderer/src/components/sidebar/WorkspaceKanbanDrawer.tsx
 inline src/renderer/src/components/sidebar/WorktreeContextMenu.tsx
 inline src/renderer/src/components/sidebar/use-workspace-kanban-area-selection.ts

@@ -195,7 +195,8 @@ describe('AgentSkillSetupPanel installed-command call sites', () => {
         'activeSkillRuntime.canUseLocalSkillFreshness ? ORCA_CLI_SKILL_NAME : undefined'
       ],
       [
-        'src/renderer/src/components/settings/Settings.tsx',
+        // The freshness gate moved with the skill queries into Settings' nav model hook.
+        'src/renderer/src/components/settings/use-settings-nav-model.ts',
         'useSkillFreshness(skillFreshnessApplies)'
       ],
       [
