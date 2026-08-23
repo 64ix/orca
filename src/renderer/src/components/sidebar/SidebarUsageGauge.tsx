@@ -2,7 +2,7 @@ import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
-import { getSidebarUsageGaugeRows } from './sidebar-usage-gauge-model'
+import { getSidebarUsageGaugeRowLabel, getSidebarUsageGaugeRows } from './sidebar-usage-gauge-model'
 
 // Why: memo boundary needs its own language subscription — see SidebarToolbar.
 const SidebarUsageGauge = React.memo(function SidebarUsageGauge() {
@@ -30,7 +30,7 @@ const SidebarUsageGauge = React.memo(function SidebarUsageGauge() {
           <li key={row.category} data-sidebar-usage-gauge-row={row.category}>
             <div className="flex items-baseline justify-between gap-2">
               <span className="min-w-0 truncate text-[12px] text-worktree-sidebar-foreground/60">
-                {row.label}
+                {getSidebarUsageGaugeRowLabel(row.category)}
               </span>
               <span className="text-[10px] tabular-nums text-muted-foreground/70">
                 {row.interactionCount}

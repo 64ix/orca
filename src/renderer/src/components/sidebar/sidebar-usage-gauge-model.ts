@@ -12,13 +12,14 @@ export const SIDEBAR_USAGE_GAUGE_MAX_ROWS = 4
 
 export type SidebarUsageGaugeRow = {
   category: FeatureInteractionCategory
-  label: string
   interactionCount: number
   /** Bar width as a fraction of the most-used category (0..1). */
   shareOfMax: number
 }
 
-function getCategoryLabel(category: FeatureInteractionCategory): string {
+// Why: labels resolve at render time so language switches re-translate;
+// rows themselves stay translation-free and cache-safe.
+export function getSidebarUsageGaugeRowLabel(category: FeatureInteractionCategory): string {
   switch (category) {
     case 'workspace':
       return translate('auto.components.sidebar.sidebar.usage.gauge.model.b10c6bf8ac', 'Workspaces')
@@ -93,7 +94,6 @@ export function getSidebarUsageGaugeRows(
     .slice(0, SIDEBAR_USAGE_GAUGE_MAX_ROWS)
     .map(([category, interactionCount]) => ({
       category,
-      label: getCategoryLabel(category),
       interactionCount,
       shareOfMax: max > 0 ? interactionCount / max : 0
     }))
