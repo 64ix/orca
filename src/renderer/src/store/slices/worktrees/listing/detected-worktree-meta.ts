@@ -121,6 +121,7 @@ export function getFolderWorkspaceMetaUpdates(
     | 'pendingFirstAgentMessageRename'
     | 'firstAgentMessageRenameError'
     | 'diffComments'
+    | 'consumedMergedPRNumbers'
   >
 > {
   const next: Partial<
@@ -139,6 +140,7 @@ export function getFolderWorkspaceMetaUpdates(
       | 'pendingFirstAgentMessageRename'
       | 'firstAgentMessageRenameError'
       | 'diffComments'
+      | 'consumedMergedPRNumbers'
     >
   > = {}
   if (updates.displayName !== undefined) {
@@ -182,6 +184,10 @@ export function getFolderWorkspaceMetaUpdates(
   }
   if (updates.diffComments !== undefined) {
     next.diffComments = updates.diffComments
+  }
+  if (updates.consumedMergedPRNumbers !== undefined) {
+    // [] clears the marker list; the store degrades invalid values to absent.
+    next.consumedMergedPRNumbers = updates.consumedMergedPRNumbers
   }
   return next
 }

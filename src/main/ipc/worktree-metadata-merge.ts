@@ -3,6 +3,7 @@ import type { WorktreeMeta } from '../../shared/worktree/meta-types'
 import type { GitWorktreeInfo, Worktree } from '../../shared/worktree/types'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
 import { normalizeWorkflowStage } from '../../shared/workflow-stages'
+import { normalizeConsumedMergedPRNumbers } from '../../shared/consumed-merge-markers'
 import { getLinkedWorkItemMetadata } from './worktree-linked-work-item-metadata'
 import { normalizeWorkspaceCreatorProvenance } from '../../shared/workspace-creator-provenance'
 
@@ -19,6 +20,8 @@ export function mergeWorktree(
   const creatorProvenance = normalizeWorkspaceCreatorProvenance(meta?.creatorProvenance)
   // Read-time degradation: corrupt persisted stages surface as unstaged.
   const workflowStage = normalizeWorkflowStage(meta?.workflowStage)
+  // Read-time degradation mirrors the stage contract: bad markers surface as absent.
+  const consumedMergedPRNumbers = normalizeConsumedMergedPRNumbers(meta?.consumedMergedPRNumbers)
   return {
     id: `${repoId}::${git.path}`,
     ...(meta?.instanceId !== undefined ? { instanceId: meta.instanceId } : {}),
@@ -76,9 +79,7 @@ export function mergeWorktree(
     ...(meta?.priorWorktreeIds !== undefined ? { priorWorktreeIds: meta.priorWorktreeIds } : {}),
     workspaceStatus: meta?.workspaceStatus ?? DEFAULT_WORKSPACE_STATUS_ID,
     ...(workflowStage ? { workflowStage } : {}),
-    ...(meta?.consumedMergedPRNumbers?.length
-      ? { consumedMergedPRNumbers: meta.consumedMergedPRNumbers }
-      : {}),
+    ...(consumedMergedPRNumbers ? { consumedMergedPRNumbers } : {}),
     // Why: diff comments are persisted on WorktreeMeta and forwarded verbatim
     // so the renderer store mirrors on-disk state.
     diffComments: meta?.diffComments,
