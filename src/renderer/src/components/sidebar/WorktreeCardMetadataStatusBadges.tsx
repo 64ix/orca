@@ -31,6 +31,20 @@ function MetadataStatusBadge({
 }
 
 export function IssueStateBadge({ state }: { state: IssueInfo['state'] }): React.JSX.Element {
+  if (state === 'merged') {
+    return (
+      <MetadataStatusBadge
+        label={translate(
+          'auto.components.sidebar.WorktreeCardMetadataStatusBadges.f394b3e86e',
+          'State: Merged'
+        )}
+        className="border-purple-500/25 bg-purple-500/5 text-purple-600 dark:text-purple-300"
+      >
+        <GitMerge />
+      </MetadataStatusBadge>
+    )
+  }
+
   if (state === 'closed') {
     return (
       <MetadataStatusBadge
