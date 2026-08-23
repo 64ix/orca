@@ -55,13 +55,14 @@ describe('mapIssueInfo', () => {
 describe('mapIssueState', () => {
   it('upgrades merge evidence to merged regardless of case', () => {
     expect(mapIssueState('MERGED')).toBe('merged')
-    expect(mapIssueState('closed', '2026-08-01T12:00:00Z')).toBe('merged')
-    expect(mapIssueState('closed', null, '2026-08-01T12:00:00Z')).toBe('merged')
+    expect(mapIssueState('closed', { prMergedAt: '2026-08-01T12:00:00Z' })).toBe('merged')
+    expect(mapIssueState('closed', { mergedAt: '2026-08-01T12:00:00Z' })).toBe('merged')
     // A null merged_at is absence of evidence, not evidence of a merge.
-    expect(mapIssueState('closed', null)).toBe('closed')
+    expect(mapIssueState('closed', { prMergedAt: null })).toBe('closed')
+    expect(mapIssueState('closed', {})).toBe('closed')
   })
 
   it('keeps open first so merge evidence cannot fabricate a merge', () => {
-    expect(mapIssueState('open', '2026-08-01T12:00:00Z')).toBe('open')
+    expect(mapIssueState('open', { prMergedAt: '2026-08-01T12:00:00Z' })).toBe('open')
   })
 })

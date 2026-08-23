@@ -17,6 +17,9 @@ export function getTaskPageGitHubWorkItemStateLabel(item: GitHubWorkItemStatusIt
     return translate('auto.components.TaskPage.606a85c774', 'Open')
   }
 
+  if (item.state === 'merged') {
+    return translate('auto.components.github.pr.merge.state.83ecdbb4a6', 'Merged')
+  }
   return item.state === 'closed'
     ? translate('auto.components.TaskPage.d09bf34db7', 'Closed')
     : translate('auto.components.TaskPage.606a85c774', 'Open')
@@ -37,6 +40,10 @@ export function getTaskPageGitHubWorkItemStateTone(item: GitHubWorkItemStatusIte
       return 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-200'
     }
     return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+  }
+
+  if (item.state === 'merged') {
+    return 'border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300'
   }
 
   if (item.state === 'closed') {

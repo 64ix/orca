@@ -21,6 +21,13 @@ describe('task-page-github-work-item-status', () => {
   it('maps issue states to labels', () => {
     expect(getTaskPageGitHubWorkItemStateLabel({ type: 'issue', state: 'open' })).toBe('Open')
     expect(getTaskPageGitHubWorkItemStateLabel({ type: 'issue', state: 'closed' })).toBe('Closed')
+    expect(getTaskPageGitHubWorkItemStateLabel({ type: 'issue', state: 'merged' })).toBe('Merged')
+  })
+
+  it('renders merged issue-typed items with the purple tone instead of open green', () => {
+    const tone = getTaskPageGitHubWorkItemStateTone({ type: 'issue', state: 'merged' })
+    expect(tone).toContain('purple')
+    expect(tone).not.toContain('emerald')
   })
 
   it('uses GitHub-like neutral draft tones and muted draft icons', () => {
