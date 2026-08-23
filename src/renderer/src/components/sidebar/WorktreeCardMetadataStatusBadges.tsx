@@ -30,7 +30,7 @@ function MetadataStatusBadge({
   )
 }
 
-const MERGED_TONE = 'border-purple-500/25 bg-purple-500/5 text-purple-600 dark:text-purple-300'
+const PURPLE_TONE = 'border-purple-500/25 bg-purple-500/5 text-purple-600 dark:text-purple-300'
 
 function MergedBadge(): React.JSX.Element {
   return (
@@ -39,7 +39,7 @@ function MergedBadge(): React.JSX.Element {
         'auto.components.sidebar.WorktreeCardMetadataStatusBadges.f394b3e86e',
         'State: Merged'
       )}
-      className={MERGED_TONE}
+      className={PURPLE_TONE}
     >
       <GitMerge />
     </MetadataStatusBadge>
@@ -58,7 +58,7 @@ export function IssueStateBadge({ state }: { state: IssueInfo['state'] }): React
           'auto.components.sidebar.WorktreeCardMetadataStatusBadges.e888362def',
           'State: Closed'
         )}
-        className={MERGED_TONE}
+        className={PURPLE_TONE}
       >
         <CircleCheck />
       </MetadataStatusBadge>
@@ -85,7 +85,7 @@ export function LinearStateBadge({ stateName }: { stateName: string }): React.JS
   const active = /progress|doing|started|active/.test(normalized)
   const Icon = done ? CircleCheck : cancelled ? CircleX : active ? Clock : CircleDot
   const tone = done
-    ? MERGED_TONE
+    ? PURPLE_TONE
     : cancelled
       ? 'border-rose-500/25 bg-rose-500/5 text-rose-600 dark:text-rose-300'
       : active
