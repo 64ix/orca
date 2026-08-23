@@ -270,61 +270,46 @@ describe('derivation flows through the fact-source seam (#38)', () => {
   })
 })
 
-describe('fact stages drive classic drawer exclusivity (#38)', () => {
-  function drawerProjection(
-    rows: (Worktree & { instanceId: string })[],
-    prCache: CacheInputs['prCache']
-  ) {
+describe('classic drawer exclusivity stays declared-only (#38)', () => {
+  // Spec 22 keeps the two-board model out of scope, so fact-derived stages
+  // must not hide rows from the classic drawer before a feature board exists.
+  function drawerProjection(rows: (Worktree & { instanceId: string })[]) {
     const repo = makeRepo()
-    const effectiveStage = (worktree: Worktree) =>
-      deriveEffectiveWorkflowStage(worktree, {
-        repo,
-        settings: SETTINGS,
-        prCache,
-        issueCache: {}
-      }).stage
     return [
-      ...computeClassicDrawerWorktreeIds(
-        { repo1: rows },
-        rows,
-        {
-          filterRepoIds: [],
-          showSleepingWorkspaces: true,
-          tabsByWorktree: {},
-          ptyIdsByTabId: {},
-          browserTabsByWorktree: {},
-          worktreeIdsWithLiveAgent: new Set(),
-          hideDefaultBranchWorkspace: false,
-          hideAutomationGeneratedWorkspaces: false,
-          hideCliCreatedWorkspaces: false,
-          hideDetachedHeadWorkspaces: false,
-          hideWorkspacesFromOtherDevices: false,
-          pairedDeviceIdsByEnvironment: new Map(),
-          workspaceHostScope: 'all',
-          repoMap: new Map([['repo1', repo]]),
-          defaultHostId: 'local' as const
-        },
-        effectiveStage
-      )
+      ...computeClassicDrawerWorktreeIds({ repo1: rows }, rows, {
+        filterRepoIds: [],
+        showSleepingWorkspaces: true,
+        tabsByWorktree: {},
+        ptyIdsByTabId: {},
+        browserTabsByWorktree: {},
+        worktreeIdsWithLiveAgent: new Set(),
+        hideDefaultBranchWorkspace: false,
+        hideAutomationGeneratedWorkspaces: false,
+        hideCliCreatedWorkspaces: false,
+        hideDetachedHeadWorkspaces: false,
+        hideWorkspacesFromOtherDevices: false,
+        pairedDeviceIdsByEnvironment: new Map(),
+        workspaceHostScope: 'all',
+        repoMap: new Map([['repo1', repo]]),
+        defaultHostId: 'local' as const
+      })
     ].map(getWorktreeIdFromHostIdentity)
   }
 
-  it('hides a fact-staged workspace from the classic drawer without any declared stage', () => {
+  it('keeps a fact-staged row on the drawer when nothing is declared', () => {
     const row = makeWorktree()
     const prCache = { [prCacheKey(makeRepo(), row)]: { data: openPR() } }
-    expect(drawerProjection([row], prCache)).toEqual([])
-    expect(drawerProjection([row], {})).toEqual([row.id])
+    expect(drawerProjection([row])).toEqual([row.id])
+    // The derived stage still moves even though the drawer ignores it.
+    expect(derive(row, { prCache }).stage).toBe('review')
   })
 
-  it('returns a de-shipped row to the drawer once its merge is consumed', () => {
-    const shipped = makeWorktree()
-    const merged: PRInfo = { ...openPR(), state: 'merged', headSha: shipped.head }
-    const prCache = { [prCacheKey(makeRepo(), shipped)]: { data: merged } }
-
-    expect(drawerProjection([shipped], prCache)).toEqual([])
-
+  it('keeps a shipped-but-consumed row on the drawer regardless of cached merges', () => {
     const deShipped = makeWorktree({ consumedMergedPRNumbers: [12] })
+    const merged: PRInfo = { ...openPR(), state: 'merged', headSha: deShipped.head }
+    const prCache = { [prCacheKey(makeRepo(), deShipped)]: { data: merged } }
 
-    expect(drawerProjection([deShipped], prCache)).toEqual([deShipped.id])
+    expect(drawerProjection([deShipped])).toEqual([deShipped.id])
+    expect(derive(deShipped, { prCache }).stage).toBeNull()
   })
 })
