@@ -5504,6 +5504,27 @@
               "d0f8943f8b": "Preparing the project add flow",
               "18d3cf40e9": "Checking folder"
             }
+          },
+          "usage": {
+            "gauge": {
+              "model": {
+                "1b108a5bec": "Setup",
+                "3374ef49e6": "Source control",
+                "3929879b06": "Notes",
+                "3e1ba4b217": "Agents",
+                "76f2239a41": "Terminal",
+                "9828c5f028": "Settings",
+                "9fb1d9c90a": "Tasks",
+                "b065464660": "Launcher",
+                "b10c6bf8ac": "Workspaces",
+                "dae3b8b389": "Collaboration",
+                "e5397cddd0": "Browser",
+                "ec47b0417f": "Resources",
+                "ee6c6b0b42": "Automations",
+                "ef2376808b": "Review",
+                "fd448ab1af": "Voice"
+              }
+            }
           }
         },
         "sleep": {
@@ -5953,6 +5974,9 @@
           "projectOnly": "Added in this project only.",
           "useGlobalFor": "Use global for {{value0}}",
           "useGlobal": "Use global"
+        },
+        "SidebarUsageGauge": {
+          "eff13eff75": "Feature usage"
         }
       },
       "shared": {
