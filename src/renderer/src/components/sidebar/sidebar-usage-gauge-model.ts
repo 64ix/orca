@@ -17,50 +17,51 @@ export type SidebarUsageGaugeRow = {
   shareOfMax: number
 }
 
-// Why: labels resolve at render time so language switches re-translate;
-// rows themselves stay translation-free and cache-safe.
+// Why: thunks keep every key a literal argument so i18n extraction still sees them.
+const SIDEBAR_USAGE_GAUGE_ROW_LABELS: Record<FeatureInteractionCategory, () => string> = {
+  workspace: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.b10c6bf8ac', 'Workspaces'),
+  agent: () => translate('auto.components.sidebar.sidebar.usage.gauge.model.3e1ba4b217', 'Agents'),
+  browser: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.e5397cddd0', 'Browser'),
+  launcher: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.b065464660', 'Launcher'),
+  task_management: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.9fb1d9c90a', 'Tasks'),
+  notes: () => translate('auto.components.sidebar.sidebar.usage.gauge.model.3929879b06', 'Notes'),
+  review: () => translate('auto.components.sidebar.sidebar.usage.gauge.model.ef2376808b', 'Review'),
+  setup: () => translate('auto.components.sidebar.sidebar.usage.gauge.model.1b108a5bec', 'Setup'),
+  settings: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.9828c5f028', 'Settings'),
+  automation: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.ee6c6b0b42', 'Automations'),
+  terminal: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.76f2239a41', 'Terminal'),
+  collaboration: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.dae3b8b389', 'Collaboration'),
+  resource_management: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.ec47b0417f', 'Resources'),
+  voice: () => translate('auto.components.sidebar.sidebar.usage.gauge.model.fd448ab1af', 'Voice'),
+  source_control: () =>
+    translate('auto.components.sidebar.sidebar.usage.gauge.model.3374ef49e6', 'Source control')
+}
+
+// Labels resolve at call time so language switches re-translate; rows stay translation-free.
 export function getSidebarUsageGaugeRowLabel(category: FeatureInteractionCategory): string {
-  switch (category) {
-    case 'workspace':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.b10c6bf8ac', 'Workspaces')
-    case 'agent':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.3e1ba4b217', 'Agents')
-    case 'browser':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.e5397cddd0', 'Browser')
-    case 'launcher':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.b065464660', 'Launcher')
-    case 'task_management':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.9fb1d9c90a', 'Tasks')
-    case 'notes':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.3929879b06', 'Notes')
-    case 'review':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.ef2376808b', 'Review')
-    case 'setup':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.1b108a5bec', 'Setup')
-    case 'settings':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.9828c5f028', 'Settings')
-    case 'automation':
-      return translate(
-        'auto.components.sidebar.sidebar.usage.gauge.model.ee6c6b0b42',
-        'Automations'
-      )
-    case 'terminal':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.76f2239a41', 'Terminal')
-    case 'collaboration':
-      return translate(
-        'auto.components.sidebar.sidebar.usage.gauge.model.dae3b8b389',
-        'Collaboration'
-      )
-    case 'resource_management':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.ec47b0417f', 'Resources')
-    case 'voice':
-      return translate('auto.components.sidebar.sidebar.usage.gauge.model.fd448ab1af', 'Voice')
-    case 'source_control':
-      return translate(
-        'auto.components.sidebar.sidebar.usage.gauge.model.3374ef49e6',
-        'Source control'
-      )
+  return SIDEBAR_USAGE_GAUGE_ROW_LABELS[category]()
+}
+
+/** Nonzero shares below this round next to their count as an invisible 0% sliver. */
+export const SIDEBAR_USAGE_GAUGE_MIN_BAR_WIDTH_PERCENT = 3
+
+// Why: outlier-heavy counts (e.g. 1 vs 300) would otherwise hide a nonzero row's bar.
+export function getSidebarUsageGaugeBarWidthPercent(shareOfMax: number): number {
+  const percent = Math.round(shareOfMax * 100)
+  if (percent > 0) {
+    return percent
   }
+  // Exactly-zero shares stay flat; only sub-rounding shares get lifted.
+  return shareOfMax > 0 ? SIDEBAR_USAGE_GAUGE_MIN_BAR_WIDTH_PERCENT : 0
 }
 
 /**
