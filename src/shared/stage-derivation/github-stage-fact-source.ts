@@ -13,18 +13,11 @@ import type { WorkflowStageFactSource, WorkflowStageFactSubject } from './stage-
  */
 
 /** Draft PRs are open work; unknown states carry no signal like any missing fact. */
-function pullRequestStateToFact(state: PRInfo['state']): WorkflowPullRequestFact['state'] | null {
-  switch (state) {
-    case 'open':
-    case 'draft':
-      return 'open'
-    case 'merged':
-      return 'merged'
-    case 'closed':
-      return 'closed'
-    default:
-      return null
-  }
+const PULL_REQUEST_STATE_TO_FACT: Record<PRInfo['state'], WorkflowPullRequestFact['state']> = {
+  open: 'open',
+  draft: 'open',
+  merged: 'merged',
+  closed: 'closed'
 }
 
 function parseActivityAt(updatedAt: string | undefined): number | undefined {
@@ -42,7 +35,7 @@ export function pullRequestFactFromInfo(
   if (!pr || typeof pr.number !== 'number' || !Number.isFinite(pr.number)) {
     return null
   }
-  const state = pullRequestStateToFact(pr.state)
+  const state = PULL_REQUEST_STATE_TO_FACT[pr.state]
   if (!state) {
     return null
   }

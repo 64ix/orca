@@ -55,8 +55,10 @@ describe('pullRequestFactFromInfo', () => {
   })
 
   it('drops an unparseable updatedAt instead of inventing an ordering key', () => {
-    expect(pullRequestFactFromInfo(makePR({ updatedAt: 'not-a-date' })).activityAt).toBeUndefined()
-    expect(pullRequestFactFromInfo(makePR({ updatedAt: undefined })).activityAt).toBeUndefined()
+    const unparseable = pullRequestFactFromInfo(makePR({ updatedAt: 'not-a-date' }))
+    const missing = pullRequestFactFromInfo(makePR({ updatedAt: undefined }))
+    expect(unparseable?.activityAt).toBeUndefined()
+    expect(missing?.activityAt).toBeUndefined()
   })
 
   it.each([null, undefined, { ...makePR(), number: Number.NaN }, { ...makePR(), state: 42 }])(

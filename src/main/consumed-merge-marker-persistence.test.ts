@@ -8,7 +8,7 @@ const testState = { dir: '' }
 
 const { trackMock, getCohortAtEmitMock } = vi.hoisted(() => ({
   trackMock: vi.fn(),
-  getCohortAtEmit: vi.fn()
+  getCohortAtEmitMock: vi.fn()
 }))
 
 vi.mock('electron', () => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { PRInfo } from '../../../../shared/github/pull-request-types'
+import type { IssueInfo, PRInfo } from '../../../../shared/github/pull-request-types'
 import type { Repo } from '../../../../shared/repo-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { toRuntimeExecutionHostId, toSshExecutionHostId } from '../../../../shared/execution-host'
@@ -66,7 +66,7 @@ function prCacheKey(repo: Repo, worktree: Worktree): string {
 type CacheInputs = {
   repo?: Repo | null
   prCache?: Record<string, { data: PRInfo | null } | undefined>
-  issueCache?: Record<string, { data: { state: 'open' | 'closed' } | null } | undefined>
+  issueCache?: Record<string, { data: IssueInfo | null } | undefined>
 }
 
 function derive(worktree: Worktree, inputs: CacheInputs = {}) {
