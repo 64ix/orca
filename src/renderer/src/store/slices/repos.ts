@@ -170,6 +170,7 @@ type FolderWorkspaceUpdates = Partial<
     | 'sortOrder'
     | 'manualOrder'
     | 'workspaceStatus'
+    | 'consumedMergedPRNumbers'
     | 'createdWithAgent'
     | 'pendingFirstAgentMessageRename'
     | 'firstAgentMessageRenameError'

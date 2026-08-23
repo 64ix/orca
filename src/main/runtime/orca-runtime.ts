@@ -20800,6 +20800,7 @@ export class OrcaRuntimeService {
         | 'firstAgentMessageRenameError'
         | 'lastActivityAt'
         | 'diffComments'
+        | 'consumedMergedPRNumbers'
       >
     >
   ): Promise<FolderWorkspace | null> {

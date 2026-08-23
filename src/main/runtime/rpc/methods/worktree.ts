@@ -158,6 +158,7 @@ export const WORKTREE_METHODS: RpcMethod[] = [
         baseRef: params.baseRef,
         workspaceStatus: params.workspaceStatus,
         workflowStage: params.workflowStage,
+        consumedMergedPRNumbers: params.consumedMergedPRNumbers,
         pushTarget: params.pushTarget,
         diffComments: params.diffComments,
         mobileDiffReview: params.mobileDiffReview,

@@ -241,6 +241,7 @@ import {
 } from '../worktree-removal-safety'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
 import { isWorkflowStage, normalizeWorkflowStage } from '../../shared/workflow-stages'
+import { normalizeConsumedMergedPRNumbers } from '../../shared/consumed-merge-markers'
 import {
   FOLDER_WORKSPACE_INSTANCE_SEPARATOR,
   getRepoIdFromWorktreeId,
@@ -3357,6 +3358,12 @@ export function registerWorktreeHandlers(
         !isWorkflowStage(validatedUpdates.workflowStage)
       ) {
         delete validatedUpdates.workflowStage
+      }
+      if (
+        'consumedMergedPRNumbers' in validatedUpdates &&
+        normalizeConsumedMergedPRNumbers(validatedUpdates.consumedMergedPRNumbers) === null
+      ) {
+        delete validatedUpdates.consumedMergedPRNumbers
       }
       const updates =
         validatedUpdates.displayName !== undefined
