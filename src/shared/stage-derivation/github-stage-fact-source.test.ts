@@ -125,6 +125,31 @@ describe('createGitHubStageFactSource', () => {
     expect(resolution.byWorktreeId['wt-root'].pullRequests?.[0].state).toBe('merged')
   })
 
+  it('answers the sync per-subject face from the same snapshots without awaiting', () => {
+    expect(source().factsForSubject({ worktreeId: 'wt-child', items: [] })).toMatchObject({
+      pullRequests: [{ id: '13', state: 'open' }]
+    })
+    expect(source().factsForSubject({ worktreeId: 'wt-unknown', items: [] })).toBeNull()
+  })
+
+  it('reads an async loader still in flight as no facts on the sync face', () => {
+    const remote = createGitHubStageFactSource(async (subject) => snapshots[subject.worktreeId])
+    expect(remote.factsForSubject({ worktreeId: 'wt-root', items: [] })).toBeNull()
+    void remote.loadTaskTreeFacts([{ worktreeId: 'wt-root', items: [] }])
+  })
+
+  it('feeds the engine unchanged through the sync face too', () => {
+    const read = source().factsForSubject
+    const stage = deriveWorkflowStage({
+      declaredStage: 'implementing',
+      facts: {
+        self: read({ worktreeId: 'wt-root', items: [] }) ?? {},
+        children: [{ self: read({ worktreeId: 'wt-child', items: [] }) ?? {} }]
+      }
+    })
+    expect(stage).toEqual({ stage: 'review', reason: 'open-pull-request', factId: '13' })
+  })
+
   it('feeds the engine unchanged: open child PR drives review over root merge', async () => {
     const resolution = await source().loadTaskTreeFacts([
       { worktreeId: 'wt-root', items: [] },

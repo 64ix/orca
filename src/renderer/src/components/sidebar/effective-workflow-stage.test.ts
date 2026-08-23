@@ -7,6 +7,7 @@ import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import { issueCacheKey as getIssueCacheKey } from '@/store/slices/github'
 import { computeClassicDrawerWorktreeIds } from './use-visible-workspace-kanban-worktree-ids'
 import { deriveEffectiveWorkflowStage } from './effective-workflow-stage'
+import { createGitHubStageFactSource } from '../../../../shared/stage-derivation/github-stage-fact-source'
 import { getWorktreeIdFromHostIdentity } from '../../../../shared/worktree/host-qualified-identity'
 
 /**
@@ -67,6 +68,7 @@ type CacheInputs = {
   repo?: Repo | null
   prCache?: Record<string, { data: PRInfo | null } | undefined>
   issueCache?: Record<string, { data: IssueInfo | null } | undefined>
+  factSource?: ReturnType<typeof createGitHubStageFactSource> | null
 }
 
 function derive(worktree: Worktree, inputs: CacheInputs = {}) {
@@ -74,7 +76,8 @@ function derive(worktree: Worktree, inputs: CacheInputs = {}) {
     repo: inputs.repo === undefined ? makeRepo() : inputs.repo,
     settings: SETTINGS,
     prCache: inputs.prCache,
-    issueCache: inputs.issueCache
+    issueCache: inputs.issueCache,
+    factSource: inputs.factSource
   })
 }
 
@@ -224,6 +227,46 @@ describe('deriveEffectiveWorkflowStage', () => {
     const before = JSON.stringify({ worktree, prCache })
     derive(worktree, { repo, prCache })
     expect(JSON.stringify({ worktree, prCache })).toBe(before)
+  })
+})
+
+describe('derivation flows through the fact-source seam (#38)', () => {
+  it('a custom source overrides what the caches would say', () => {
+    const worktree = makeWorktree({ workflowStage: 'implementing' })
+    const prCache = { [prCacheKey(makeRepo(), worktree)]: { data: openPR() } }
+    const mergedSource = createGitHubStageFactSource(() => ({
+      pullRequest: { ...openPR(), state: 'merged', headSha: worktree.head }
+    }))
+    expect(derive(worktree, { prCache })).toMatchObject({
+      stage: 'review',
+      reason: 'open-pull-request'
+    })
+    expect(derive(worktree, { prCache, factSource: mergedSource })).toMatchObject({
+      stage: 'shipped',
+      reason: 'merged-pull-request'
+    })
+  })
+
+  it('a source reporting nothing keeps the declared stage despite cached facts', () => {
+    const worktree = makeWorktree({ workflowStage: 'idea' })
+    const emptySource = createGitHubStageFactSource(() => null)
+    expect(
+      derive(worktree, {
+        prCache: { [prCacheKey(makeRepo(), worktree)]: { data: openPR() } },
+        factSource: emptySource
+      })
+    ).toEqual({ stage: 'idea', reason: 'declared-stage', factId: null })
+  })
+
+  it('an injected source sees the row as its requested subject', () => {
+    const worktree = makeWorktree()
+    let seenSubject: string | null = null
+    const probingSource = createGitHubStageFactSource((subject) => {
+      seenSubject = subject.worktreeId
+      return null
+    })
+    derive(worktree, { factSource: probingSource })
+    expect(seenSubject).toBe(worktree.id)
   })
 })
 

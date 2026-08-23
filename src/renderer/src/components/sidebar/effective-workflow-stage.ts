@@ -5,12 +5,15 @@ import { isFolderRepo } from '../../../../shared/repo-kind'
 import {
   deriveWorkflowStage,
   type DerivedWorkflowStage,
-  type WorkflowTaskTreeFacts
+  type WorkflowTaskTreeFacts,
+  type WorkflowWorktreeFacts
 } from '../../../../shared/stage-derivation/stage-derivation'
 import {
   consumedMergeIdsFromNumbers,
-  worktreeFactsFromGitHubSnapshot
+  createGitHubStageFactSource,
+  type GitHubStageFactSource
 } from '../../../../shared/stage-derivation/github-stage-fact-source'
+import type { WorkflowStageFactSubject } from '../../../../shared/stage-derivation/stage-fact-source'
 import type { Worktree } from '../../../../shared/worktree/types'
 import { parseWorkspaceKey } from '../../../../shared/workspace-scope'
 import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
@@ -26,6 +29,8 @@ type StageFactCaches = {
 export type EffectiveWorkflowStageInputs = StageFactCaches & {
   repo: Repo | null | undefined
   settings: Pick<GlobalSettings, 'activeRuntimeEnvironmentId'> | null | undefined
+  /** Overrides the default cache-backed source; injection point for alternate fact providers. */
+  factSource?: GitHubStageFactSource | null
 }
 
 /**
@@ -44,14 +49,27 @@ export function deriveEffectiveWorkflowStage(
     facts:
       workspaceKind === 'folder'
         ? null
-        : ({
-            self: worktreeFactsFromGitHubSnapshot({
-              pullRequest: knownPullRequestFor(worktree, inputs),
-              issue: linkedIssueFor(worktree, inputs)
-            })
-          } satisfies WorkflowTaskTreeFacts),
+        : ({ self: rowFactsFor(worktree, inputs) } satisfies WorkflowTaskTreeFacts),
     consumedMergeIds: consumedMergeIdsFromNumbers(worktree.consumedMergedPRNumbers)
   })
+}
+
+/**
+ * Facts reach derivation only through the neutral fact-source seam (#38). One
+ * row per call, so the default loader binds to it and ignores the subject.
+ */
+function rowFactsFor(
+  worktree: Worktree,
+  inputs: EffectiveWorkflowStageInputs
+): WorkflowWorktreeFacts {
+  const subject: WorkflowStageFactSubject = { worktreeId: worktree.id, items: [] }
+  const source =
+    inputs.factSource ??
+    createGitHubStageFactSource(() => ({
+      pullRequest: knownPullRequestFor(worktree, inputs),
+      issue: linkedIssueFor(worktree, inputs)
+    }))
+  return source.factsForSubject(subject) ?? {}
 }
 
 function isFolderWorkspaceRow(worktree: Worktree, repo: Repo | null | undefined): boolean {
