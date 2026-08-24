@@ -42,7 +42,12 @@ export type SyncRelayHandshakeResult =
   | SyncRelayTransportFailure
 
 export type SyncRelayPushResult =
-  | { ok: true; accepted: { table: string; rowId: string; version: number; serverSeq: number }[] }
+  | {
+      ok: true
+      accepted: { table: string; rowId: string; version: number; serverSeq: number }[]
+      // Rows the relay refused as stale; the LWW layer (#41) re-merges against storedVersion.
+      rejected: { table: string; rowId: string; version: number; storedVersion: number }[]
+    }
   | { ok: false; reason: 'oversized-row' | 'transport-error' | 'rejected'; status?: number }
 
 export type SyncRelayPullResult =
@@ -100,7 +105,7 @@ export class SyncRelayClient {
     if (!parsed.success) {
       return { ok: false, reason: 'rejected', status: response.status }
     }
-    return { ok: true, accepted: parsed.data.accepted }
+    return { ok: true, accepted: parsed.data.accepted, rejected: parsed.data.rejected }
   }
 
   async pull(sinceServerSeq: number, limit?: number): Promise<SyncRelayPullResult> {

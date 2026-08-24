@@ -1,7 +1,7 @@
 // Self-hosted Cloudflare Worker entry point. Dumb opaque-row storage only: it never
-// reads ciphertext, never validates row_version (that is ticket #41's job client-side),
-// and never builds pairing UI (that is ticket #42's job) — it only authenticates
-// devices already in sync_devices and rejects unknown/revoked ones.
+// reads ciphertext and never builds pairing UI (that is ticket #42's job). It compares
+// row_version solely to refuse writes that would move a row backwards; the merge policy
+// itself is ticket #41's, client-side. Devices must already exist in sync_devices.
 import {
   MAX_SYNC_RELAY_ROWS_PER_REQUEST,
   SYNC_RELAY_CAPABILITIES,
@@ -110,14 +110,14 @@ async function handlePush(
     return jsonResponse({ error: 'device-mismatch' }, 401)
   }
   const now = Date.now()
-  const accepted = await pushSyncRelayRows({
+  const { accepted, rejected } = await pushSyncRelayRows({
     db: env.SYNC_RELAY_DB,
     deviceId,
     rows: parsed.data.rows,
     now
   })
   await touchSyncRelayDeviceLastSeen(env.SYNC_RELAY_DB, deviceId, now)
-  return jsonResponse({ accepted })
+  return jsonResponse({ accepted, rejected })
 }
 
 async function handlePull(

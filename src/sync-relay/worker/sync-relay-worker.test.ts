@@ -66,7 +66,8 @@ describe('sync relay worker — device auth', () => {
       { deviceId: 'never-paired' }
     )
     expect(response.status).toBe(401)
-    expect((await response.json()) as { error: string }).toEqual({ error: 'unknown-device' })
+    // Opaque on purpose: an unauthenticated caller must not learn which device ids exist.
+    expect((await response.json()) as { error: string }).toEqual({ error: 'unauthenticated' })
   })
 
   it('rejects a revoked device', async () => {
@@ -190,5 +191,70 @@ describe('sync relay worker — capability negotiation', () => {
       clientCapabilities: ['rowBatchPull', 'someFutureCapabilityThisWorkerHasNeverHeardOf']
     })
     expect(response.status).toBe(200)
+  })
+})
+
+describe('sync relay worker — stale-write guard', () => {
+  it('refuses a push whose version does not supersede the stored row', async () => {
+    const { env } = await setup()
+    await post(env, 'v1/push', { deviceId: DEVICE_ID, rows: [pushRow({ version: 5 })] })
+
+    const stale = await post(env, 'v1/push', {
+      deviceId: DEVICE_ID,
+      rows: [pushRow({ version: 4, ciphertextB64: Buffer.from('stale').toString('base64') })]
+    })
+    const body = (await stale.json()) as {
+      accepted: unknown[]
+      rejected: { rowId: string; storedVersion: number }[]
+    }
+    expect(body.accepted).toEqual([])
+    expect(body.rejected).toEqual([
+      { table: 'worktreeMeta', rowId: 'row-1', version: 4, storedVersion: 5 }
+    ])
+  })
+
+  it('does not let a stale machine resurrect a tombstoned row', async () => {
+    const { env } = await setup()
+    await post(env, 'v1/push', { deviceId: DEVICE_ID, rows: [pushRow({ version: 1 })] })
+    await post(env, 'v1/push', {
+      deviceId: DEVICE_ID,
+      rows: [pushRow({ version: 2, tombstone: true })]
+    })
+
+    // The stale machine still believes the row is alive at its old revision.
+    await post(env, 'v1/push', { deviceId: DEVICE_ID, rows: [pushRow({ version: 1 })] })
+
+    const pull = await post(env, 'v1/pull', { deviceId: DEVICE_ID, sinceServerSeq: 0 })
+    const rows = ((await pull.json()) as { rows: { rowId: string; tombstone: boolean }[] }).rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.tombstone).toBe(true)
+  })
+
+  it('treats a replayed push at the same version as a no-op', async () => {
+    const { env } = await setup()
+    await post(env, 'v1/push', { deviceId: DEVICE_ID, rows: [pushRow({ version: 3 })] })
+    const replay = await post(env, 'v1/push', {
+      deviceId: DEVICE_ID,
+      rows: [pushRow({ version: 3 })]
+    })
+    const body = (await replay.json()) as { accepted: unknown[]; rejected: unknown[] }
+    expect(body.accepted).toEqual([])
+    expect(body.rejected).toHaveLength(1)
+  })
+
+  it('keeps a revoked device opaque until it proves possession of the secret', async () => {
+    const { db, env } = await setup()
+    await revokeSyncRelayDevice(db, DEVICE_ID)
+
+    const wrongSecret = await post(
+      env,
+      'v1/pull',
+      { deviceId: DEVICE_ID, sinceServerSeq: 0 },
+      { secret: new Uint8Array(32).fill(9) }
+    )
+    expect(wrongSecret.status).toBe(401)
+
+    const rightSecret = await post(env, 'v1/pull', { deviceId: DEVICE_ID, sinceServerSeq: 0 })
+    expect(rightSecret.status).toBe(403)
   })
 })

@@ -1,5 +1,8 @@
-// Dumb opaque-row storage over sync-relay-schema.sql. Never inspects ciphertext or
-// row_version; only ever bumps and reads the server_seq changefeed cursor.
+// Dumb opaque-row storage over sync-relay-schema.sql. Never inspects ciphertext, and
+// treats row_version as an opaque counter it only ever compares — a write is accepted
+// only when it strictly supersedes the stored revision, so a stale device cannot
+// clobber a newer row or resurrect a tombstone. Merge semantics stay client-side
+// (ticket #41); the relay just refuses to go backwards.
 import type { SyncRelayPushRow, SyncRelayStoredRow } from '../protocol/sync-relay-wire-protocol'
 import type { SyncRelayD1Database } from './sync-relay-d1-contract'
 
@@ -10,16 +13,27 @@ export type SyncRelayAcceptedRow = {
   serverSeq: number
 }
 
+/** A push the relay refused because the stored revision is newer or equal. */
+export type SyncRelayRejectedRow = {
+  table: string
+  rowId: string
+  version: number
+  storedVersion: number
+}
+
 export async function pushSyncRelayRows(args: {
   db: SyncRelayD1Database
   deviceId: string
   rows: readonly SyncRelayPushRow[]
   now: number
-}): Promise<SyncRelayAcceptedRow[]> {
+}): Promise<{ accepted: SyncRelayAcceptedRow[]; rejected: SyncRelayRejectedRow[] }> {
   const accepted: SyncRelayAcceptedRow[] = []
+  const rejected: SyncRelayRejectedRow[] = []
   for (const row of args.rows) {
     const serverSeq = await nextServerSeq(args.db)
-    await args.db
+    // The upsert's WHERE makes a stale or replayed push a no-op, and RETURNING then
+    // yields nothing — that empty result is how we tell accepted from refused.
+    const written = await args.db
       .prepare(
         `INSERT INTO sync_rows
            (table_name, row_id, row_version, server_seq, key_id, ciphertext_b64, tombstone, updated_at, device_id)
@@ -31,7 +45,9 @@ export async function pushSyncRelayRows(args: {
            ciphertext_b64 = excluded.ciphertext_b64,
            tombstone = excluded.tombstone,
            updated_at = excluded.updated_at,
-           device_id = excluded.device_id`
+           device_id = excluded.device_id
+         WHERE excluded.row_version > sync_rows.row_version
+         RETURNING server_seq`
       )
       .bind(
         row.table,
@@ -44,10 +60,31 @@ export async function pushSyncRelayRows(args: {
         args.now,
         args.deviceId
       )
-      .run()
-    accepted.push({ table: row.table, rowId: row.rowId, version: row.version, serverSeq })
+      .all<{ server_seq: number }>()
+    if (written.length > 0) {
+      accepted.push({ table: row.table, rowId: row.rowId, version: row.version, serverSeq })
+      continue
+    }
+    rejected.push({
+      table: row.table,
+      rowId: row.rowId,
+      version: row.version,
+      storedVersion: await storedRowVersion(args.db, row.table, row.rowId)
+    })
   }
-  return accepted
+  return { accepted, rejected }
+}
+
+async function storedRowVersion(
+  db: SyncRelayD1Database,
+  table: string,
+  rowId: string
+): Promise<number> {
+  const value = await db
+    .prepare('SELECT row_version FROM sync_rows WHERE table_name = ? AND row_id = ?')
+    .bind(table, rowId)
+    .first<number>('row_version')
+  return value ?? 0
 }
 
 export async function pullSyncRelayRows(args: {

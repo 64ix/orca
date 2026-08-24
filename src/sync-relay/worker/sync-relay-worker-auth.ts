@@ -18,19 +18,15 @@ export async function authenticateSyncRelayRequest(args: {
   if (!args.header) {
     return { ok: false, status: 401, reason: 'unauthenticated' }
   }
-  // Look up the device before verifying the signature so we can distinguish
-  // unknown-device (401) from revoked-device (403) for callers of the seam.
-  const deviceIdGuess = args.header.split('.')[0]
-  const device = deviceIdGuess ? await lookupSyncRelayDevice(args.db, deviceIdGuess) : null
-  if (!device) {
-    return { ok: false, status: 401, reason: 'unknown-device' }
-  }
-  if (device.status === 'revoked') {
-    return { ok: false, status: 403, reason: 'device-revoked' }
-  }
-  const secret = decodeBase64(device.secretB64)
-  if (!secret) {
-    return { ok: false, status: 500, reason: 'device-secret-corrupt' }
+  // The device id in the header is unauthenticated until the signature checks out, so
+  // every pre-signature failure answers with the same opaque 401: distinguishing
+  // "no such device" here would let anyone enumerate paired device ids. Only a caller
+  // that already proved possession of the secret learns it was revoked (403).
+  const claimedDeviceId = args.header.split('.')[0]
+  const device = claimedDeviceId ? await lookupSyncRelayDevice(args.db, claimedDeviceId) : null
+  const secret = device ? decodeBase64(device.secretB64) : null
+  if (!device || !secret) {
+    return { ok: false, status: 401, reason: 'unauthenticated' }
   }
   const bodyDigest = await sha256Digest(new TextEncoder().encode(args.bodyText))
   const verification = await verifySyncRelayRequestSignature({
@@ -40,6 +36,9 @@ export async function authenticateSyncRelayRequest(args: {
   })
   if (!verification.ok) {
     return { ok: false, status: 401, reason: verification.reason }
+  }
+  if (device.status === 'revoked') {
+    return { ok: false, status: 403, reason: 'device-revoked' }
   }
   return { ok: true, deviceId: verification.deviceId }
 }

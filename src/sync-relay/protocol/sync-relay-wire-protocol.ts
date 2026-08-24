@@ -78,8 +78,18 @@ const SyncRelayAcceptedRowSchema = z.object({
   serverSeq: z.number().int().positive()
 })
 
+const SyncRelayRejectedRowSchema = z.object({
+  table: z.string(),
+  rowId: z.string(),
+  version: z.number().int().nonnegative(),
+  // What the relay holds instead; the client re-merges against this rather than retrying blind.
+  storedVersion: z.number().int().nonnegative()
+})
+
 export const SyncRelayPushResponseSchema = z.object({
-  accepted: z.array(SyncRelayAcceptedRowSchema)
+  accepted: z.array(SyncRelayAcceptedRowSchema),
+  // Defaulted, not required: a relay predating the version guard omits it (Rule 1).
+  rejected: z.array(SyncRelayRejectedRowSchema).default([])
 })
 export type SyncRelayPushResponse = z.infer<typeof SyncRelayPushResponseSchema>
 

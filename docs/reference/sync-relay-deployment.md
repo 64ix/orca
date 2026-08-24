@@ -18,8 +18,12 @@ It is **not**:
 
 - a pairing UI (ticket #42 owns pairing; the relay only authenticates devices
   already present in its `sync_devices` table — see "Registering a device" below);
-- a merge/conflict-resolution engine (ticket #41 owns last-write-wins ordering;
-  the relay's `row_version` column is opaque to it, never compared or validated);
+- a merge/conflict-resolution engine (ticket #41 owns last-write-wins ordering).
+  The relay never interprets `row_version` — it only compares it, accepting a push
+  solely when it strictly supersedes the stored revision. That stale-write guard is
+  what stops a lagging machine from clobbering a newer row or resurrecting a
+  tombstone; refused rows come back in the push response's `rejected` array with the
+  `storedVersion` the client should merge against;
 - connected to Orca Cloud identity in any way.
 
 ## D1 schema
@@ -35,7 +39,8 @@ npx wrangler d1 execute orca-sync-relay --remote \
 Three tables:
 
 - `sync_rows` — one row per `(table_name, row_id)`. `row_version` is the
-  caller-declared, opaque revision bound into that row's crypto AAD; `server_seq`
+  caller-declared revision bound into that row's crypto AAD, opaque in meaning but
+  compared by the stale-write guard above; `server_seq`
   is a separate, relay-assigned monotonic counter used only as the `pull`
   cursor (an insert-order changefeed position, not a per-row revision).
   `tombstone` marks a logical delete and is carried like any other row.
