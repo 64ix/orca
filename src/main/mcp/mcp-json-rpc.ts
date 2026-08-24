@@ -10,7 +10,6 @@ export const JSON_RPC_INTERNAL_ERROR = -32603
 // Why: server-defined range (-32000..-32099) for Orca-specific failures so
 // generic clients still render them as ordinary JSON-RPC errors.
 export const MCP_SESSION_NOT_FOUND = -32001
-export const MCP_WORKSPACE_NOT_BOUND = -32002
 
 export type JsonRpcId = string | number
 

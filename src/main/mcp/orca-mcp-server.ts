@@ -7,6 +7,7 @@ import {
   JSON_RPC_INVALID_PARAMS,
   JSON_RPC_METHOD_NOT_FOUND,
   MCP_SESSION_NOT_FOUND,
+  isNotification,
   jsonRpcError,
   jsonRpcResult,
   type JsonRpcId,
@@ -88,7 +89,7 @@ export class OrcaMcpServer {
     request: McpJsonRpcRequest,
     context: { sessionId: string | null }
   ): Promise<McpJsonRpcReply> {
-    if (request.id === undefined) {
+    if (isNotification(request)) {
       // Why: notifications (initialized, cancelled…) carry no reply; accept-and-drop.
       return { kind: 'notification' }
     }
