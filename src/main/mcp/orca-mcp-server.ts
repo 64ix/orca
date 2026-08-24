@@ -107,11 +107,7 @@ export class OrcaMcpServer {
     }
   }
 
-  /**
-   * Auto-approved + discoverable-on-intent: the tool manifest ships with
-   * initialize itself (no approval flow), and an optional workspace selector
-   * binds the session so later tool calls never re-specify the target.
-   */
+  /** Auto-approved: ships the manifest with initialize and binds the optional workspace selector. */
   private initialize(id: JsonRpcId, params: Record<string, unknown>): McpJsonRpcReply {
     const requestedWorkspace = params['workspace']
     if (

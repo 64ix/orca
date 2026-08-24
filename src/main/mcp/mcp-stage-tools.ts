@@ -72,7 +72,7 @@ export function listMcpStageTools(): McpToolManifestEntry[] {
       description:
         'Link an issue number to your bound Orca workspace (pass issue:null to unlink). Git ' +
         'worktrees take just the number; folder workspaces also need title and url because they ' +
-        'store the full provider item.',
+        'store the full provider item (github.com, gitlab.com, *.atlassian.net or linear.app URLs).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -167,21 +167,21 @@ async function linkIssue(
   if (!Object.hasOwn(args, 'issue') || (issue !== null && !isFiniteNumber(issue))) {
     return errorReply('Missing "issue": pass an issue number, or null to unlink.')
   }
+  const linkedIssue = typeof issue === 'number' ? issue : null
   if (workspace.kind === 'folder' && typeof issue === 'number') {
-    const linkedTask = folderLinkedTask(issue, args['title'], args['url'])
-    if (!linkedTask) {
+    const outcome = buildFolderLinkedTask(issue, args['title'], args['url'])
+    if (!outcome.ok) {
       return errorReply(
-        'Folder workspaces store provider items: pass non-empty "title" and "url" alongside "issue".'
+        outcome.reason === 'missing-fields'
+          ? 'Folder workspaces store provider items: pass non-empty "title" and "url" alongside "issue".'
+          : 'Unrecognized issue URL host: folder workspaces accept github.com, gitlab.com, *.atlassian.net (Jira) or linear.app issue URLs.'
       )
     }
-    await runtime.updateFolderWorkspace(workspace.folderWorkspaceId, { linkedTask })
+    await runtime.updateFolderWorkspace(workspace.folderWorkspaceId, { linkedTask: outcome.item })
     return okReply({ workspace: describeWorkspace(workspace), linkedIssue: issue })
   }
-  await writeMeta(runtime, workspace, { linkedIssue: typeof issue === 'number' ? issue : null })
-  return okReply({
-    workspace: describeWorkspace(workspace),
-    linkedIssue: typeof issue === 'number' ? issue : null
-  })
+  await writeMeta(runtime, workspace, { linkedIssue })
+  return okReply({ workspace: describeWorkspace(workspace), linkedIssue })
 }
 
 async function readBoard(
@@ -265,18 +265,56 @@ function resolveBoundWorkspace(binding: McpSessionBinding): BoundWorkspace | nul
   return { kind: 'git', selector }
 }
 
-function folderLinkedTask(
+type FolderLinkedTaskOutcome =
+  | { ok: true; item: WorkspaceLinkedItem }
+  | { ok: false; reason: 'missing-fields' | 'unrecognized-host' }
+
+// Why: the provider is stored on the item, so the URL host must decide it; anything unrecognized fails closed.
+function buildFolderLinkedTask(
   number: number,
   title: unknown,
-  url: unknown
-): WorkspaceLinkedItem | null {
+  rawUrl: unknown
+): FolderLinkedTaskOutcome {
   if (typeof title !== 'string' || title.trim().length === 0) {
+    return { ok: false, reason: 'missing-fields' }
+  }
+  if (typeof rawUrl !== 'string' || rawUrl.trim().length === 0) {
+    return { ok: false, reason: 'missing-fields' }
+  }
+  const url = rawUrl.trim()
+  const provider = providerFromIssueHost(url)
+  if (!provider) {
+    return { ok: false, reason: 'unrecognized-host' }
+  }
+  return { ok: true, item: { provider, type: 'issue', number, title: title.trim(), url } }
+}
+
+/** Only hosts a stored item can honestly name; self-hosted gitea/ghes/bitbucket stay unguessable. */
+function providerFromIssueHost(url: string): WorkspaceLinkedItem['provider'] | null {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
     return null
   }
-  if (typeof url !== 'string' || url.trim().length === 0) {
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
     return null
   }
-  return { provider: 'github', type: 'issue', number, title: title.trim(), url: url.trim() }
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, '')
+  if (host === 'github.com') {
+    return 'github'
+  }
+  if (host === 'gitlab.com') {
+    return 'gitlab'
+  }
+  // Jira Cloud sites are always *.atlassian.net; Linear issues always live on linear.app.
+  if (host.endsWith('.atlassian.net')) {
+    return 'jira'
+  }
+  if (host === 'linear.app') {
+    return 'linear'
+  }
+  return null
 }
 
 function describeWorkspace(workspace: BoundWorkspace): string {

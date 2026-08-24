@@ -15,6 +15,8 @@ export const STAGE_AUTHORITY_REFUSED_CODE = 'stage_authority_refused'
 export const SHIPPED_STAGE_STEERING_MESSAGE =
   'shipped is set by a merged PR or by you in the board UI.'
 
+/** All RPC callers count as 'agent'; desktop UI writes via direct IPC bypass this guard, and
+ *  remote/mobile human surfaces stay fail-closed until the board specs land. */
 export type StageWriteCallerKind = 'agent' | 'human'
 
 export type StageWriteAuthorityInput = {
@@ -84,7 +86,12 @@ export function decideStageWrite(input: StageWriteAuthorityInput): StageWriteDec
     allowed: true,
     requestedStage,
     effectiveStage: derived.stage,
-    explanation: explainDerived(input.requestedStage === undefined, requestedStage, derived)
+    explanation: explainDerived(
+      input.requestedStage === undefined,
+      requestedStage,
+      derived,
+      input.facts != null
+    )
   }
 }
 
@@ -100,7 +107,8 @@ export function assertStageWriteAllowed(input: StageWriteAuthorityInput): Accept
 function explainDerived(
   noChangeRequested: boolean,
   requestedStage: WorkflowStage | null,
-  derived: DerivedWorkflowStage
+  derived: DerivedWorkflowStage,
+  factsSupplied: boolean
 ): string {
   // Why: describe what the caller declared, not the fact-derived effective value.
   const change = noChangeRequested
@@ -108,6 +116,10 @@ function explainDerived(
     : requestedStage === null
       ? 'cleared stage'
       : `declared ${requestedStage}`
+  if (!factsSupplied) {
+    // Enforcement sites pass no facts; never imply derivation ran on real data.
+    return `${change} (no provider facts consulted)`
+  }
   return `${change}; ${explainReason(derived)}`
 }
 

@@ -1,8 +1,6 @@
-// Why: workspace-scoped session identity — an MCP client binds a workspace
-// selector once at initialize and every later tool call targets it, so agents
-// never re-specify (or mis-target) a workspace per call. In-memory only: a
-// server restart invalidates sessions by design (per-launch token pairs with
-// per-launch session state).
+// Why: an MCP client binds a workspace selector once at initialize and every later tool call
+// targets it; sessions are in-memory by design so a restart invalidates them with their
+// per-launch token.
 import { randomBytes } from 'node:crypto'
 
 export type McpSession = {
@@ -59,10 +57,6 @@ export class McpSessionRegistry {
     }
     session.lastSeenAt = this.now()
     return session
-  }
-
-  size(): number {
-    return this.sessions.size
   }
 
   private sweepExpired(): void {
