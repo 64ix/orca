@@ -4,16 +4,17 @@ import { useTerminalFontZoom } from './useTerminalFontZoom'
 import { useTerminalKeyboardShortcuts } from './keyboard-handlers'
 import { useTerminalFocusOwnershipSync } from './use-terminal-focus-ownership-sync'
 import { useTerminalPasteDispatch } from './use-terminal-paste-dispatch'
+import type { TerminalPaneProps } from './terminal-pane-props'
 import type { TerminalPaneCoreScope } from './use-terminal-pane-scope'
 import type { TerminalPaneRuntimeState } from './use-terminal-pane-runtime-state'
 
 /** User-input surfaces of a terminal pane: font zoom, keyboard shortcuts, focus
  * ownership, and paste dispatch. */
 export function useTerminalPaneInputEffects(
-  props: { tabId: string; worktreeId: string; cwd?: string; isActive: boolean },
+  props: Pick<TerminalPaneProps, 'tabId' | 'worktreeId' | 'cwd' | 'isActive'>,
   s: TerminalPaneCoreScope,
   rt: TerminalPaneRuntimeState,
-  handlers: { onRequestClosePane: (paneId: number) => void }
+  onRequestClosePane: (paneId: number) => void
 ) {
   const { tabId, worktreeId, cwd, isActive } = props
   const {
@@ -68,7 +69,7 @@ export function useTerminalPaneInputEffects(
     toggleExpandPane,
     setSearchOpen,
     onSearchSelectedText: handleSearchSelectedText,
-    onRequestClosePane: handlers.onRequestClosePane,
+    onRequestClosePane,
     onClearPaneScrollback: clearPaneScrollback,
     onSetTitle: handleStartRename,
     onClearPaneTitle: handleClearPaneTitleShortcut,

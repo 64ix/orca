@@ -14,13 +14,13 @@ import { TerminalPaneView } from './TerminalPaneView'
  * rendering in TerminalPaneView.
  */
 function TerminalPane(props: TerminalPaneProps, ref: React.ForwardedRef<TerminalPaneHandle>) {
-  const core = useTerminalPaneScope(props)
-  const rt = useTerminalPaneRuntimeState(props, core)
-  const s = { ...core, ...rt }
-  const e = useTerminalPaneCloseEffects({ ...props, ref }, s, rt)
-  const a = useTerminalPaneSurfaceActions(props, s, rt, e)
+  const scope = useTerminalPaneScope(props)
+  const runtime = useTerminalPaneRuntimeState(props, scope)
+  const combined = { ...scope, ...runtime }
+  const effects = useTerminalPaneCloseEffects({ ...props, ref }, combined, runtime)
+  const actions = useTerminalPaneSurfaceActions(props, combined, runtime, effects)
 
-  return <TerminalPaneView props={props} s={s} a={a} />
+  return <TerminalPaneView props={props} s={combined} a={actions} />
 }
 
 export default forwardRef(TerminalPane)

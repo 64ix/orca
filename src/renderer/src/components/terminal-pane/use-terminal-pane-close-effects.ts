@@ -242,9 +242,7 @@ export function useTerminalPaneCloseEffects(
     syncPanePtyLayoutBinding,
     clearExitedPanePtyLayoutBinding
   })
-  useTerminalPaneInputEffects({ tabId, worktreeId, cwd, isActive }, s, rt, {
-    onRequestClosePane: handleRequestClosePane
-  })
+  useTerminalPaneInputEffects({ tabId, worktreeId, cwd, isActive }, s, rt, handleRequestClosePane)
   useTerminalPaneGlobalEffects({
     tabId,
     // Why: use the pane's own worktreeId prop, not global activeWorktreeId, so terminal-drop routes to this PTY's worktree without racing worktree switches.
