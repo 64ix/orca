@@ -9,18 +9,14 @@ import { useFeatureBoardEffectiveStages } from './use-feature-board-effective-st
 import { useFeatureBoardAwaitingInputWorktreeIds } from './use-feature-board-awaiting-input'
 
 /**
- * Assembles the board's seven columns for the selected project(s): scopes worktrees, derives
- * effective stage and awaiting-input state, builds cards (#5 lineage children included), then
- * runs them through the pure `buildFeatureBoardColumns` seam (order stability, stale-id
- * filtering, elevation). No drag is wired yet (#47), so `frozenColumnOrder` always stays unset.
+ * Scopes worktrees to the selected project(s), derives effective stage and awaiting-input
+ * state, and builds the flat card list (#5 lineage children included) — the pre-grouping
+ * shape both `useFeatureBoardColumns` and #50's search/filter matchers need (a matcher has
+ * to see every card's worktree/PR/agent-state data before column grouping narrows it down).
  */
-export function useFeatureBoardColumns(
-  selectedRepoIds: ReadonlySet<string>,
-  selectedProjectKeys: readonly string[]
-): Map<WorkflowStage, FeatureBoardCard[]> {
+export function useFeatureBoardCards(selectedRepoIds: ReadonlySet<string>): FeatureBoardCard[] {
   const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
   const worktreeLineageById = useAppStore((s) => s.worktreeLineageById)
-  const featureBoardColumnOrder = useAppStore((s) => s.featureBoardColumnOrder)
 
   const allWorktrees = useMemo(() => Object.values(worktreesByRepo).flat(), [worktreesByRepo])
   const scopedWorktrees = useMemo(
@@ -36,7 +32,7 @@ export function useFeatureBoardColumns(
   )
   const awaitingInputWorktreeIds = useFeatureBoardAwaitingInputWorktreeIds(stagedWorktreeIds)
 
-  const cards = useMemo(
+  return useMemo(
     () =>
       buildFeatureBoardCards({
         worktrees: scopedWorktrees,
@@ -46,11 +42,29 @@ export function useFeatureBoardColumns(
       }),
     [scopedWorktrees, worktreeLineageById, effectiveStageByWorktreeId, awaitingInputWorktreeIds]
   )
+}
+
+/**
+ * Assembles the board's seven columns for the selected project(s): runs `useFeatureBoardCards`
+ * through the pure `buildFeatureBoardColumns` seam (order stability, stale-id filtering,
+ * elevation). No drag is wired yet (#47), so `frozenColumnOrder` always stays unset.
+ * `visibleCardIds` is #50's search/filter seam — `null`/absent renders every scoped card.
+ */
+export function useFeatureBoardColumns(
+  selectedRepoIds: ReadonlySet<string>,
+  selectedProjectKeys: readonly string[],
+  visibleCardIds?: ReadonlySet<string> | null
+): Map<WorkflowStage, FeatureBoardCard[]> {
+  const featureBoardColumnOrder = useAppStore((s) => s.featureBoardColumnOrder)
+  const cards = useFeatureBoardCards(selectedRepoIds)
 
   const columnOrder = useMemo(
     () => getFeatureBoardColumnOrderForProjects(featureBoardColumnOrder, selectedProjectKeys),
     [featureBoardColumnOrder, selectedProjectKeys]
   )
 
-  return useMemo(() => buildFeatureBoardColumns({ cards, columnOrder }), [cards, columnOrder])
+  return useMemo(
+    () => buildFeatureBoardColumns({ cards, columnOrder, visibleCardIds }),
+    [cards, columnOrder, visibleCardIds]
+  )
 }

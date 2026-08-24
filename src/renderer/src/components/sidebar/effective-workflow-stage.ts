@@ -81,8 +81,12 @@ function isFolderWorkspaceRow(worktree: Worktree, repo: Repo | null | undefined)
  * repos all land in the same renderer cache under their own key prefix.
  * A merged entry whose head does not match this worktree is a stale fact from a
  * reused branch and carries no signal until its divergence clear lands.
+ *
+ * Exported so other card-level consumers (the feature board's PR-state filter,
+ * #50) can read the same effective PR without re-deriving the merged-staleness
+ * rule themselves.
  */
-function knownPullRequestFor(
+export function knownPullRequestFor(
   worktree: Worktree,
   { repo, settings, prCache }: EffectiveWorkflowStageInputs
 ): PRInfo | null {
