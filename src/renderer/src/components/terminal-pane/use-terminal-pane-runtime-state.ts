@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useExpandCollapseActions } from './expand-collapse'
 import type { MacOptionAsAlt } from './terminal-shortcut-policy'
 import { useEffectiveMacOptionAsAlt } from '@/lib/keyboard-layout/use-effective-mac-option-as-alt'
@@ -68,7 +68,9 @@ export function useTerminalPaneRuntimeState(props: TerminalPaneProps, s: Termina
   }, [isVisible, shouldMeasureHiddenStartup, setTerminalError, setShouldMeasureHiddenStartup])
 
   const settingsRef = useRef(s.settings)
-  settingsRef.current = s.settings
+  useEffect(() => {
+    settingsRef.current = s.settings
+  }, [s.settings])
 
   const requestOpenLinksInAppPreference = useOpenLinksInAppPreference({
     settingsRef,
@@ -77,9 +79,13 @@ export function useTerminalPaneRuntimeState(props: TerminalPaneProps, s: Termina
   // Why: 'auto' resolves to true/false by keyboard layout (US → alt); the ref tracks that effective value, not the raw setting.
   const effectiveMacOptionAsAlt = useEffectiveMacOptionAsAlt(s.settings?.terminalMacOptionAsAlt)
   const macOptionAsAltRef = useRef<MacOptionAsAlt>(effectiveMacOptionAsAlt)
-  macOptionAsAltRef.current = effectiveMacOptionAsAlt
+  useEffect(() => {
+    macOptionAsAltRef.current = effectiveMacOptionAsAlt
+  }, [effectiveMacOptionAsAlt])
   const onPtyExitRef = useRef(onPtyExit)
-  onPtyExitRef.current = onPtyExit
+  useEffect(() => {
+    onPtyExitRef.current = onPtyExit
+  }, [onPtyExit])
 
   const systemPrefersDark = useSystemPrefersDark()
   const dispatchNotification = useNotificationDispatch(worktreeId)

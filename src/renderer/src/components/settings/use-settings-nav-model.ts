@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
+import type { MutableRefObject } from 'react'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import type { Repo } from '../../../../shared/repo-types'
 import {
@@ -25,7 +25,7 @@ import {
   rankSettingsSearchItems,
   type SettingsSearchEntry
 } from './settings-search'
-import { deriveNeededSectionIds } from './settings-load-performance'
+import { deriveNeededSectionIds, getInitialMountedSectionIds } from './settings-load-performance'
 import { getSettingsNavGroupDefinitionsForSearch } from './settings-nav-group-definitions'
 import {
   getAgentSkillNavInstallStatus,
@@ -40,8 +40,6 @@ type UseSettingsNavModelParams = {
   repos: readonly Repo[]
   activeSectionId: string
   settingsSearchQuery: string
-  mountedSectionIds: Set<string>
-  setMountedSectionIds: Dispatch<SetStateAction<Set<string>>>
   pendingNavSectionRef: MutableRefObject<string | null>
   hasUnsavedSourceControlAiPromptChanges: boolean
 }
@@ -55,11 +53,12 @@ export function useSettingsNavModel({
   repos,
   activeSectionId,
   settingsSearchQuery,
-  mountedSectionIds,
-  setMountedSectionIds,
   pendingNavSectionRef,
   hasUnsavedSourceControlAiPromptChanges
 }: UseSettingsNavModelParams) {
+  const [mountedSectionIds, setMountedSectionIds] = useState<Set<string>>(
+    getInitialMountedSectionIds
+  )
   const isWebClient = isWebClientLocation()
   const showDesktopOnlySettings = !isWebClient
   // Why: mirror the nav registry's gate so the Linear sidebar entry and section appear/disappear together.

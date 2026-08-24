@@ -15,7 +15,7 @@ import {
   getSettingsProjectHostRepo,
   removeSettingsProjectFromAllHosts
 } from './settings-project-list'
-import { getInitialMountedSectionIds } from './settings-load-performance'
+import { useSettingsNavModel } from './use-settings-nav-model'
 import { isWebClientLocation } from '@/hooks/useSettingsNavigationMetadata'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
@@ -24,7 +24,6 @@ import { useSourceControlAiPromptGuard } from './use-source-control-ai-prompt-gu
 import { useSettingsDeepLinkNavigation } from './use-settings-deep-link-navigation'
 import { useSettingsEscapeClose } from './use-settings-escape-close'
 import { useRepoHooksInspection } from './use-repo-hooks-inspection'
-import { useSettingsNavModel } from './use-settings-nav-model'
 import { useSettingsRuntimeCapabilityGates } from './use-settings-runtime-capability-gates'
 import { useSettingsSearchShortcut } from './use-settings-search-shortcut'
 import { useTerminalFontSuggestions } from './use-terminal-font-suggestions'
@@ -84,9 +83,6 @@ function Settings(): React.JSX.Element {
   const { fontSuggestions, terminalFontSuggestions, requestFontSuggestions } =
     useTerminalFontSuggestions()
   const [activeSectionId, setActiveSectionId] = useState('general')
-  const [mountedSectionIds, setMountedSectionIds] = useState<Set<string>>(
-    getInitialMountedSectionIds
-  )
   // Why: session-only (deliberately not persisted) unlock — Shift-click the Experimental entry reveals the hidden group.
   const [hiddenExperimentalUnlocked, setHiddenExperimentalUnlocked] = useState(false)
   const [scrollbackMode, setScrollbackMode] = useState<'preset' | 'custom'>('preset')
@@ -159,8 +155,6 @@ function Settings(): React.JSX.Element {
     repos,
     activeSectionId,
     settingsSearchQuery,
-    mountedSectionIds,
-    setMountedSectionIds,
     pendingNavSectionRef,
     hasUnsavedSourceControlAiPromptChanges
   })

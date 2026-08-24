@@ -16,6 +16,7 @@ import { useTerminalLinkActionState } from './use-terminal-link-action-state'
 import { useSessionRestoredBanners } from './use-session-restored-banners'
 import { useTerminalQuickCommandEditor } from './use-terminal-quick-command-editor'
 import { useTerminalPaneTabStoreState } from './use-terminal-pane-tab-store-state'
+import { useTerminalPaneStoreSelections } from './use-terminal-pane-store-selections'
 
 import type { TerminalPaneProps } from './terminal-pane-props'
 
@@ -58,10 +59,14 @@ export function useTerminalPaneScope(props: TerminalPaneProps) {
   // Why: panes replaying recorded PTY bytes; while non-zero, pty-connection drops xterm onData so auto-replies don't leak to the shell. See replay-guard.ts.
   const replayingPanesRef = useRef<Map<number, number>>(new Map())
   const isActiveRef = useRef(isActive)
-  isActiveRef.current = isActive
+  useEffect(() => {
+    isActiveRef.current = isActive
+  }, [isActive])
   const isRendererVisible = isVisible && isWorktreeActive
   const isVisibleRef = useRef(isRendererVisible)
-  isVisibleRef.current = isRendererVisible
+  useEffect(() => {
+    isVisibleRef.current = isRendererVisible
+  }, [isRendererVisible])
   const {
     nativeChatTranscriptIsLocalReadable,
     sshReconnectEnvironmentId,
@@ -95,7 +100,9 @@ export function useTerminalPaneScope(props: TerminalPaneProps) {
     useTerminalLinkActionState({ isActive, isRendererVisible, paneLayoutRevision })
   const [searchOpen, setSearchOpen] = useState(false)
   const searchOpenRef = useRef(false)
-  searchOpenRef.current = searchOpen
+  useEffect(() => {
+    searchOpenRef.current = searchOpen
+  }, [searchOpen])
   const searchStateRef = useRef<SearchState>({ query: '', caseSensitive: false, regex: false })
   const [agentSessionFork, setAgentSessionFork] = useState<PreparedAgentSessionFork | null>(null)
   const [agentSessionContinuation, setAgentSessionContinuation] =
@@ -105,7 +112,10 @@ export function useTerminalPaneScope(props: TerminalPaneProps) {
   // Pane title state keyed by ephemeral paneId, persisted via titlesByLeafId; ref keeps persistLayoutSnapshot closures fresh.
   const [paneTitles, setPaneTitles] = useState<Record<number, string>>({})
   const paneTitlesRef = useRef<Record<number, string>>({})
-  paneTitlesRef.current = paneTitles
+  useEffect(() => {
+    // Why: ref keeps persistLayoutSnapshot closures fresh without re-registering them.
+    paneTitlesRef.current = paneTitles
+  }, [paneTitles])
   const {
     chatLeafId,
     onAgentExitedRef,
@@ -135,26 +145,11 @@ export function useTerminalPaneScope(props: TerminalPaneProps) {
     tabAgentTypeByLeaf,
     nativeChatTranscriptIsLocalReadable
   })
-  const setTabLayout = useAppStore((store) => store.setTabLayout)
   // Why: '' and undefined both mean "no leaves" to the DOM attribute consumer.
   const expectedLayoutLeafIdsAttr = expectedLayoutLeafIds.join(' ') || undefined
   const initialLayoutRef = useRef(restoredLayout)
-  const updateTabTitle = useAppStore((store) => store.updateTabTitle)
-  const setRuntimePaneTitle = useAppStore((store) => store.setRuntimePaneTitle)
-  const clearRuntimePaneTitle = useAppStore((store) => store.clearRuntimePaneTitle)
-  const updateTabPtyId = useAppStore((store) => store.updateTabPtyId)
-  const clearTabPtyId = useAppStore((store) => store.clearTabPtyId)
-  const markWorktreeUnread = useAppStore((store) => store.markWorktreeUnread)
-  const markTerminalTabUnread = useAppStore((store) => store.markTerminalTabUnread)
-  const markTerminalPaneUnread = useAppStore((store) => store.markTerminalPaneUnread)
-  const clearWorktreeUnread = useAppStore((store) => store.clearWorktreeUnread)
-  const clearTerminalTabUnread = useAppStore((store) => store.clearTerminalTabUnread)
-  const clearTerminalPaneUnread = useAppStore((store) => store.clearTerminalPaneUnread)
-  const openSpacePage = useAppStore((store) => store.openSpacePage)
-  const refreshWorkspaceSpace = useAppStore((store) => store.refreshWorkspaceSpace)
-  const settings = useAppStore((store) => store.settings)
-  const updateSettings = useAppStore((store) => store.updateSettings)
-  const keybindings = useAppStore((store) => store.keybindings)
+  const storeSelections = useTerminalPaneStoreSelections()
+  const { settings } = storeSelections
   const rightClickToPaste = settings?.terminalRightClickToPaste ?? isWindowsUserAgent()
   // Why: Windows ConPTY doesn't forward DECSET 2004 from TUIs, so xterm may not know multi-line paste needs bracketed protection.
   const forceBracketedMultilineTextPaste = isWindowsUserAgent()
@@ -199,6 +194,7 @@ export function useTerminalPaneScope(props: TerminalPaneProps) {
   }, [issueCommandSplit, tabId, consumeTabIssueCommandSplit])
 
   return {
+    ...storeSelections,
     // refs
     containerRef,
     managerRef,
@@ -263,23 +259,6 @@ export function useTerminalPaneScope(props: TerminalPaneProps) {
     expectedLayoutLeafIds,
     expectedLayoutLeafIdsAttr,
     initialLayoutRef,
-    setTabLayout,
-    updateTabTitle,
-    setRuntimePaneTitle,
-    clearRuntimePaneTitle,
-    updateTabPtyId,
-    clearTabPtyId,
-    markWorktreeUnread,
-    markTerminalTabUnread,
-    markTerminalPaneUnread,
-    clearWorktreeUnread,
-    clearTerminalTabUnread,
-    clearTerminalPaneUnread,
-    openSpacePage,
-    refreshWorkspaceSpace,
-    settings,
-    updateSettings,
-    keybindings,
     rightClickToPaste,
     forceBracketedMultilineTextPaste,
     startup,
