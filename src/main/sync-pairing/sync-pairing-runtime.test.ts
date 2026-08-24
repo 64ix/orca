@@ -38,11 +38,13 @@ describe('SyncPairingRuntime — bootstrap + status', () => {
       fetchImpl
     })
     expect(runtime.getStatus().paired).toBe(false)
+    expect(runtime.getRowCrypto()).toBeNull()
     const result = await runtime.bootstrap({ relayUrl: 'https://relay.example' })
     expect(result).toEqual({ ok: true })
     const status = runtime.getStatus()
     expect(status.paired).toBe(true)
     expect(status.relayUrl).toBe('https://relay.example')
+    expect(runtime.getRowCrypto()).not.toBeNull()
   })
 
   it('refuses a second bootstrap once already paired', async () => {
@@ -108,6 +110,13 @@ describe('SyncPairingRuntime — invite + join round trip', () => {
         [inviter.getStatus().deviceId, inviteResult.invite.deviceId].sort()
       )
     }
+
+    // Row-content crypto must converge so either device can decrypt the other's rows,
+    // even though each device's own relay auth secret stays unique (#46).
+    const inviterCrypto = inviter.getRowCrypto()
+    const joinerCrypto = joiner.getRowCrypto()
+    expect(inviterCrypto).not.toBeNull()
+    expect(joinerCrypto).toEqual(inviterCrypto)
   })
 
   it('refuses to join with a wrong manually-typed half', async () => {

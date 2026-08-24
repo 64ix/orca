@@ -16,6 +16,9 @@ const MAX_DEVICE_ID_LENGTH = 128
 // 16 raw bytes, base64-encoded with padding.
 const SECRET_HALF_B64_PATTERN = /^[A-Za-z0-9+/]{22}==$/
 const PUBLIC_KEY_B64_PATTERN = /^[A-Za-z0-9+/]{43}=$/
+// sealSyncRow(32-byte content key) = 24-byte nonce + (32-byte AAD header + 32-byte
+// plaintext + 16-byte secretbox overhead) = 104 raw bytes, base64-encoded with one pad char.
+const CONTENT_KEY_SEALED_B64_PATTERN = /^[A-Za-z0-9+/]{139}=$/
 
 function isHttpsOrigin(value: string): boolean {
   if (value.length > SYNC_PAIRING_RELAY_URL_MAX_CHARACTERS) {
@@ -54,6 +57,12 @@ export const SyncPairingOfferSchema = z.object({
     .string()
     .regex(PUBLIC_KEY_B64_PATTERN)
     .refine((value) => decodesToLength(value, 32), 'Expected a 32-byte NaCl box public key'),
-  inviterName: z.string().min(1).max(SYNC_PAIRING_DEVICE_NAME_MAX_CHARACTERS)
+  inviterName: z.string().min(1).max(SYNC_PAIRING_DEVICE_NAME_MAX_CHARACTERS),
+  // Ticket #46: the fleet's row-content key, sealed under this invite's one-time
+  // combined secret (see sync-pairing-runtime.ts) so only this specific joiner can open it.
+  contentKeySealedB64: z
+    .string()
+    .regex(CONTENT_KEY_SEALED_B64_PATTERN)
+    .refine((value) => decodesToLength(value, 104), 'Expected a 104-byte sealed content key')
 })
 export type SyncPairingOffer = z.infer<typeof SyncPairingOfferSchema>
