@@ -45,7 +45,7 @@ export function FeatureBoardColumn({
         'relative flex h-full shrink-0 flex-col rounded-lg border border-border/60 bg-muted/20 transition-colors',
         isDragTarget && 'border-primary/60 bg-primary/5'
       )}
-      style={{ width: columnWidth }}
+      style={{ width: `${columnWidth}px` }}
       data-feature-board-column={stage}
     >
       <FeatureBoardColumnHeader stage={stage} count={cards.length} headerAction={headerAction} />
