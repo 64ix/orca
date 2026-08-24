@@ -96,16 +96,16 @@ export class OrcaMcpHttpServer {
     }
 
     const bodyResult = await readBody(request)
-    if (typeof bodyResult !== 'string') {
+    if (bodyResult.kind === 'failure') {
       respondJson(
         response,
-        bodyResult === 'too_large' ? 413 : 400,
-        bodyResult === 'too_large' ? { error: 'body_too_large' } : { error: 'invalid_body' }
+        bodyResult.reason === 'too_large' ? 413 : 400,
+        bodyResult.reason === 'too_large' ? { error: 'body_too_large' } : { error: 'invalid_body' }
       )
       return
     }
 
-    const parsedRequest = parseJsonRpcRequest(bodyResult)
+    const parsedRequest = parseJsonRpcRequest(bodyResult.text)
     if (!parsedRequest.ok) {
       respondJson(
         response,
@@ -162,22 +162,29 @@ function readSessionHeader(request: IncomingMessage): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
+// Why: literal tags get absorbed by string in unions, so failures ride a discriminant instead.
+type McpHttpBodyRead =
+  | { kind: 'body'; text: string }
+  | { kind: 'failure'; reason: 'too_large' | 'unreadable' }
+
 /** Resolves to the raw body, or a failure tag when the frame itself is unusable. */
-function readBody(request: IncomingMessage): Promise<string | 'too_large' | 'unreadable'> {
+function readBody(request: IncomingMessage): Promise<McpHttpBodyRead> {
   return new Promise((resolve) => {
     const chunks: Buffer[] = []
     let totalBytes = 0
     request.on('data', (chunk: Buffer) => {
       totalBytes += chunk.length
       if (totalBytes > MAX_BODY_BYTES) {
-        resolve('too_large')
+        resolve({ kind: 'failure', reason: 'too_large' })
         request.destroy()
         return
       }
       chunks.push(chunk)
     })
-    request.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
-    request.on('error', () => resolve('unreadable'))
+    request.on('end', () =>
+      resolve({ kind: 'body', text: Buffer.concat(chunks).toString('utf-8') })
+    )
+    request.on('error', () => resolve({ kind: 'failure', reason: 'unreadable' }))
   })
 }
 
