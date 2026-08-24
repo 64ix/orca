@@ -52,13 +52,16 @@ describe('useFeatureBoardCardDrop', () => {
     const setFeatureBoardColumnOrder = vi.fn()
     useAppStore.setState({ repos: [repo], updateWorktreeMeta, setFeatureBoardColumnOrder })
 
-    const columns = columnsMap({ spec: [card({ worktree: existing, effectiveStage: 'spec' })] })
+    const columns = columnsMap({
+      idea: [card({ worktree: dragged, effectiveStage: 'idea' })],
+      spec: [card({ worktree: existing, effectiveStage: 'spec' })]
+    })
     const { result } = renderHook(() => useFeatureBoardCardDrop(columns))
 
     result.current({ cardId: dragged.id, stage: 'spec', dropIndex: 0 })
 
     expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { workflowStage: 'spec' })
-    expect(setFeatureBoardColumnOrder).toHaveBeenCalledWith(`repo:${repo.id}`, 'spec', ['b'])
+    expect(setFeatureBoardColumnOrder).toHaveBeenCalledWith(`repo:${repo.id}`, 'spec', ['a', 'b'])
   })
 
   it('records the consumed merge when a human drags a card off shipped (no re-ship by the old merge)', () => {
