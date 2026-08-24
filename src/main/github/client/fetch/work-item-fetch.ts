@@ -50,7 +50,12 @@ export async function fetchIssueWorkItem(
     ['issue', 'view', String(number), '--json', 'number,title,state,url,labels,updatedAt,author'],
     ghOptions
   )
-  return mapIssueWorkItem(JSON.parse(stdout) as Record<string, unknown>)
+  const item = JSON.parse(stdout) as Record<string, unknown>
+  // Why: gh issue view resolves PR numbers too — reject them like the API path above.
+  if ('pull_request' in item) {
+    return null
+  }
+  return mapIssueWorkItem(item)
 }
 
 // Why: REST /pulls/{n} lacks latestReviews, so pull review fields from gh so reviewer lists aren't silently empty.

@@ -1,5 +1,6 @@
 export type PRState = 'open' | 'closed' | 'merged' | 'draft'
-export type IssueState = 'open' | 'closed'
+// Why 'merged': issue surfaces can carry a PR that issues endpoints report as plain 'closed' after merge.
+export type IssueState = 'open' | 'closed' | 'merged'
 export type CheckStatus = 'pending' | 'success' | 'failure' | 'neutral'
 
 export type PRMergeableState = 'MERGEABLE' | 'CONFLICTING' | 'UNKNOWN'

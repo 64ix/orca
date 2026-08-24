@@ -21,7 +21,7 @@ export function getStateLabel(item: GitHubWorkItem): string {
     }
     return 'Open'
   }
-  return item.state === 'closed' ? 'Closed' : 'Open'
+  return item.state === 'merged' ? 'Merged' : item.state === 'closed' ? 'Closed' : 'Open'
 }
 export function ReviewerAvatar({
   login,

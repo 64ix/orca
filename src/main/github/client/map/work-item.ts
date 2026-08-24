@@ -1,4 +1,5 @@
 import type { OwnerRepo } from '../../gh-utils'
+import { mapIssueState } from '../../mappers'
 import {
   authorFieldsFromUnknown,
   extractHeadOwnerLogin,
@@ -11,13 +12,31 @@ import {
   deriveWorkItemCheckSummary,
   type MainWorkItem
 } from './work-item-field-coercion'
+// Why: issues endpoints can hand back a PR; its merge timestamp hides in the pull_request object.
+function pullRequestMergedAt(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null) {
+    return null
+  }
+  const mergedAt = (value as { merged_at?: unknown }).merged_at
+  return typeof mergedAt === 'string' && mergedAt ? mergedAt : null
+}
+
 export function mapIssueWorkItem(item: Record<string, unknown>): MainWorkItem {
+  // Why: type stays 'issue' (id prefix keys linked-issue lookups) but a merged PR must not render 'closed'.
   return {
     id: `issue:${String(item.number)}`,
     type: 'issue',
     number: Number(item.number),
     title: String(item.title ?? ''),
-    state: String(item.state ?? 'open') === 'closed' ? 'closed' : 'open',
+    state: mapIssueState(String(item.state ?? 'open'), {
+      prMergedAt: pullRequestMergedAt(item.pull_request),
+      mergedAt:
+        typeof item.merged_at === 'string'
+          ? item.merged_at
+          : typeof item.mergedAt === 'string'
+            ? item.mergedAt
+            : null
+    }),
     url: String(item.html_url ?? item.url ?? ''),
     labels: Array.isArray(item.labels)
       ? item.labels
