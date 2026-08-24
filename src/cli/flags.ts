@@ -115,3 +115,13 @@ export function getOptionalNullableNumberFlag(
   }
   return getOptionalNumberFlag(flags, name)
 }
+
+export function getOptionalNullableStringFlag(
+  flags: Map<string, string | boolean>,
+  name: string
+): string | null | undefined {
+  if (flags.get(name) === 'null') {
+    return null
+  }
+  return getOptionalStringFlag(flags, name)
+}
