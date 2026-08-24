@@ -18,6 +18,7 @@ import {
   normalizeExecutionHostOrder
 } from '../../../shared/execution-host'
 import { normalizeManualRepoOrder } from '../../../shared/manual-repo-order'
+import { normalizeFeatureBoardColumnOrder } from '../../../shared/feature-board-column-order'
 import { normalizeBrowserPageZoomLevel } from '../../../shared/browser-page-zoom'
 import { normalizeFeatureTipIds } from '../../../shared/feature-tips'
 import { normalizeContextualTourIds } from '../../../shared/contextual-tours'
@@ -161,6 +162,10 @@ export function updatePersistedUI(
       sanitizedUpdates.manualRepoOrder !== undefined
         ? normalizeManualRepoOrder(sanitizedUpdates.manualRepoOrder)
         : normalizeManualRepoOrder(operations.state.ui?.manualRepoOrder),
+    featureBoardColumnOrder:
+      sanitizedUpdates.featureBoardColumnOrder !== undefined
+        ? normalizeFeatureBoardColumnOrder(sanitizedUpdates.featureBoardColumnOrder)
+        : normalizeFeatureBoardColumnOrder(operations.state.ui?.featureBoardColumnOrder),
     browserDefaultZoomLevel: normalizeBrowserPageZoomLevel(
       sanitizedUpdates.browserDefaultZoomLevel ?? operations.state.ui?.browserDefaultZoomLevel
     ),
