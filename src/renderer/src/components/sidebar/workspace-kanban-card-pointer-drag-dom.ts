@@ -1,4 +1,5 @@
 import type { WorkspaceStatus } from '../../../../shared/worktree/types'
+import { resolveLaneDropTargetFromRects } from './kanban-lane-drop-target-rects'
 import {
   resolveWorkspaceKanbanVirtualLaneDropIndex,
   resolveWorkspaceKanbanVirtualLaneDropIndicatorY
@@ -55,25 +56,12 @@ export function resolveWorkspaceStatusDropTargetFromRects(
   y: number,
   gapTolerance = STATUS_DROP_GAP_TOLERANCE_PX
 ): WorkspaceStatus | null {
-  let nearest: { status: WorkspaceStatus; distance: number } | null = null
-
-  for (const rect of rects) {
-    if (y < rect.top || y > rect.bottom) {
-      continue
-    }
-    if (x >= rect.left && x <= rect.right) {
-      return rect.status
-    }
-    const distance = x < rect.left ? rect.left - x : x - rect.right
-    if (distance > gapTolerance) {
-      continue
-    }
-    if (!nearest || distance < nearest.distance) {
-      nearest = { status: rect.status, distance }
-    }
-  }
-
-  return nearest?.status ?? null
+  return resolveLaneDropTargetFromRects(
+    rects.map((rect) => ({ ...rect, lane: rect.status })),
+    x,
+    y,
+    gapTolerance
+  )
 }
 
 export function resolveWorkspaceCardDropIndexFromRects(
@@ -246,7 +234,9 @@ export function getCardDropTarget(
   }
 }
 
-function getOrCreateDropIndicator(): HTMLElement {
+/** Exported so other pointer-based kanban boards (the feature board, #47) can share the
+ *  one drop-indicator DOM singleton and its styling instead of creating their own. */
+export function getOrCreateDropIndicator(): HTMLElement {
   const existing = document.querySelector<HTMLElement>(`[${POINTER_DROP_INDICATOR_ATTR}]`)
   if (existing) {
     return existing

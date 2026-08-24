@@ -83,6 +83,8 @@ export type PersistedUIState = {
   workspaceStatuses?: WorkspaceStatusDefinition[]
   workspaceBoardOpacity?: number
   workspaceBoardColumnWidth?: number
+  /** Feature board column width (#47) — persisted independently of the classic drawer's. */
+  featureBoardColumnWidth?: number
   syncTaskStatusFromWorkspaceBoard?: boolean
   /** One-shot migration flag for a short-lived build that persisted default statuses in reverse order; once stamped, ordering is never re-inferred from IDs/labels. */
   _workspaceStatusesDefaultOrderMigrated?: boolean

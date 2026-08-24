@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import TaskProjectSourceCombobox from '@/components/task-project-source-combobox'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
+import { useWorkspaceKanbanColumnResize } from '@/components/sidebar/use-workspace-kanban-column-resize'
 import { WORKFLOW_STAGE_IDS, type WorkflowStage } from '../../../../shared/workflow-stages'
 import { isGitRepoKind } from '../../../../shared/repo-kind'
 import { FeatureBoardAdoptionDialog } from './FeatureBoardAdoptionDialog'
@@ -15,25 +16,46 @@ import { getFeatureBoardStageLabel } from './feature-board-stage-labels'
 import { useFeatureBoardCards, useFeatureBoardColumns } from './use-feature-board-columns'
 import { useFeatureBoardProjectSelection } from './use-feature-board-project-selection'
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
+import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
+import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
+import type { FeatureBoardColumnOrderByStage } from './feature-board-view-model'
 
 /**
  * The feature board top-level view (#44): sidebar entry "Board", title "Feature board".
  * Seven fixed columns, always visible in `WORKFLOW_STAGE_IDS` order, scoped to the project(s)
- * picked via the TaskPage repo-selection pattern. Drag & drop (#47), the adoption "+" (#48),
- * and ghost cards (#49) are separate tickets — see the extension points documented on
- * `FeatureBoardColumn`/`FeatureBoardColumnHeader` and `buildFeatureBoardColumns`. Search and
- * filters (#50) narrow `visibleCardIds` at render time only — never persisted.
+ * picked via the TaskPage repo-selection pattern. Drag & drop (#47) reuses the classic kanban
+ * drawer's pointer-based machinery end to end: previews/indicators (`use-feature-board-card-
+ * pointer-drag`), the authority-gated commit (`use-feature-board-card-drop`), and column
+ * resize (`useWorkspaceKanbanColumnResize`). The adoption "+" (#48) and search/filters (#50)
+ * are wired below too; ghost cards (#49) remain a separate ticket. Search and filters narrow
+ * `visibleCardIds` at render time only — never persisted.
  */
 export default function FeatureBoardPage(): React.JSX.Element {
   const closeBoardPage = useAppStore((s) => s.closeBoardPage)
   const selection = useFeatureBoardProjectSelection()
   const cards = useFeatureBoardCards(selection.selected)
   const searchFilters = useFeatureBoardSearchFilters(cards)
+  const featureBoardColumnWidth = useAppStore((s) => s.featureBoardColumnWidth)
+  const setFeatureBoardColumnWidth = useAppStore((s) => s.setFeatureBoardColumnWidth)
+  const boardRef = useRef<HTMLDivElement>(null)
+
+  // Why frozen order lives here, not in the drag hook: unlike a background awaiting-input
+  // flip, the drop commit itself must read the *pre*-unfreeze rendered order (see
+  // use-feature-board-card-drop's columnsRef), so freeze/unfreeze and the columns it feeds
+  // both need to be owned by the same render tree.
+  const [frozenColumnOrder, setFrozenColumnOrder] = useState<FeatureBoardColumnOrderByStage | null>(
+    null
+  )
+  const [dragOverStage, setDragOverStage] = useState<WorkflowStage | null>(null)
   const columns = useFeatureBoardColumns(
     selection.selected,
     selection.selectedProjectKeys,
-    searchFilters.visibleCardIds
+    searchFilters.visibleCardIds,
+    frozenColumnOrder
   )
+  const columnsRef = useRef(columns)
+  columnsRef.current = columns
+
   const [adoptionStage, setAdoptionStage] = useState<WorkflowStage | null>(null)
   // Why: adoption creates a git worktree — folder-repo columns get no "+" (spec 24 #48).
   const adoptionEligibleRepos = useMemo(
@@ -43,6 +65,30 @@ export default function FeatureBoardPage(): React.JSX.Element {
         .map((group) => group.repo),
     [selection.groups, selection.selected]
   )
+
+  const { columnWidth, isResizingColumn, onColumnResizeStart, onColumnResizeKeyDown } =
+    useWorkspaceKanbanColumnResize(featureBoardColumnWidth, setFeatureBoardColumnWidth)
+
+  const handleDropCard = useFeatureBoardCardDrop(columns)
+
+  const handleDragActiveChange = useCallback((active: boolean) => {
+    if (!active) {
+      setFrozenColumnOrder(null)
+      return
+    }
+    const snapshot: FeatureBoardColumnOrderByStage = {}
+    for (const [stage, stageCards] of columnsRef.current) {
+      snapshot[stage] = stageCards.map((card) => card.id)
+    }
+    setFrozenColumnOrder(snapshot)
+  }, [])
+
+  const { onCardPointerDownCapture } = useFeatureBoardCardPointerDrag({
+    boardRef,
+    onDropCard: handleDropCard,
+    onDragActiveChange: handleDragActiveChange,
+    onDragTargetChange: setDragOverStage
+  })
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -93,7 +139,12 @@ export default function FeatureBoardPage(): React.JSX.Element {
           activeFilterCount={searchFilters.activeFilterCount}
         />
       </header>
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
+      <div
+        ref={boardRef}
+        className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3"
+        data-feature-board=""
+        onPointerDownCapture={onCardPointerDownCapture}
+      >
         {WORKFLOW_STAGE_IDS.map((stage) => (
           <FeatureBoardColumn
             key={stage}
@@ -104,6 +155,11 @@ export default function FeatureBoardPage(): React.JSX.Element {
                 <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />
               ) : undefined
             }
+            columnWidth={columnWidth}
+            isResizingColumn={isResizingColumn}
+            isDragTarget={dragOverStage === stage}
+            onColumnResizeStart={onColumnResizeStart}
+            onColumnResizeKeyDown={onColumnResizeKeyDown}
           />
         ))}
       </div>

@@ -962,6 +962,10 @@ export type UISlice = {
   setWorkspaceBoardOpacity: (opacity: number) => void
   workspaceBoardColumnWidth: number
   setWorkspaceBoardColumnWidth: (width: number) => void
+  /** Feature board column width (#47) — separate persisted setting from the classic drawer's,
+   *  reusing the same bounds/clamp since both are pointer-resized kanban columns. */
+  featureBoardColumnWidth: number
+  setFeatureBoardColumnWidth: (width: number) => void
   syncTaskStatusFromWorkspaceBoard: boolean
   setSyncTaskStatusFromWorkspaceBoard: (enabled: boolean) => void
   /** Transient: the in-window Agent Dashboard companion drawer is open. Not persisted. */
@@ -2289,6 +2293,13 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     set({ workspaceBoardColumnWidth: clamped })
   },
 
+  featureBoardColumnWidth: WORKSPACE_BOARD_COLUMN_WIDTH_DEFAULT,
+  setFeatureBoardColumnWidth: (width) => {
+    const clamped = clampWorkspaceBoardColumnWidth(width)
+    window.api.ui.set({ featureBoardColumnWidth: clamped }).catch(console.error)
+    set({ featureBoardColumnWidth: clamped })
+  },
+
   syncTaskStatusFromWorkspaceBoard: false,
   setSyncTaskStatusFromWorkspaceBoard: (enabled) => {
     window.api.ui.set({ syncTaskStatusFromWorkspaceBoard: enabled }).catch(console.error)
@@ -2612,6 +2623,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         workspaceStatuses: normalizeWorkspaceStatuses(ui.workspaceStatuses),
         workspaceBoardOpacity: clampWorkspaceBoardOpacity(ui.workspaceBoardOpacity),
         workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(ui.workspaceBoardColumnWidth),
+        featureBoardColumnWidth: clampWorkspaceBoardColumnWidth(ui.featureBoardColumnWidth),
         syncTaskStatusFromWorkspaceBoard: ui.syncTaskStatusFromWorkspaceBoard === true,
         statusBarItems: statusBarItemsWithGrok,
         statusBarVisible: ui.statusBarVisible ?? true,

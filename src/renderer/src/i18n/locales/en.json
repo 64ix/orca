@@ -16307,7 +16307,8 @@
       },
       "column": {
         "empty": "No cards",
-        "addTooltip": "New feature in {{stage}}"
+        "addTooltip": "New feature in {{stage}}",
+        "resizeHandle": "Resize feature board columns"
       },
       "page": {
         "close": "Close board",
@@ -16351,6 +16352,10 @@
         "placeholder": "Search cards",
         "clear": "Clear search",
         "matchAnnouncement": "{{value0}} of {{value1}} cards match"
+      },
+      "drop": {
+        "refused": "Could not move this card",
+        "updateFailed": "Could not update the stage"
       }
     }
   },
