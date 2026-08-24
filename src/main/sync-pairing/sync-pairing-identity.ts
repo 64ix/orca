@@ -155,3 +155,23 @@ export function recordSyncPairingPeer(
   writeSecureJsonFile(identityFilePath(userDataPath), { v: IDENTITY_VERSION, ...next })
   return next
 }
+
+/**
+ * Completes a join: adopts the deviceId the inviter minted (the relay only ever knows
+ * that id, not whatever this machine may have generated for itself before pairing) and
+ * records the relay credential in the same write.
+ */
+export function adoptSyncPairingJoinedIdentity(
+  userDataPath: string,
+  identity: SyncPairingIdentity,
+  args: { deviceId: string; deviceName: string; relay: SyncPairingRelayCredential }
+): SyncPairingIdentity {
+  const next: SyncPairingIdentity = {
+    ...identity,
+    deviceId: args.deviceId,
+    deviceName: args.deviceName,
+    relay: args.relay
+  }
+  writeSecureJsonFile(identityFilePath(userDataPath), { v: IDENTITY_VERSION, ...next })
+  return next
+}
