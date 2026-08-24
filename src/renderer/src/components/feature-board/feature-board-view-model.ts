@@ -56,7 +56,7 @@ function applyPersistedOrder<T extends FeatureBoardStagedCard>(
 
 /** Awaiting-input cards float to the top; stable otherwise so non-awaiting order is untouched. */
 function applyAwaitingInputElevation<T extends FeatureBoardStagedCard>(cards: readonly T[]): T[] {
-  return [...cards].sort((a, b) => Number(b.isAwaitingInput) - Number(a.isAwaitingInput))
+  return cards.toSorted((a, b) => Number(b.isAwaitingInput) - Number(a.isAwaitingInput))
 }
 
 /**
