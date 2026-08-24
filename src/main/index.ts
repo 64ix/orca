@@ -53,6 +53,8 @@ import { stopFolderRepoGitUpgradeWatch } from './ipc/folder-repo-git-upgrade'
 import { registerCoreHandlers } from './ipc/register-core-handlers'
 import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
+import { registerSyncPairingHandlers } from './ipc/sync-pairing'
+import { SyncPairingRuntime } from './sync-pairing/sync-pairing-runtime'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
 import { classifyError } from './telemetry/classify-error'
 import { recordManagedHookInstallFailure } from './agent-hooks/install-telemetry'
@@ -3124,6 +3126,14 @@ void app.whenReady().then(async () => {
       return true
     }
   })
+  // Why: same stable pre-setName() path as mobile pairing, so the sync identity survives
+  // a later app.setName() userData relocation. Separate file/registry from device-registry.ts.
+  registerSyncPairingHandlers(
+    new SyncPairingRuntime({
+      userDataPath: getCanonicalUserDataPath(),
+      defaultDeviceName: os.hostname()
+    })
+  )
   // Why: repeated direct auth failures otherwise look like a client that never connects; point users to re-pairing.
   runtimeRpc.setOnUnpairedDeviceAuthFailure(() => {
     // Why: runtime startup races renderer mount; retain the one-shot until the listener consumes it.

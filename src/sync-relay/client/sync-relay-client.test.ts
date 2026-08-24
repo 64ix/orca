@@ -38,8 +38,8 @@ describe('SyncRelayClient — handshake capability negotiation', () => {
   it('negotiates the shared capability against the current worker', async () => {
     const { client } = await createClient()
     const result = await client.handshake()
-    expect(result).toEqual({ ok: true, negotiatedCapabilities: ['rowBatchPull'] })
-    expect(client.capabilities).toEqual(['rowBatchPull'])
+    expect(result).toEqual({ ok: true, negotiatedCapabilities: ['rowBatchPull', 'devicePairing'] })
+    expect(client.capabilities).toEqual(['rowBatchPull', 'devicePairing'])
   })
 })
 

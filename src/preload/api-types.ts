@@ -34,6 +34,7 @@ import type { BitbucketApi, HostedReviewApi } from './api/hosted-review-api'
 import type { JiraApi } from './api/jira-api'
 import type { LinearApi } from './api/linear-api'
 import type { MobileApi } from './api/mobile-api'
+import type { SyncPairingApi } from './api/sync-pairing-api'
 import type { NativeChatApi } from './api/native-chat-api'
 import type { OnboardingApi, StarNagApi } from './api/onboarding-api'
 import type { OrcaProfileApi } from './api/orca-profile-api'
@@ -148,6 +149,7 @@ export type PreloadApi = {
   plugins: PluginsApi
   agentStatus: AgentStatusApi
   mobile: MobileApi
+  sync: SyncPairingApi
   speech: SpeechApi
 }
 

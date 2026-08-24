@@ -31,6 +31,7 @@ import type { MobileRelayStatus } from '../shared/mobile-relay-status'
 import type { MobilePairingConnectionMode } from '../shared/mobile-pairing-connection-mode'
 import type { RuntimePairingReach } from '../shared/runtime-pairing-reach'
 import type { MobileRelayMintFailure } from '../shared/mobile-relay-mint-failure'
+import type { SyncPairingStatus } from './api/sync-pairing-api'
 import type { VerifyAndAddRuntimeEnvironmentResult } from '../shared/remote-pairing-verification'
 import type {
   SshMutationExpectation,
@@ -4966,6 +4967,17 @@ const api = {
       ipcRenderer.on('mobile:unpairedDeviceAuthFailure', listener)
       return () => ipcRenderer.removeListener('mobile:unpairedDeviceAuthFailure', listener)
     }
+  },
+
+  sync: {
+    getStatus: (): Promise<SyncPairingStatus> => ipcRenderer.invoke('sync:getStatus'),
+    bootstrap: (args: { relayUrl: string; name?: string }) =>
+      ipcRenderer.invoke('sync:bootstrap', args),
+    createInvite: (args: { name: string }) => ipcRenderer.invoke('sync:createInvite', args),
+    joinWithInvite: (args: { offerInput: string; manualCode: string; deviceName?: string }) =>
+      ipcRenderer.invoke('sync:joinWithInvite', args),
+    listDevices: () => ipcRenderer.invoke('sync:listDevices'),
+    revokeDevice: (args: { deviceId: string }) => ipcRenderer.invoke('sync:revokeDevice', args)
   },
 
   agentStatus: {

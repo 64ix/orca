@@ -16,8 +16,6 @@ worker.
 
 It is **not**:
 
-- a pairing UI (ticket #42 owns pairing; the relay only authenticates devices
-  already present in its `sync_devices` table — see "Registering a device" below);
 - a merge/conflict-resolution engine (ticket #41 owns last-write-wins ordering).
   The relay never interprets `row_version` — it only compares it, accepting a push
   solely when it strictly supersedes the stored revision. That stale-write guard is
@@ -66,21 +64,38 @@ by design, everything under `src/sync-relay/worker/` uses only `fetch`/`Request`
 `Response`/`crypto.subtle`, never `node:*` builtins, so it runs without the
 `nodejs_compat` compatibility flag.
 
-## Registering a device
+## Registering a device (pairing — ticket #42)
 
 The relay only authenticates devices already in `sync_devices`; it never mints
-one itself. Until ticket #42 ships a pairing flow, bootstrap your first device by
-calling `registerSyncRelayDevice` (or inserting the row directly) with:
+one itself. Ticket #42 ships the actual pairing flow (Settings → Sync Devices):
 
-- `deviceId` — any stable, unique string your client generates;
-- `secretB64` — a fresh random 32-byte secret, base64-encoded (used for the
-  HMAC request signature in
-  [`src/sync-relay/protocol/sync-relay-request-auth.ts`](../../src/sync-relay/protocol/sync-relay-request-auth.ts));
-  keep it client-side and give the relay only the base64 form.
+- **First device**: `POST /v1/bootstrap` is unauthenticated but only accepted
+  while `sync_devices` is empty — racing to bootstrap an empty table is the
+  same trust boundary as knowing the freshly-deployed Worker URL and D1
+  binding — so bootstrap the first device immediately after `wrangler deploy`,
+  before the URL is anywhere it could leak. `SyncPairingRuntime#bootstrap` in
+  [`src/main/sync-pairing/sync-pairing-runtime.ts`](../../src/main/sync-pairing/sync-pairing-runtime.ts)
+  drives this from the Devices screen; you can still call
+  `registerSyncRelayDevice` directly (or insert the row) as a manual fallback.
+- **Every device after that**: any already-active device can vouch for a new
+  one via `POST /v1/pair` (HMAC-authenticated with its own secret). The
+  pairing flow mints a **two-half secret** — one half travels in the
+  `orca://pair` QR/deep-link offer, the other is a short code the inviting
+  screen displays in plain text for the user to type into the joining
+  machine. Neither half alone reconstructs the HMAC secret (see
+  [`src/sync-relay/crypto/sync-pairing-secret-schedule.ts`](../../src/sync-relay/crypto/sync-pairing-secret-schedule.ts)),
+  so leaking one transport (e.g. a clipboard-logged deep link) never hands
+  over the whole capability. `/v1/pair` is **insert-only**: an id already in
+  `sync_devices` comes back `409 device-exists` rather than having its secret
+  replaced, so no holder of any valid credential can hijack another device's
+  row or un-revoke one. Each invite mints a fresh device id, so this never
+  affects the normal flow.
+- `POST /v1/devices` lists every device's public metadata (name, `pairedAt`,
+  `lastSeenAt`, `status`) for the Devices screen — never `secret_b64`.
 
 Revoke a device by flipping its `status` to `'revoked'`
-(`revokeSyncRelayDevice`) — the worker rejects every subsequent request from it
-with `403`.
+(`revokeSyncRelayDevice`, or `POST /v1/revoke` from any other active device) —
+the worker rejects every subsequent request from it with `403`, immediately.
 
 ## Capability negotiation
 

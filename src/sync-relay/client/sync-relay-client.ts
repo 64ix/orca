@@ -8,12 +8,15 @@ import {
   SYNC_RELAY_CAPABILITIES,
   SYNC_RELAY_PROTOCOL,
   SYNC_RELAY_WIRE_VERSION,
+  SyncRelayDevicesListResponseSchema,
   SyncRelayHandshakeResponseSchema,
+  SyncRelayOkResponseSchema,
   SyncRelayPullResponseSchema,
   SyncRelayPushResponseSchema
 } from '../protocol/sync-relay-wire-protocol'
 import type {
   SyncRelayCapability,
+  SyncRelayDeviceSummary,
   SyncRelayPushRow,
   SyncRelayStoredRow
 } from '../protocol/sync-relay-wire-protocol'
@@ -53,6 +56,54 @@ export type SyncRelayPushResult =
 export type SyncRelayPullResult =
   | { ok: true; rows: SyncRelayStoredRow[]; latestServerSeq: number }
   | SyncRelayTransportFailure
+
+export type SyncRelayPairArgs = {
+  deviceId: string
+  secretB64: string
+  name: string
+  pairedAt: number
+}
+
+export type SyncRelayOkResult = { ok: true } | SyncRelayTransportFailure
+
+export type SyncRelayDevicesListResult =
+  | { ok: true; devices: SyncRelayDeviceSummary[] }
+  | SyncRelayTransportFailure
+
+/**
+ * Unauthenticated — only accepted by the worker while sync_devices is empty. Establishes
+ * the fleet's first device; every device after it must go through SyncRelayClient#pairDevice.
+ */
+export async function bootstrapSyncRelayDevice(args: {
+  relayUrl: string
+  deviceId: string
+  secretB64: string
+  name: string
+  pairedAt: number
+  fetchImpl?: typeof fetch
+}): Promise<SyncRelayOkResult> {
+  const fetchImpl = args.fetchImpl ?? fetch
+  let response: Response
+  try {
+    response = await fetchImpl(new URL('/v1/bootstrap', args.relayUrl), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        deviceId: args.deviceId,
+        secretB64: args.secretB64,
+        name: args.name,
+        pairedAt: args.pairedAt
+      })
+    })
+  } catch {
+    return { ok: false, reason: 'transport-error' }
+  }
+  if (!response.ok) {
+    return { ok: false, reason: 'rejected', status: response.status }
+  }
+  const parsed = SyncRelayOkResponseSchema.safeParse(await response.json())
+  return parsed.success ? { ok: true } : { ok: false, reason: 'rejected', status: response.status }
+}
 
 export class SyncRelayClient {
   private negotiatedCapabilities: SyncRelayCapability[] = []
@@ -125,6 +176,44 @@ export class SyncRelayClient {
       return { ok: false, reason: 'rejected', status: response.status }
     }
     return { ok: true, rows: parsed.data.rows, latestServerSeq: parsed.data.latestServerSeq }
+  }
+
+  /** Vouches for a new device — signed with this (already-active) device's own secret. */
+  async pairDevice(args: SyncRelayPairArgs): Promise<SyncRelayOkResult> {
+    return this.postForOk('/v1/pair', args)
+  }
+
+  async revokeDevice(deviceId: string): Promise<SyncRelayOkResult> {
+    return this.postForOk('/v1/revoke', { deviceId })
+  }
+
+  async listDevices(): Promise<SyncRelayDevicesListResult> {
+    const response = await this.post('/v1/devices', { deviceId: this.config.deviceId })
+    if (!response) {
+      return { ok: false, reason: 'transport-error' }
+    }
+    if (!response.ok) {
+      return { ok: false, reason: 'rejected', status: response.status }
+    }
+    const parsed = SyncRelayDevicesListResponseSchema.safeParse(await response.json())
+    if (!parsed.success) {
+      return { ok: false, reason: 'rejected', status: response.status }
+    }
+    return { ok: true, devices: parsed.data.devices }
+  }
+
+  private async postForOk(path: string, body: unknown): Promise<SyncRelayOkResult> {
+    const response = await this.post(path, body)
+    if (!response) {
+      return { ok: false, reason: 'transport-error' }
+    }
+    if (!response.ok) {
+      return { ok: false, reason: 'rejected', status: response.status }
+    }
+    const parsed = SyncRelayOkResponseSchema.safeParse(await response.json())
+    return parsed.success
+      ? { ok: true }
+      : { ok: false, reason: 'rejected', status: response.status }
   }
 
   private async post(path: string, body: unknown): Promise<Response | null> {

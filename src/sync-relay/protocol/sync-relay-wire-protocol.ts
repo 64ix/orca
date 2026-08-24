@@ -10,7 +10,7 @@ export const SYNC_RELAY_WIRE_VERSION = 1
 
 // New capability tokens are additive and Rule-1-safe: a peer that predates one simply
 // never negotiates it. Never remove or repurpose a token once shipped.
-export const SYNC_RELAY_CAPABILITIES = ['rowBatchPull'] as const
+export const SYNC_RELAY_CAPABILITIES = ['rowBatchPull', 'devicePairing'] as const
 export type SyncRelayCapability = (typeof SYNC_RELAY_CAPABILITIES)[number]
 
 const MAX_CAPABILITIES = 32
@@ -18,6 +18,9 @@ const MAX_DEVICE_ID_LENGTH = 128
 const MAX_TABLE_NAME_LENGTH = 64
 const MAX_ROW_ID_LENGTH = 256
 const MAX_KEY_ID_LENGTH = 64
+const MAX_DEVICE_NAME_LENGTH = 128
+// 32 raw bytes, base64-encoded (44 chars with padding); capped generously above that.
+const MAX_DEVICE_SECRET_B64_LENGTH = 128
 // D1's practical per-row ceiling sits far below the 4MB E2EE plaintext cap in
 // src/shared/e2ee-crypto.ts. This is a conservative placeholder — re-check current
 // Cloudflare D1 row-size limits before raising it (see the deployment doc).
@@ -117,3 +120,48 @@ export const SyncRelayPullResponseSchema = z.object({
   latestServerSeq: z.number().int().nonnegative()
 })
 export type SyncRelayPullResponse = z.infer<typeof SyncRelayPullResponseSchema>
+
+// Ticket #42's device-lifecycle routes. `bootstrap` is unauthenticated but only ever
+// accepted while `sync_devices` is empty (see sync-relay-worker.ts) — the deployer racing
+// to register the first device is the same trust boundary as owning the Worker URL/D1
+// binding in the first place. `pair`/`revoke`/`devices` require an already-active device's
+// signature: any paired machine can vouch for a new one or cut one off (symmetric fleet
+// trust, no separate "admin" concept).
+export const SyncRelayBootstrapRequestSchema = z.object({
+  deviceId: z.string().min(1).max(MAX_DEVICE_ID_LENGTH),
+  secretB64: z.string().min(1).max(MAX_DEVICE_SECRET_B64_LENGTH),
+  name: z.string().min(1).max(MAX_DEVICE_NAME_LENGTH),
+  pairedAt: z.number().int().nonnegative()
+})
+export type SyncRelayBootstrapRequest = z.infer<typeof SyncRelayBootstrapRequestSchema>
+
+export const SyncRelayPairRequestSchema = SyncRelayBootstrapRequestSchema
+export type SyncRelayPairRequest = z.infer<typeof SyncRelayPairRequestSchema>
+
+export const SyncRelayOkResponseSchema = z.object({ ok: z.literal(true) })
+export type SyncRelayOkResponse = z.infer<typeof SyncRelayOkResponseSchema>
+
+export const SyncRelayRevokeRequestSchema = z.object({
+  // The target device to revoke — may or may not be the caller.
+  deviceId: z.string().min(1).max(MAX_DEVICE_ID_LENGTH)
+})
+export type SyncRelayRevokeRequest = z.infer<typeof SyncRelayRevokeRequestSchema>
+
+export const SyncRelayDeviceSummarySchema = z.object({
+  deviceId: z.string(),
+  name: z.string(),
+  status: z.enum(['active', 'revoked']),
+  pairedAt: z.number().int().nonnegative(),
+  lastSeenAt: z.number().int().nonnegative().nullable()
+})
+export type SyncRelayDeviceSummary = z.infer<typeof SyncRelayDeviceSummarySchema>
+
+export const SyncRelayDevicesListRequestSchema = z.object({
+  deviceId: z.string().min(1).max(MAX_DEVICE_ID_LENGTH)
+})
+export type SyncRelayDevicesListRequest = z.infer<typeof SyncRelayDevicesListRequestSchema>
+
+export const SyncRelayDevicesListResponseSchema = z.object({
+  devices: z.array(SyncRelayDeviceSummarySchema)
+})
+export type SyncRelayDevicesListResponse = z.infer<typeof SyncRelayDevicesListResponseSchema>
