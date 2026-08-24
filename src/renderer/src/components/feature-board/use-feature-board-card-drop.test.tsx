@@ -33,6 +33,12 @@ function columnsMap(
   return new Map(Object.entries(entries) as [WorkflowStage, readonly FeatureBoardCard[]][])
 }
 
+function allCardsFrom(
+  columns: ReadonlyMap<WorkflowStage, readonly FeatureBoardCard[]>
+): FeatureBoardCard[] {
+  return [...columns.values()].flat()
+}
+
 describe('useFeatureBoardCardDrop', () => {
   beforeEach(() => {
     toastErrorMock.mockClear()
@@ -56,7 +62,7 @@ describe('useFeatureBoardCardDrop', () => {
       idea: [card({ worktree: dragged, effectiveStage: 'idea' })],
       spec: [card({ worktree: existing, effectiveStage: 'spec' })]
     })
-    const { result } = renderHook(() => useFeatureBoardCardDrop(columns))
+    const { result } = renderHook(() => useFeatureBoardCardDrop(columns, allCardsFrom(columns)))
 
     result.current({ cardId: dragged.id, stage: 'spec', dropIndex: 0 })
 
@@ -99,7 +105,7 @@ describe('useFeatureBoardCardDrop', () => {
       shipped: [card({ worktree, effectiveStage: 'shipped' })],
       implementing: []
     })
-    const { result } = renderHook(() => useFeatureBoardCardDrop(columns))
+    const { result } = renderHook(() => useFeatureBoardCardDrop(columns, allCardsFrom(columns)))
 
     result.current({ cardId: 'a', stage: 'implementing', dropIndex: 0 })
 
@@ -117,11 +123,57 @@ describe('useFeatureBoardCardDrop', () => {
     useAppStore.setState({ repos: [repo], updateWorktreeMeta, setFeatureBoardColumnOrder })
 
     const columns = columnsMap({ shipped: [card({ worktree, effectiveStage: 'idea' })] })
-    const { result } = renderHook(() => useFeatureBoardCardDrop(columns))
+    const { result } = renderHook(() => useFeatureBoardCardDrop(columns, allCardsFrom(columns)))
 
     result.current({ cardId: 'a', stage: 'shipped', dropIndex: 0 })
     await vi.waitFor(() => expect(toastErrorMock).toHaveBeenCalled())
 
     expect(toastErrorMock.mock.calls[0]?.[1]).toMatchObject({ description: 'stage refused' })
+  })
+
+  it('preserves a same-project card hidden by an active filter instead of dropping it from the persisted order', () => {
+    const repo = makeRepo()
+    const dragged = makeWorktree('a', 'A', { workflowStage: 'spec' })
+    const visibleSibling = makeWorktree('b', 'B', { workflowStage: 'spec' })
+    // Filtered out of the rendered column (e.g. by a search query or a stage/agent filter),
+    // but still a genuine 'spec' card for this project.
+    const hiddenSibling = makeWorktree('c', 'C', { workflowStage: 'spec' })
+    const updateWorktreeMeta = vi.fn().mockResolvedValue({ ok: true })
+    const setFeatureBoardColumnOrder = vi.fn()
+    useAppStore.setState({
+      repos: [repo],
+      updateWorktreeMeta,
+      setFeatureBoardColumnOrder,
+      featureBoardColumnOrder: [
+        { projectKey: `repo:${repo.id}`, stage: 'spec', worktreeIds: ['c', 'b', 'a'] }
+      ]
+    })
+
+    // The rendered (filtered) columns hide 'c' entirely, as `buildFeatureBoardColumns` would
+    // when `visibleCardIds` excludes it.
+    const columns = columnsMap({
+      idea: [],
+      spec: [
+        card({ worktree: visibleSibling, effectiveStage: 'spec' }),
+        card({ worktree: dragged, effectiveStage: 'spec' })
+      ]
+    })
+    // The unfiltered card list still includes the hidden card.
+    const allCards = [
+      ...allCardsFrom(columns),
+      card({ worktree: hiddenSibling, effectiveStage: 'spec' })
+    ]
+    const { result } = renderHook(() => useFeatureBoardCardDrop(columns, allCards))
+
+    result.current({ cardId: dragged.id, stage: 'spec', dropIndex: 0 })
+
+    // 'a' moves to the front among the visible cards; 'c' had no preceding visible neighbor in
+    // the old order (it was first), so it anchors back to the front rather than disappearing
+    // from the persisted order.
+    expect(setFeatureBoardColumnOrder).toHaveBeenCalledWith(`repo:${repo.id}`, 'spec', [
+      'c',
+      'a',
+      'b'
+    ])
   })
 })

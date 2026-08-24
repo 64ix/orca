@@ -8,10 +8,14 @@ import {
   resolveWorkflowStageDerivationInputs
 } from '@/components/sidebar/effective-workflow-stage'
 import { getTaskRepoProjectKey } from '@/components/task-page-default-repo-selection'
+import { getFeatureBoardColumnOrderForProject } from '../../../../shared/feature-board-column-order'
 import type { Repo } from '../../../../shared/repo-types'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { decideFeatureBoardCardDrop } from './feature-board-drop-handler'
-import { computeFeatureBoardColumnOrderAfterDrop } from './feature-board-column-order-drop'
+import {
+  computeFeatureBoardColumnOrderAfterDrop,
+  restoreHiddenFeatureBoardColumnOrderIds
+} from './feature-board-column-order-drop'
 import type { FeatureBoardCard } from './feature-board-card-model'
 import type { FeatureBoardCardDropCommit } from './use-feature-board-card-pointer-drag'
 
@@ -37,13 +41,22 @@ function projectKeyForRepo(repo: Repo | undefined): string {
  * with the guard's own explanation on refusal and reconciles the optimistic write away, so
  * awaiting it here and toasting `error` surfaces the refusal honestly without weakening the
  * remote authority boundary.
+ *
+ * `columns` is the rendered (search/filter-narrowed, drag-frozen) view the pointer drag reads
+ * `dropIndex` against; `allCards` is the same board's unfiltered card list, needed only so a
+ * drop made while a filter is active can tell "hidden by the filter" apart from "no longer a
+ * member of this stage" when restoring order for ids the filter hid from `columns` (#47 + #50
+ * seam — see `restoreHiddenFeatureBoardColumnOrderIds`).
  */
 export function useFeatureBoardCardDrop(
-  columns: ReadonlyMap<WorkflowStage, readonly FeatureBoardCard[]>
+  columns: ReadonlyMap<WorkflowStage, readonly FeatureBoardCard[]>,
+  allCards: readonly FeatureBoardCard[]
 ): (commit: FeatureBoardCardDropCommit) => void {
   const repoMap = useRepoMap()
   const columnsRef = useRef(columns)
   columnsRef.current = columns
+  const allCardsRef = useRef(allCards)
+  allCardsRef.current = allCards
   const repoMapRef = useRef(repoMap)
   repoMapRef.current = repoMap
 
@@ -91,12 +104,40 @@ export function useFeatureBoardCardDrop(
           projectKeyForRepo(repoMapRef.current.get(candidate.worktree.repoId))
         ])
     )
-    const nextOrder = computeFeatureBoardColumnOrderAfterDrop({
+    const visibleOrder = computeFeatureBoardColumnOrderAfterDrop({
       renderedColumnCardIds: targetColumnCards.map((candidate) => candidate.id),
       cardId,
       dropIndex,
       projectKeyByCardId,
       projectKey
+    })
+
+    // A search/filter can hide same-project, same-stage cards from `targetColumnCards` — carry
+    // their previous relative position forward instead of silently dropping them from the order.
+    const visibleIds = new Set(targetColumnCards.map((candidate) => candidate.id))
+    const stillValidStageCardIds = new Set(
+      allCardsRef.current
+        .filter(
+          (candidate) =>
+            candidate.effectiveStage === stage &&
+            projectKeyForRepo(repoMapRef.current.get(candidate.worktree.repoId)) === projectKey
+        )
+        .map((candidate) => candidate.id)
+    )
+    const previousOrder = getFeatureBoardColumnOrderForProject(
+      state.featureBoardColumnOrder,
+      projectKey
+    )[stage]
+    const hiddenIds = new Set(
+      (previousOrder ?? []).filter(
+        (id) => id !== cardId && !visibleIds.has(id) && stillValidStageCardIds.has(id)
+      )
+    )
+    const nextOrder = restoreHiddenFeatureBoardColumnOrderIds({
+      previousOrder: previousOrder ?? [],
+      newVisibleOrder: visibleOrder,
+      cardId,
+      hiddenIds
     })
     state.setFeatureBoardColumnOrder(projectKey, stage, nextOrder)
 
