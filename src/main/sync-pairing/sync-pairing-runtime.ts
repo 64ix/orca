@@ -29,7 +29,7 @@ import {
   saveSyncPairingRelayCredential,
   type SyncPairingIdentity
 } from './sync-pairing-identity'
-import type { SyncRowCrypto } from '../sync/sync-reconciliation-engine'
+import type { SyncRelayTransport, SyncRowCrypto } from '../sync/sync-reconciliation-engine'
 
 // Fixed HKDF domain-separation label for the fleet's row-content key (ticket #46). No
 // rotation on device revoke yet — see the ticket's Problem->Resolution notes.
@@ -120,6 +120,11 @@ export class SyncPairingRuntime {
       contentKeyB64: contentKey.toString('base64')
     })
     return { ok: true }
+  }
+
+  /** Push/pull transport for #46's SyncReconciliationEngine; null until this device is paired. */
+  getRelayTransport(): SyncRelayTransport | null {
+    return this.clientFor(this.loadIdentity())
   }
 
   /** Row-content crypto for #46's SyncReconciliationEngine; null until this device is paired. */

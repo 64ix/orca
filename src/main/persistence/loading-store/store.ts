@@ -548,6 +548,9 @@ export class Store {
     ) => void
   >()
   private uiChangeListeners = new Set<(ui: PersistedState['ui']) => void>()
+  // Why: #46's board sync needs a single choke point for every WorktreeMeta write
+  // (RPC, MCP tools, IPC, sort-order updates, ...) instead of patching each call site.
+  private worktreeMetaChangeListeners = new Set<(worktreeId: string, meta: WorktreeMeta) => void>()
 
   constructor(options: StoreOptions = {}) {
     // Why: profile switching yields multiple state paths; capture per Store so late async writes can't follow a global path.
@@ -2529,6 +2532,7 @@ export class Store {
     }
     this.state.worktreeMeta[worktreeId] = updated
     this.scheduleSave()
+    this.notifyWorktreeMetaChanged(worktreeId, updated)
     return updated
   }
 
@@ -2684,6 +2688,20 @@ export class Store {
     const ui = this.getUI()
     for (const listener of this.uiChangeListeners) {
       listener(ui)
+    }
+  }
+
+  /** Fires after every setWorktreeMeta write, whatever the caller (RPC/MCP/IPC/sort-order). */
+  onWorktreeMetaChanged(listener: (worktreeId: string, meta: WorktreeMeta) => void): () => void {
+    this.worktreeMetaChangeListeners.add(listener)
+    return () => {
+      this.worktreeMetaChangeListeners.delete(listener)
+    }
+  }
+
+  private notifyWorktreeMetaChanged(worktreeId: string, meta: WorktreeMeta): void {
+    for (const listener of this.worktreeMetaChangeListeners) {
+      listener(worktreeId, meta)
     }
   }
 
