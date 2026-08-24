@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { useAppStore } from '@/store'
+import type { AppState } from '@/store/types'
 import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import {
   makeRepo,
@@ -103,7 +104,7 @@ describe('useFeatureBoardSearchFilters', () => {
     const stalePR: PRInfo = { ...currentPR, number: 2, headSha: 'not-b-head' }
     useAppStore.setState({
       repos: [repo],
-      settings: { activeRuntimeEnvironmentId: null },
+      settings: { activeRuntimeEnvironmentId: null } as AppState['settings'],
       prCache: {
         [getGitHubPRCacheKey(repo.path, repo.id, 'current', null, undefined, undefined, true)]: {
           data: currentPR,
