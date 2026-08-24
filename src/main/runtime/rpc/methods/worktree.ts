@@ -4,6 +4,7 @@ import {
   resolveAutomationWorkspaceProvenance
 } from '../../../automations/workspace-provenance'
 import { buildCliWorkspaceProvenance } from '../../../../shared/cli-workspace-provenance'
+import { assertStageWriteAllowed } from '../../../../shared/stage-authority/stage-write-authority'
 import { defineMethod, type RpcMethod } from '../core'
 import { buildManagedWorktreeCreateArgs } from './worktree-create-args'
 import { resolveRuntimeNavigationTarget } from '../../../../shared/runtime-navigation'
@@ -129,48 +130,53 @@ export const WORKTREE_METHODS: RpcMethod[] = [
   defineMethod({
     name: 'worktree.set',
     params: WorktreeSet,
-    handler: async (params, { runtime }) => ({
-      worktree: await runtime.updateManagedWorktreeMeta(params.worktree, {
-        displayName: params.displayName,
-        linkedIssue: params.linkedIssue,
-        linkedPR: params.linkedPR,
-        linkedLinearIssue: params.linkedLinearIssue,
-        linkedLinearIssueWorkspaceId: params.linkedLinearIssueWorkspaceId,
-        linkedLinearIssueOrganizationUrlKey: params.linkedLinearIssueOrganizationUrlKey,
-        linkedGitLabMR: params.linkedGitLabMR,
-        linkedGitLabIssue: params.linkedGitLabIssue,
-        linkedBitbucketPR: params.linkedBitbucketPR,
-        linkedAzureDevOpsPR: params.linkedAzureDevOpsPR,
-        linkedGiteaPR: params.linkedGiteaPR,
-        linkedWorkItem: params.linkedWorkItem,
-        linkedTaskSourceContext: params.linkedTaskSourceContext,
-        comment: params.comment,
-        isArchived: params.isArchived,
-        isUnread: params.isUnread,
-        isPinned: params.isPinned,
-        sortOrder: params.sortOrder,
-        manualOrder: params.manualOrder,
-        lastActivityAt: params.lastActivityAt,
-        createdAt: params.createdAt,
-        sparseDirectories: params.sparseDirectories,
-        sparseBaseRef: params.sparseBaseRef,
-        sparsePresetId: params.sparsePresetId,
-        baseRef: params.baseRef,
-        workspaceStatus: params.workspaceStatus,
-        workflowStage: params.workflowStage,
-        consumedMergedPRNumbers: params.consumedMergedPRNumbers,
-        pushTarget: params.pushTarget,
-        diffComments: params.diffComments,
-        mobileDiffReview: params.mobileDiffReview,
-        lineage:
-          params.parentWorktree || params.noParent === true
-            ? {
-                parentWorktree: params.parentWorktree,
-                noParent: params.noParent === true
-              }
-            : undefined
-      } as Parameters<typeof runtime.updateManagedWorktreeMeta>[1])
-    })
+    handler: async (params, { runtime }) => {
+      // Why: RPC callers (CLI/mobile/MCP) speak for agents; shipped stays gated
+      // before any write. Human UI paths go through direct IPC, not here.
+      assertStageWriteAllowed({ callerKind: 'agent', requestedStage: params.workflowStage })
+      return {
+        worktree: await runtime.updateManagedWorktreeMeta(params.worktree, {
+          displayName: params.displayName,
+          linkedIssue: params.linkedIssue,
+          linkedPR: params.linkedPR,
+          linkedLinearIssue: params.linkedLinearIssue,
+          linkedLinearIssueWorkspaceId: params.linkedLinearIssueWorkspaceId,
+          linkedLinearIssueOrganizationUrlKey: params.linkedLinearIssueOrganizationUrlKey,
+          linkedGitLabMR: params.linkedGitLabMR,
+          linkedGitLabIssue: params.linkedGitLabIssue,
+          linkedBitbucketPR: params.linkedBitbucketPR,
+          linkedAzureDevOpsPR: params.linkedAzureDevOpsPR,
+          linkedGiteaPR: params.linkedGiteaPR,
+          linkedWorkItem: params.linkedWorkItem,
+          linkedTaskSourceContext: params.linkedTaskSourceContext,
+          comment: params.comment,
+          isArchived: params.isArchived,
+          isUnread: params.isUnread,
+          isPinned: params.isPinned,
+          sortOrder: params.sortOrder,
+          manualOrder: params.manualOrder,
+          lastActivityAt: params.lastActivityAt,
+          createdAt: params.createdAt,
+          sparseDirectories: params.sparseDirectories,
+          sparseBaseRef: params.sparseBaseRef,
+          sparsePresetId: params.sparsePresetId,
+          baseRef: params.baseRef,
+          workspaceStatus: params.workspaceStatus,
+          workflowStage: params.workflowStage,
+          consumedMergedPRNumbers: params.consumedMergedPRNumbers,
+          pushTarget: params.pushTarget,
+          diffComments: params.diffComments,
+          mobileDiffReview: params.mobileDiffReview,
+          lineage:
+            params.parentWorktree || params.noParent === true
+              ? {
+                  parentWorktree: params.parentWorktree,
+                  noParent: params.noParent === true
+                }
+              : undefined
+        } as Parameters<typeof runtime.updateManagedWorktreeMeta>[1])
+      }
+    }
   }),
   defineMethod({
     name: 'worktree.persistSortOrder',

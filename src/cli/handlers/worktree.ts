@@ -10,6 +10,7 @@ import { formatWorktreeList, formatWorktreePs, formatWorktreeShow, printResult }
 import { RuntimeClientError } from '../runtime-client'
 import {
   getOptionalNullableNumberFlag,
+  getOptionalNullableStringFlag,
   getOptionalNumberFlag,
   getOptionalPositiveIntegerFlag,
   getOptionalStringFlag,
@@ -275,6 +276,9 @@ export const WORKTREE_HANDLERS: Record<string, CommandHandler> = {
       ...linearIssueLink,
       comment: getOptionalStringFlag(flags, 'comment'),
       workspaceStatus: getOptionalStringFlag(flags, 'workspace-status'),
+      // Why: no local guard here — authority lives on the worktree.set RPC so
+      // SSH/remote shims get the same refusal from the runtime that owns state.
+      workflowStage: getOptionalNullableStringFlag(flags, 'stage'),
       parentWorktree: await getOptionalWorktreeSelector(flags, 'parent-worktree', cwd, client),
       noParent: flags.get('no-parent') === true
     })
