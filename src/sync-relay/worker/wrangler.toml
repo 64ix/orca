@@ -1,0 +1,12 @@
+# Example config for `wrangler deploy` (run manually — wrangler is not a repo
+# dependency). Copy this file, fill in your own `database_id`, and deploy from the
+# repo root: `wrangler deploy --config src/sync-relay/worker/wrangler.toml`.
+# See docs/reference/sync-relay-deployment.md for the full walkthrough.
+name = "orca-sync-relay"
+main = "sync-relay-worker.ts"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "SYNC_RELAY_DB"
+database_name = "orca-sync-relay"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
