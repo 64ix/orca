@@ -1,14 +1,17 @@
-import React from 'react'
-import { X } from 'lucide-react'
+import React, { useMemo, useState } from 'react'
+import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import TaskProjectSourceCombobox from '@/components/task-project-source-combobox'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
-import { WORKFLOW_STAGE_IDS } from '../../../../shared/workflow-stages'
+import { WORKFLOW_STAGE_IDS, type WorkflowStage } from '../../../../shared/workflow-stages'
+import { isGitRepoKind } from '../../../../shared/repo-kind'
+import { FeatureBoardAdoptionDialog } from './FeatureBoardAdoptionDialog'
 import { FeatureBoardColumn } from './FeatureBoardColumn'
 import FeatureBoardSearchField from './FeatureBoardSearchField'
 import { FeatureBoardFilterMenu } from './FeatureBoardFilterMenu'
+import { getFeatureBoardStageLabel } from './feature-board-stage-labels'
 import { useFeatureBoardCards, useFeatureBoardColumns } from './use-feature-board-columns'
 import { useFeatureBoardProjectSelection } from './use-feature-board-project-selection'
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
@@ -30,6 +33,15 @@ export default function FeatureBoardPage(): React.JSX.Element {
     selection.selected,
     selection.selectedProjectKeys,
     searchFilters.visibleCardIds
+  )
+  const [adoptionStage, setAdoptionStage] = useState<WorkflowStage | null>(null)
+  // Why: adoption creates a git worktree — folder-repo columns get no "+" (spec 24 #48).
+  const adoptionEligibleRepos = useMemo(
+    () =>
+      selection.groups
+        .filter((group) => selection.selected.has(group.repo.id) && isGitRepoKind(group.repo))
+        .map((group) => group.repo),
+    [selection.groups, selection.selected]
   )
 
   return (
@@ -83,9 +95,60 @@ export default function FeatureBoardPage(): React.JSX.Element {
       </header>
       <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3">
         {WORKFLOW_STAGE_IDS.map((stage) => (
-          <FeatureBoardColumn key={stage} stage={stage} cards={columns.get(stage) ?? []} />
+          <FeatureBoardColumn
+            key={stage}
+            stage={stage}
+            cards={columns.get(stage) ?? []}
+            headerAction={
+              adoptionEligibleRepos.length > 0 ? (
+                <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />
+              ) : undefined
+            }
+          />
         ))}
       </div>
+      {adoptionStage && (
+        <FeatureBoardAdoptionDialog
+          stage={adoptionStage}
+          repos={adoptionEligibleRepos}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAdoptionStage(null)
+            }
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function ColumnAddButton({
+  stage,
+  onClick
+}: {
+  stage: WorkflowStage
+  onClick: () => void
+}): React.JSX.Element {
+  const label = translate('components.featureBoard.column.addTooltip', 'New feature in {{stage}}', {
+    stage: getFeatureBoardStageLabel(stage)
+  })
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-6 text-muted-foreground"
+          aria-label={label}
+          onClick={onClick}
+        >
+          <Plus className="size-3.5" />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
   )
 }
