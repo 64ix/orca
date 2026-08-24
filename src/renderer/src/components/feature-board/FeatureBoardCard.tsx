@@ -1,11 +1,13 @@
 import React from 'react'
-import { Folder } from 'lucide-react'
+import { Folder, GitBranch } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import WorktreeCard from '@/components/sidebar/WorktreeCard'
 import { getLineageNestedRowGeometry } from '@/components/sidebar/worktree-list/rows/indentation'
+import { TruncatedSidebarLabel } from '@/components/sidebar/truncated-sidebar-label'
 import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
+import { branchName } from '@/lib/git-utils'
 import { cn } from '@/lib/utils'
 import { isFolderRepo } from '../../../../shared/repo-kind'
 import type { Worktree } from '../../../../shared/worktree/types'
@@ -52,6 +54,9 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const repo = repoMap.get(card.worktree.repoId)
   const isFolder = repo ? isFolderRepo(repo) : false
+  // Why a standalone row, not a WorktreeCard prop: the card's own branch row is gated behind
+  // the user's sidebar `worktreeCardProperties` preference, but the board always needs it (#44).
+  const branch = !isFolder ? branchName(card.worktree.branch) : ''
 
   return (
     <div
@@ -96,6 +101,12 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
         isActive={activeWorktreeId === card.worktree.id}
         nativeDragEnabled={false}
       />
+      {branch ? (
+        <div className="-mt-1 flex min-w-0 items-center gap-1 px-1.5 pb-1 text-muted-foreground">
+          <GitBranch className="size-2.5 shrink-0" />
+          <TruncatedSidebarLabel text={branch} className="text-[11px] leading-none" />
+        </div>
+      ) : null}
       {card.children.length > 0 ? (
         <div className="mt-1.5 space-y-1 border-l border-border/60 pl-2">
           {card.children.map((child) => (
