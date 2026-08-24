@@ -85,6 +85,14 @@ describe('authenticateSyncRelayRequest — opaque pre-signature failures (findin
 
   it('still distinguishes a revoked device — but only after signature proves possession', async () => {
     const db = await setup()
+    // A second active device must exist, or the "never leave zero active devices"
+    // guard (finding #5) would itself refuse this revoke.
+    await registerNewSyncRelayDevice(db, {
+      deviceId: 'witness-device',
+      secretB64: Buffer.from(new Uint8Array(32).fill(7)).toString('base64'),
+      name: 'witness',
+      pairedAt: Date.now()
+    })
     await revokeSyncRelayDevice(db, DEVICE_ID)
     const bodyDigest = await sha256Digest(new TextEncoder().encode('{}'))
     const header = await signSyncRelayRequest({ deviceId: DEVICE_ID, secret: SECRET, bodyDigest })

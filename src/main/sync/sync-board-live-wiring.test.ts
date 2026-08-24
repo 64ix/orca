@@ -395,9 +395,11 @@ describe('startSyncBoardLiveWiring — local deletes tombstone the synced row', 
     storeA.removeWorktreeMeta('w1')
     await wiringA.flushNow()
 
-    const stored = relay
-      .pull(0)
-      .rows.find((row) => row.table === 'worktreeMeta' && row.rowId === 'w1')
+    const pulled = relay.pull(0)
+    if (!pulled.ok) {
+      throw new Error('expected pull to succeed')
+    }
+    const stored = pulled.rows.find((row) => row.table === 'worktreeMeta' && row.rowId === 'w1')
     expect(stored?.tombstone).toBe(true)
 
     wiringA.stop()
@@ -418,7 +420,11 @@ describe('startSyncBoardLiveWiring — local deletes tombstone the synced row', 
     store.removeWorktreeMeta('never-synced')
     await wiring.flushNow()
 
-    expect(relay.pull(0).rows).toHaveLength(0)
+    const pulled = relay.pull(0)
+    if (!pulled.ok) {
+      throw new Error('expected pull to succeed')
+    }
+    expect(pulled.rows).toHaveLength(0)
     wiring.stop()
   })
 })

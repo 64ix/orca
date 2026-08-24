@@ -195,14 +195,34 @@ export async function registerNewSyncRelayDevice(
   return inserted.length > 0
 }
 
+/**
+ * Revokes a device, refusing when it is the fleet's only active one — losing that would
+ * leave nothing able to re-pair (a vouching device must itself be active) or
+ * re-bootstrap (bootstrap only accepts an empty table, and revoked rows still count
+ * against that — see countSyncRelayDevices). Single atomic UPDATE so two concurrent
+ * revokes cannot both slip past the "at least one active device" guard.
+ */
 export async function revokeSyncRelayDevice(
   db: SyncRelayD1Database,
   deviceId: string
-): Promise<void> {
-  await db
-    .prepare("UPDATE sync_devices SET status = 'revoked' WHERE device_id = ?")
+): Promise<boolean> {
+  const updated = await db
+    .prepare(
+      `UPDATE sync_devices SET status = 'revoked'
+       WHERE device_id = ?
+         AND (status != 'active'
+              OR (SELECT COUNT(*) FROM sync_devices WHERE status = 'active') > 1)
+       RETURNING device_id`
+    )
     .bind(deviceId)
-    .run()
+    .all<{ device_id: string }>()
+  if (updated.length > 0) {
+    return true
+  }
+  // The UPDATE only misses a row when the id is unknown (harmless no-op) or when it is
+  // the fleet's last active device — only the latter is an actual refusal.
+  const device = await lookupSyncRelayDevice(db, deviceId)
+  return device?.status !== 'active'
 }
 
 export async function touchSyncRelayDeviceLastSeen(

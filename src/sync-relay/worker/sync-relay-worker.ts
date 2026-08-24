@@ -208,7 +208,13 @@ async function handleRevoke(
   if (!parsed.success) {
     return jsonResponse({ error: 'invalid-request' }, 400)
   }
-  await revokeSyncRelayDevice(env.SYNC_RELAY_DB, parsed.data.deviceId)
+  // The actual trust boundary — the renderer hiding the button for the caller's own id
+  // is not enough, since any active device can target any other. Refusing here is what
+  // stops the fleet from revoking its way down to zero active devices, which would be
+  // unrecoverable (bootstrap only accepts an empty table, not an all-revoked one).
+  if (!(await revokeSyncRelayDevice(env.SYNC_RELAY_DB, parsed.data.deviceId))) {
+    return jsonResponse({ error: 'last-active-device' }, 409)
+  }
   return jsonResponse({ ok: true })
 }
 

@@ -7,7 +7,7 @@ import {
   SYNC_RELAY_AUTH_HEADER
 } from '../protocol/sync-relay-request-auth'
 import { createFakeSyncRelayD1 } from './__fixtures__/sync-relay-fake-d1'
-import { registerNewSyncRelayDevice } from './sync-relay-d1-store'
+import { listSyncRelayDevices, registerNewSyncRelayDevice } from './sync-relay-d1-store'
 import syncRelayWorker, { type SyncRelayEnv } from './sync-relay-worker'
 
 const DEVICE_A = 'device-a'
@@ -203,6 +203,93 @@ describe('POST /v1/revoke', () => {
     )
     expect(after.status).toBe(403)
     expect(await after.json()).toEqual({ error: 'device-revoked' })
+  })
+
+  it('refuses to revoke the fleet down to zero active devices', async () => {
+    const { env: e } = env()
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: DEVICE_A,
+      secretB64: Buffer.from(SECRET_A).toString('base64'),
+      name: 'only-device',
+      pairedAt: Date.now()
+    })
+
+    const response = await post(
+      e,
+      'v1/revoke',
+      { deviceId: DEVICE_A },
+      { deviceId: DEVICE_A, secret: SECRET_A }
+    )
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ error: 'last-active-device' })
+
+    // Still active — the refusal must not have half-applied.
+    const stillWorks = await post(
+      e,
+      'v1/devices',
+      { deviceId: DEVICE_A },
+      { deviceId: DEVICE_A, secret: SECRET_A }
+    )
+    expect(stillWorks.status).toBe(200)
+  })
+
+  it('allows revoking the last active device once a different one is already revoked (no live lock-in)', async () => {
+    const { env: e } = env()
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: DEVICE_A,
+      secretB64: Buffer.from(SECRET_A).toString('base64'),
+      name: 'laptop',
+      pairedAt: Date.now()
+    })
+    const otherSecret = Uint8Array.from({ length: 32 }, (_, i) => 50 + i)
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: 'device-b',
+      secretB64: Buffer.from(otherSecret).toString('base64'),
+      name: 'desktop',
+      pairedAt: Date.now()
+    })
+    await post(e, 'v1/revoke', { deviceId: 'device-b' }, { deviceId: DEVICE_A, secret: SECRET_A })
+
+    // DEVICE_A is now the only active device — the guard must still allow revoking a
+    // device that is already revoked (a true no-op, not a lockout risk).
+    const response = await post(
+      e,
+      'v1/revoke',
+      { deviceId: 'device-b' },
+      { deviceId: DEVICE_A, secret: SECRET_A }
+    )
+    expect(response.status).toBe(200)
+  })
+
+  it('lets only one of two concurrent last-device revokes win, never leaving zero active', async () => {
+    const { env: e } = env()
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: DEVICE_A,
+      secretB64: Buffer.from(SECRET_A).toString('base64'),
+      name: 'device-a',
+      pairedAt: Date.now()
+    })
+    const secretB = Uint8Array.from({ length: 32 }, (_, i) => 60 + i)
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: 'device-b',
+      secretB64: Buffer.from(secretB).toString('base64'),
+      name: 'device-b',
+      pairedAt: Date.now()
+    })
+
+    // Both requests can observe "2 active" before either UPDATE lands — the atomic
+    // WHERE-gated UPDATE (not a check-then-act race) is what must break the tie.
+    const [revokeA, revokeB] = await Promise.all([
+      post(e, 'v1/revoke', { deviceId: DEVICE_A }, { deviceId: 'device-b', secret: secretB }),
+      post(e, 'v1/revoke', { deviceId: 'device-b' }, { deviceId: DEVICE_A, secret: SECRET_A })
+    ])
+    const statuses = [revokeA.status, revokeB.status].sort()
+    expect(statuses).toEqual([200, 409])
+
+    // Query the store directly — whichever device won the race, it must still be able
+    // to authenticate, so asking through its own identity isn't reliable here.
+    const devices = await listSyncRelayDevices(e.SYNC_RELAY_DB)
+    expect(devices.filter((d) => d.status === 'active')).toHaveLength(1)
   })
 })
 

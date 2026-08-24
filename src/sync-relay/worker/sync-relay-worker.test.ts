@@ -72,6 +72,14 @@ describe('sync relay worker — device auth', () => {
 
   it('rejects a revoked device', async () => {
     const { db, env } = await setup()
+    // A second active device must exist, or the "never leave zero active devices"
+    // guard (finding #5) would itself refuse this revoke.
+    await registerNewSyncRelayDevice(db, {
+      deviceId: 'witness-device',
+      secretB64: Buffer.from(new Uint8Array(32).fill(7)).toString('base64'),
+      name: 'witness',
+      pairedAt: Date.now()
+    })
     await revokeSyncRelayDevice(db, DEVICE_ID)
     const response = await post(env, 'v1/pull', { deviceId: DEVICE_ID, sinceServerSeq: 0 })
     expect(response.status).toBe(403)
@@ -246,6 +254,14 @@ describe('sync relay worker — stale-write guard', () => {
 
   it('keeps a revoked device opaque until it proves possession of the secret', async () => {
     const { db, env } = await setup()
+    // A second active device must exist, or the "never leave zero active devices"
+    // guard (finding #5) would itself refuse this revoke.
+    await registerNewSyncRelayDevice(db, {
+      deviceId: 'witness-device',
+      secretB64: Buffer.from(new Uint8Array(32).fill(7)).toString('base64'),
+      name: 'witness',
+      pairedAt: Date.now()
+    })
     await revokeSyncRelayDevice(db, DEVICE_ID)
 
     const wrongSecret = await post(

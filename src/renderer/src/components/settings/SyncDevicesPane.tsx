@@ -16,6 +16,21 @@ import type {
 } from '../../../../preload/api/sync-pairing-api'
 export { getSyncDevicesPaneSearchEntries } from './sync-devices-search'
 
+function translateRevokeFailureReason(reason: string): string {
+  switch (reason) {
+    case 'last-active-device':
+      return translate(
+        'auto.components.settings.SyncDevicesPane.4a5b6c7d8e',
+        'Can’t revoke the only active device — pair another device first.'
+      )
+    default:
+      return translate(
+        'auto.components.settings.SyncDevicesPane.1c2d3e4f5a',
+        'Failed to revoke device'
+      )
+  }
+}
+
 type SyncDevicesPaneProps = {
   settings: GlobalSettings
   updateSettings: (updates: Partial<GlobalSettings>) => void | Promise<void>
@@ -108,12 +123,7 @@ export function SyncDevicesPane({
         )
         await refresh()
       } else {
-        toast.error(
-          translate(
-            'auto.components.settings.SyncDevicesPane.1c2d3e4f5a',
-            'Failed to revoke device'
-          )
-        )
+        toast.error(translateRevokeFailureReason(result.reason))
       }
     } catch {
       toast.error(

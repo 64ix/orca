@@ -66,6 +66,10 @@ export type SyncRelayPairArgs = {
 
 export type SyncRelayOkResult = { ok: true } | SyncRelayTransportFailure
 
+export type SyncRelayRevokeResult =
+  | { ok: true }
+  | { ok: false; reason: 'last-active-device' | 'transport-error' | 'rejected'; status?: number }
+
 export type SyncRelayDevicesListResult =
   | { ok: true; devices: SyncRelayDeviceSummary[] }
   | SyncRelayTransportFailure
@@ -183,8 +187,24 @@ export class SyncRelayClient {
     return this.postForOk('/v1/pair', args)
   }
 
-  async revokeDevice(deviceId: string): Promise<SyncRelayOkResult> {
-    return this.postForOk('/v1/revoke', { deviceId })
+  /** Surfaces the worker's specific refusal reason (e.g. last-active-device), not just 'rejected'. */
+  async revokeDevice(deviceId: string): Promise<SyncRelayRevokeResult> {
+    const response = await this.post('/v1/revoke', { deviceId })
+    if (!response) {
+      return { ok: false, reason: 'transport-error' }
+    }
+    if (!response.ok) {
+      const errorCode = await readSyncRelayErrorCode(response)
+      return {
+        ok: false,
+        reason: errorCode === 'last-active-device' ? 'last-active-device' : 'rejected',
+        status: response.status
+      }
+    }
+    const parsed = SyncRelayOkResponseSchema.safeParse(await response.json())
+    return parsed.success
+      ? { ok: true }
+      : { ok: false, reason: 'rejected', status: response.status }
   }
 
   async listDevices(): Promise<SyncRelayDevicesListResult> {
@@ -235,5 +255,15 @@ export class SyncRelayClient {
     } catch {
       return null
     }
+  }
+}
+
+/** Reads the worker's `{ error }` body for a non-ok response; null on any parse failure. */
+async function readSyncRelayErrorCode(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown }
+    return typeof body.error === 'string' ? body.error : null
+  } catch {
+    return null
   }
 }
