@@ -218,3 +218,91 @@ describe('POST /v1/devices', () => {
     expect(response.status).toBe(401)
   })
 })
+
+describe('POST /v1/pair — revocation is final', () => {
+  it('refuses to re-pair an existing device id instead of overwriting its secret', async () => {
+    const { env: e } = env()
+    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: DEVICE_A,
+      secretB64: Buffer.from(SECRET_A).toString('base64'),
+      name: 'laptop',
+      pairedAt: Date.now()
+    })
+    const victimSecret = Uint8Array.from({ length: 32 }, (_, i) => 100 + i)
+    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: 'device-b',
+      secretB64: Buffer.from(victimSecret).toString('base64'),
+      name: 'desktop',
+      pairedAt: Date.now()
+    })
+
+    const attackerSecret = Uint8Array.from({ length: 32 }, () => 7)
+    const response = await post(
+      e,
+      'v1/pair',
+      {
+        deviceId: 'device-b',
+        secretB64: Buffer.from(attackerSecret).toString('base64'),
+        name: 'desktop',
+        pairedAt: Date.now()
+      },
+      { deviceId: DEVICE_A, secret: SECRET_A }
+    )
+    expect(response.status).toBe(409)
+
+    // The original secret still works; the substituted one never does.
+    const original = await post(
+      e,
+      'v1/pull',
+      { deviceId: 'device-b', sinceServerSeq: 0 },
+      { deviceId: 'device-b', secret: victimSecret }
+    )
+    expect(original.status).toBe(200)
+    const substituted = await post(
+      e,
+      'v1/pull',
+      { deviceId: 'device-b', sinceServerSeq: 0 },
+      { deviceId: 'device-b', secret: attackerSecret }
+    )
+    expect(substituted.status).toBe(401)
+  })
+
+  it('cannot un-revoke a device by pairing its id again', async () => {
+    const { env: e } = env()
+    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: DEVICE_A,
+      secretB64: Buffer.from(SECRET_A).toString('base64'),
+      name: 'laptop',
+      pairedAt: Date.now()
+    })
+    const revokedSecret = Uint8Array.from({ length: 32 }, (_, i) => 150 + i)
+    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+      deviceId: 'device-b',
+      secretB64: Buffer.from(revokedSecret).toString('base64'),
+      name: 'desktop',
+      pairedAt: Date.now()
+    })
+    await post(e, 'v1/revoke', { deviceId: 'device-b' }, { deviceId: DEVICE_A, secret: SECRET_A })
+
+    const rePair = await post(
+      e,
+      'v1/pair',
+      {
+        deviceId: 'device-b',
+        secretB64: Buffer.from(revokedSecret).toString('base64'),
+        name: 'desktop',
+        pairedAt: Date.now()
+      },
+      { deviceId: DEVICE_A, secret: SECRET_A }
+    )
+    expect(rePair.status).toBe(409)
+
+    const stillCutOff = await post(
+      e,
+      'v1/pull',
+      { deviceId: 'device-b', sinceServerSeq: 0 },
+      { deviceId: 'device-b', secret: revokedSecret }
+    )
+    expect(stillCutOff.status).toBe(403)
+  })
+})

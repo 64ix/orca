@@ -21,6 +21,7 @@ import {
   listSyncRelayDevices,
   pullSyncRelayRows,
   pushSyncRelayRows,
+  registerNewSyncRelayDevice,
   registerSyncRelayDevice,
   revokeSyncRelayDevice,
   touchSyncRelayDeviceLastSeen
@@ -186,7 +187,10 @@ async function handlePair(
   if (parsed.data.deviceId === deviceId) {
     return jsonResponse({ error: 'cannot-pair-self' }, 400)
   }
-  await registerSyncRelayDevice(env.SYNC_RELAY_DB, parsed.data)
+  // Insert-only: re-pairing an existing id would overwrite its secret and un-revoke it.
+  if (!(await registerNewSyncRelayDevice(env.SYNC_RELAY_DB, parsed.data))) {
+    return jsonResponse({ error: 'device-exists' }, 409)
+  }
   return jsonResponse({ ok: true })
 }
 

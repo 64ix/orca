@@ -72,7 +72,8 @@ one itself. Ticket #42 ships the actual pairing flow (Settings → Sync Devices)
 - **First device**: `POST /v1/bootstrap` is unauthenticated but only accepted
   while `sync_devices` is empty — racing to bootstrap an empty table is the
   same trust boundary as knowing the freshly-deployed Worker URL and D1
-  binding. `SyncPairingRuntime#bootstrap` in
+  binding — so bootstrap the first device immediately after `wrangler deploy`,
+  before the URL is anywhere it could leak. `SyncPairingRuntime#bootstrap` in
   [`src/main/sync-pairing/sync-pairing-runtime.ts`](../../src/main/sync-pairing/sync-pairing-runtime.ts)
   drives this from the Devices screen; you can still call
   `registerSyncRelayDevice` directly (or insert the row) as a manual fallback.
@@ -84,7 +85,11 @@ one itself. Ticket #42 ships the actual pairing flow (Settings → Sync Devices)
   machine. Neither half alone reconstructs the HMAC secret (see
   [`src/sync-relay/crypto/sync-pairing-secret-schedule.ts`](../../src/sync-relay/crypto/sync-pairing-secret-schedule.ts)),
   so leaking one transport (e.g. a clipboard-logged deep link) never hands
-  over the whole capability.
+  over the whole capability. `/v1/pair` is **insert-only**: an id already in
+  `sync_devices` comes back `409 device-exists` rather than having its secret
+  replaced, so no holder of any valid credential can hijack another device's
+  row or un-revoke one. Each invite mints a fresh device id, so this never
+  affects the normal flow.
 - `POST /v1/devices` lists every device's public metadata (name, `pairedAt`,
   `lastSeenAt`, `status`) for the Devices screen — never `secret_b64`.
 
