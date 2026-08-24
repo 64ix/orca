@@ -22,7 +22,6 @@ import {
   pullSyncRelayRows,
   pushSyncRelayRows,
   registerNewSyncRelayDevice,
-  registerSyncRelayDevice,
   revokeSyncRelayDevice,
   touchSyncRelayDeviceLastSeen
 } from './sync-relay-d1-store'
@@ -171,7 +170,13 @@ async function handleBootstrap(bodyJson: unknown, env: SyncRelayEnv): Promise<Re
   if ((await countSyncRelayDevices(env.SYNC_RELAY_DB)) > 0) {
     return jsonResponse({ error: 'already-bootstrapped' }, 403)
   }
-  await registerSyncRelayDevice(env.SYNC_RELAY_DB, parsed.data)
+  // Insert-only closes the race the count check above cannot: two concurrent first
+  // callers can both observe an empty table, but only one INSERT can win. The loser
+  // must get a clear conflict, never silently overwrite the winner's secret or
+  // reactivate a revoked row — that is exactly what the upsert variant used to risk.
+  if (!(await registerNewSyncRelayDevice(env.SYNC_RELAY_DB, parsed.data))) {
+    return jsonResponse({ error: 'already-bootstrapped' }, 403)
+  }
   return jsonResponse({ ok: true })
 }
 

@@ -6,7 +6,7 @@ import {
 } from '../protocol/sync-relay-request-auth'
 import type { SyncRelayPushRow } from '../protocol/sync-relay-wire-protocol'
 import { createFakeSyncRelayD1 } from './__fixtures__/sync-relay-fake-d1'
-import { registerSyncRelayDevice, revokeSyncRelayDevice } from './sync-relay-d1-store'
+import { registerNewSyncRelayDevice, revokeSyncRelayDevice } from './sync-relay-d1-store'
 import syncRelayWorker, { type SyncRelayEnv } from './sync-relay-worker'
 
 const DEVICE_ID = 'device-1'
@@ -35,7 +35,7 @@ async function post(
 
 async function setup() {
   const db = createFakeSyncRelayD1()
-  await registerSyncRelayDevice(db, {
+  await registerNewSyncRelayDevice(db, {
     deviceId: DEVICE_ID,
     secretB64: Buffer.from(SECRET).toString('base64'),
     name: 'laptop',

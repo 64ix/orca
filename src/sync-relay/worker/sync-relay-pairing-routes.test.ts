@@ -7,7 +7,7 @@ import {
   SYNC_RELAY_AUTH_HEADER
 } from '../protocol/sync-relay-request-auth'
 import { createFakeSyncRelayD1 } from './__fixtures__/sync-relay-fake-d1'
-import { registerSyncRelayDevice } from './sync-relay-d1-store'
+import { registerNewSyncRelayDevice } from './sync-relay-d1-store'
 import syncRelayWorker, { type SyncRelayEnv } from './sync-relay-worker'
 
 const DEVICE_A = 'device-a'
@@ -72,12 +72,46 @@ describe('POST /v1/bootstrap', () => {
     expect(second.status).toBe(403)
     expect(await second.json()).toEqual({ error: 'already-bootstrapped' })
   })
+
+  it('lets only one of two concurrent first-bootstraps win, without overwriting its secret', async () => {
+    const { env: e } = env()
+    // Both requests can observe the count-check as 0 before either INSERT lands — the
+    // insert-only registration (not the count check) is what must break the tie.
+    const [first, second] = await Promise.all([
+      post(e, 'v1/bootstrap', {
+        deviceId: DEVICE_A,
+        secretB64: Buffer.from(SECRET_A).toString('base64'),
+        name: 'winner',
+        pairedAt: Date.now()
+      }),
+      post(e, 'v1/bootstrap', {
+        deviceId: DEVICE_A,
+        secretB64: Buffer.from(new Uint8Array(32).fill(9)).toString('base64'),
+        name: 'loser',
+        pairedAt: Date.now()
+      })
+    ])
+    const statuses = [first.status, second.status].sort()
+    expect(statuses).toEqual([200, 403])
+
+    // Whichever secret won, it must still be the one that can authenticate — proving
+    // the loser never overwrote it (the old upsert-based bootstrap would have let the
+    // request that ran last silently win, race outcome notwithstanding).
+    const winningSecret = first.status === 200 ? SECRET_A : new Uint8Array(32).fill(9)
+    const authed = await post(
+      e,
+      'v1/devices',
+      { deviceId: DEVICE_A },
+      { deviceId: DEVICE_A, secret: winningSecret }
+    )
+    expect(authed.status).toBe(200)
+  })
 })
 
 describe('POST /v1/pair', () => {
   it('lets an already-active device vouch for a new one', async () => {
     const { env: e } = env()
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: DEVICE_A,
       secretB64: Buffer.from(SECRET_A).toString('base64'),
       name: 'laptop',
@@ -125,14 +159,14 @@ describe('POST /v1/pair', () => {
 describe('POST /v1/revoke', () => {
   it('cuts a revoked device off immediately', async () => {
     const { env: e } = env()
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: DEVICE_A,
       secretB64: Buffer.from(SECRET_A).toString('base64'),
       name: 'laptop',
       pairedAt: Date.now()
     })
     const targetSecret = Uint8Array.from({ length: 32 }, (_, i) => 200 + i)
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: 'device-b',
       secretB64: Buffer.from(targetSecret).toString('base64'),
       name: 'desktop',
@@ -176,13 +210,13 @@ describe('POST /v1/devices', () => {
   it('lists every paired device without leaking secrets', async () => {
     const { env: e } = env()
     const pairedAt = Date.now()
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: DEVICE_A,
       secretB64: Buffer.from(SECRET_A).toString('base64'),
       name: 'laptop',
       pairedAt
     })
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: 'device-b',
       secretB64: Buffer.from(new Uint8Array(32)).toString('base64'),
       name: 'desktop',
@@ -222,14 +256,14 @@ describe('POST /v1/devices', () => {
 describe('POST /v1/pair — revocation is final', () => {
   it('refuses to re-pair an existing device id instead of overwriting its secret', async () => {
     const { env: e } = env()
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: DEVICE_A,
       secretB64: Buffer.from(SECRET_A).toString('base64'),
       name: 'laptop',
       pairedAt: Date.now()
     })
     const victimSecret = Uint8Array.from({ length: 32 }, (_, i) => 100 + i)
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: 'device-b',
       secretB64: Buffer.from(victimSecret).toString('base64'),
       name: 'desktop',
@@ -269,14 +303,14 @@ describe('POST /v1/pair — revocation is final', () => {
 
   it('cannot un-revoke a device by pairing its id again', async () => {
     const { env: e } = env()
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: DEVICE_A,
       secretB64: Buffer.from(SECRET_A).toString('base64'),
       name: 'laptop',
       pairedAt: Date.now()
     })
     const revokedSecret = Uint8Array.from({ length: 32 }, (_, i) => 150 + i)
-    await registerSyncRelayDevice(e.SYNC_RELAY_DB, {
+    await registerNewSyncRelayDevice(e.SYNC_RELAY_DB, {
       deviceId: 'device-b',
       secretB64: Buffer.from(revokedSecret).toString('base64'),
       name: 'desktop',

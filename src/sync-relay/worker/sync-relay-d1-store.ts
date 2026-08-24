@@ -173,12 +173,11 @@ export async function lookupSyncRelayDevice(
   }
 }
 
-/** Auth seam for ticket #42's pairing flow — the relay itself never mints device rows. */
 /**
- * Insert-only registration for /v1/pair: returns false when the id already exists.
- * A vouching device must never be able to overwrite another device's secret, nor
- * flip a revoked row back to active — that would make revocation reversible by
- * anyone still holding any valid credential.
+ * Insert-only registration used by both /v1/pair and /v1/bootstrap: returns false when
+ * the id already exists. A vouching device (or a racing bootstrap) must never be able
+ * to overwrite another device's secret, nor flip a revoked row back to active — either
+ * would make revocation reversible by anyone still holding any valid credential.
  */
 export async function registerNewSyncRelayDevice(
   db: SyncRelayD1Database,
@@ -194,20 +193,6 @@ export async function registerNewSyncRelayDevice(
     .bind(args.deviceId, args.secretB64, args.name, args.pairedAt)
     .all<{ device_id: string }>()
   return inserted.length > 0
-}
-
-export async function registerSyncRelayDevice(
-  db: SyncRelayD1Database,
-  args: { deviceId: string; secretB64: string; name: string; pairedAt: number }
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO sync_devices (device_id, secret_b64, name, status, paired_at)
-       VALUES (?, ?, ?, 'active', ?)
-       ON CONFLICT(device_id) DO UPDATE SET secret_b64 = excluded.secret_b64, name = excluded.name, status = 'active'`
-    )
-    .bind(args.deviceId, args.secretB64, args.name, args.pairedAt)
-    .run()
 }
 
 export async function revokeSyncRelayDevice(
