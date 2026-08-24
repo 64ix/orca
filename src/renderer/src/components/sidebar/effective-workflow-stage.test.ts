@@ -6,7 +6,7 @@ import { toRuntimeExecutionHostId, toSshExecutionHostId } from '../../../../shar
 import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import { issueCacheKey as getIssueCacheKey } from '@/store/slices/github'
 import { computeClassicDrawerWorktreeIds } from './use-visible-workspace-kanban-worktree-ids'
-import { deriveEffectiveWorkflowStage } from './effective-workflow-stage'
+import { deriveEffectiveWorkflowStage, knownPullRequestFor } from './effective-workflow-stage'
 import { createGitHubStageFactSource } from '../../../../shared/stage-derivation/github-stage-fact-source'
 import { getWorktreeIdFromHostIdentity } from '../../../../shared/worktree/host-qualified-identity'
 
@@ -146,6 +146,33 @@ describe('deriveEffectiveWorkflowStage', () => {
     expect(
       derive(worktree, { prCache: { [prCacheKey(makeRepo(), worktree)]: { data: stale } } }).stage
     ).toBeNull()
+  })
+
+  // Why this seam is exported: the feature board's PR-state filter (#50) reads
+  // the same effective PR so its "merged" bucket cannot disagree with the
+  // stage derivation about whether a stale merged cache entry counts.
+  describe('knownPullRequestFor (exported for #50)', () => {
+    it('returns the cached PR when it is current for the worktree', () => {
+      const worktree = makeWorktree()
+      const open = openPR()
+      const pr = knownPullRequestFor(worktree, {
+        repo: makeRepo(),
+        settings: SETTINGS,
+        prCache: { [prCacheKey(makeRepo(), worktree)]: { data: open } }
+      })
+      expect(pr).toEqual(open)
+    })
+
+    it('treats a merged entry whose head no longer matches the worktree as no PR', () => {
+      const worktree = makeWorktree({ head: 'def456' })
+      const stale: PRInfo = { ...openPR(), state: 'merged', headSha: 'abc123' }
+      const pr = knownPullRequestFor(worktree, {
+        repo: makeRepo(),
+        settings: SETTINGS,
+        prCache: { [prCacheKey(makeRepo(), worktree)]: { data: stale } }
+      })
+      expect(pr).toBeNull()
+    })
   })
 
   it('promotes idea to spec from an open linked issue but never regresses implementing', () => {
