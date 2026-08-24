@@ -6,7 +6,7 @@ import { randomBytes } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { combineSyncPairingSecretHalves } from '../crypto/sync-pairing-secret-schedule'
 import { createFakeSyncRelayD1 } from '../worker/__fixtures__/sync-relay-fake-d1'
-import { registerSyncRelayDevice } from '../worker/sync-relay-d1-store'
+import { registerNewSyncRelayDevice } from '../worker/sync-relay-d1-store'
 import syncRelayWorker, { type SyncRelayEnv } from '../worker/sync-relay-worker'
 import { bootstrapSyncRelayDevice, SyncRelayClient } from './sync-relay-client'
 
@@ -26,7 +26,7 @@ describe('two-half pairing — full round trip', () => {
     const db = createFakeSyncRelayD1()
     const env: SyncRelayEnv = { SYNC_RELAY_DB: db }
     const fetchImpl = await createInProcessWorkerFetch(env)
-    await registerSyncRelayDevice(db, {
+    await registerNewSyncRelayDevice(db, {
       deviceId: INVITER_DEVICE_ID,
       secretB64: Buffer.from(INVITER_SECRET).toString('base64'),
       name: 'inviter-laptop',
@@ -111,7 +111,7 @@ describe('two-half pairing — neither half alone grants access', () => {
     const db = createFakeSyncRelayD1()
     const env: SyncRelayEnv = { SYNC_RELAY_DB: db }
     const fetchImpl = await createInProcessWorkerFetch(env)
-    await registerSyncRelayDevice(db, {
+    await registerNewSyncRelayDevice(db, {
       deviceId: INVITER_DEVICE_ID,
       secretB64: Buffer.from(INVITER_SECRET).toString('base64'),
       name: 'inviter-laptop',
@@ -150,7 +150,7 @@ describe('two-half pairing — neither half alone grants access', () => {
     const db = createFakeSyncRelayD1()
     const env: SyncRelayEnv = { SYNC_RELAY_DB: db }
     const fetchImpl = await createInProcessWorkerFetch(env)
-    await registerSyncRelayDevice(db, {
+    await registerNewSyncRelayDevice(db, {
       deviceId: INVITER_DEVICE_ID,
       secretB64: Buffer.from(INVITER_SECRET).toString('base64'),
       name: 'inviter-laptop',

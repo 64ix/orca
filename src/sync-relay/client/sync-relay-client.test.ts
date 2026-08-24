@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MAX_SYNC_RELAY_CIPHERTEXT_BASE64_CHARACTERS } from '../protocol/sync-relay-wire-protocol'
 import { createFakeSyncRelayD1 } from '../worker/__fixtures__/sync-relay-fake-d1'
-import { registerSyncRelayDevice } from '../worker/sync-relay-d1-store'
+import { registerNewSyncRelayDevice } from '../worker/sync-relay-d1-store'
 import syncRelayWorker, { type SyncRelayEnv } from '../worker/sync-relay-worker'
 import { SyncRelayClient } from './sync-relay-client'
 
@@ -17,7 +17,7 @@ async function createInProcessWorkerFetch(env: SyncRelayEnv): Promise<typeof fet
 
 async function createClient(overrides: Partial<{ deviceId: string; secret: Uint8Array }> = {}) {
   const db = createFakeSyncRelayD1()
-  await registerSyncRelayDevice(db, {
+  await registerNewSyncRelayDevice(db, {
     deviceId: overrides.deviceId ?? DEVICE_ID,
     secretB64: Buffer.from(overrides.secret ?? SECRET).toString('base64'),
     name: 'laptop',

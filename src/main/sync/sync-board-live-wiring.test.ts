@@ -109,6 +109,7 @@ function makeFakeStore(settings: GlobalSettings) {
   let ui = fakeUiState()
   const settingsListeners = new Set<(updates: Partial<GlobalSettings>) => void>()
   const worktreeMetaListeners = new Set<(worktreeId: string, meta: WorktreeMeta) => void>()
+  const worktreeMetaRemovedListeners = new Set<(worktreeId: string) => void>()
   const uiListeners = new Set<(ui: PersistedUIState) => void>()
 
   const adapter: SyncBoardStoreAdapter = {
@@ -121,6 +122,10 @@ function makeFakeStore(settings: GlobalSettings) {
     onWorktreeMetaChanged: (listener) => {
       worktreeMetaListeners.add(listener)
       return () => worktreeMetaListeners.delete(listener)
+    },
+    onWorktreeMetaRemoved: (listener) => {
+      worktreeMetaRemovedListeners.add(listener)
+      return () => worktreeMetaRemovedListeners.delete(listener)
     },
     setWorktreeMeta: (worktreeId, patch) => {
       const updated = { ...(worktreeMeta[worktreeId] ?? baseMeta()), ...patch }
@@ -146,6 +151,13 @@ function makeFakeStore(settings: GlobalSettings) {
     adapter,
     seedWorktreeMeta(worktreeId: string, meta: WorktreeMeta) {
       worktreeMeta = { ...worktreeMeta, [worktreeId]: meta }
+    },
+    removeWorktreeMeta(worktreeId: string) {
+      const { [worktreeId]: _removed, ...rest } = worktreeMeta
+      worktreeMeta = rest
+      for (const listener of worktreeMetaRemovedListeners) {
+        listener(worktreeId)
+      }
     },
     getWorktreeMeta: (worktreeId: string) => worktreeMeta[worktreeId],
     getUi: () => ui,
@@ -350,5 +362,69 @@ describe('startSyncBoardLiveWiring — reacts to the settings toggle and stop()'
     store.adapter.setWorktreeMeta('w1', { workflowStage: 'shipped' })
     await wiring.flushNow()
     expect(relay.pushCalls).toBe(pushCallsAtStop)
+  })
+})
+
+describe('startSyncBoardLiveWiring — local deletes tombstone the synced row', () => {
+  it('removeWorktreeMeta on device A pushes a tombstone the relay retains for device B', async () => {
+    const relay = new FakeSyncRelay()
+    const storeA = makeFakeStore(enabledSettings())
+    const storeB = makeFakeStore(enabledSettings())
+    storeB.seedWorktreeMeta('w1', baseMeta())
+
+    const wiringA = startSyncBoardLiveWiring({
+      store: storeA.adapter,
+      connection: fakeConnection(relay),
+      userDataPath: userDataDir(),
+      scheduleFlush: () => () => {}
+    })
+    const wiringB = startSyncBoardLiveWiring({
+      store: storeB.adapter,
+      connection: fakeConnection(relay),
+      userDataPath: userDataDir(),
+      scheduleFlush: () => () => {}
+    })
+
+    storeA.adapter.setWorktreeMeta('w1', { workflowStage: 'review' })
+    await wiringA.flushNow()
+    await wiringB.flushNow()
+    expect(storeB.getWorktreeMeta('w1')?.workflowStage).toBe('review')
+
+    // The dismiss/delete path (removeWorktreeMeta), not setWorktreeMeta — this is the
+    // path that previously never reached the sync engine at all.
+    storeA.removeWorktreeMeta('w1')
+    await wiringA.flushNow()
+
+    const pulled = relay.pull(0)
+    if (!pulled.ok) {
+      throw new Error('expected pull to succeed')
+    }
+    const stored = pulled.rows.find((row) => row.table === 'worktreeMeta' && row.rowId === 'w1')
+    expect(stored?.tombstone).toBe(true)
+
+    wiringA.stop()
+    wiringB.stop()
+  })
+
+  it('does nothing when the removed worktreeId was never synced (nothing to tombstone)', async () => {
+    const relay = new FakeSyncRelay()
+    const store = makeFakeStore(enabledSettings())
+    const wiring = startSyncBoardLiveWiring({
+      store: store.adapter,
+      connection: fakeConnection(relay),
+      userDataPath: userDataDir(),
+      scheduleFlush: () => () => {}
+    })
+
+    store.seedWorktreeMeta('never-synced', baseMeta())
+    store.removeWorktreeMeta('never-synced')
+    await wiring.flushNow()
+
+    const pulled = relay.pull(0)
+    if (!pulled.ok) {
+      throw new Error('expected pull to succeed')
+    }
+    expect(pulled.rows).toHaveLength(0)
+    wiring.stop()
   })
 })

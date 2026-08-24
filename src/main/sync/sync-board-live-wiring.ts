@@ -22,6 +22,7 @@ export type SyncBoardStoreAdapter = {
   onSettingsChanged(listener: (updates: Partial<GlobalSettings>) => void): () => void
   getWorktreeMeta(worktreeId: string): WorktreeMeta | undefined
   onWorktreeMetaChanged(listener: (worktreeId: string, meta: WorktreeMeta) => void): () => void
+  onWorktreeMetaRemoved(listener: (worktreeId: string) => void): () => void
   setWorktreeMeta(worktreeId: string, meta: Partial<WorktreeMeta>): void
   getUI(): PersistedUIState
   onUIChanged(listener: (ui: PersistedUIState) => void): () => void
@@ -200,6 +201,17 @@ export function startSyncBoardLiveWiring(deps: SyncBoardLiveWiringDeps): SyncBoa
     void flushNow()
   })
 
+  const unsubscribeWorktreeMetaRemoved = deps.store.onWorktreeMetaRemoved((worktreeId) => {
+    if (!runtime) {
+      return
+    }
+    // A worktreeId could in principle be reused later; don't let a stale dedupe entry
+    // from before the delete suppress a genuinely new edit under the same id.
+    lastRecordedWorktreeMeta.delete(worktreeId)
+    runtime.recordWorktreeMetaRemoved(worktreeId)
+    void flushNow()
+  })
+
   const unsubscribeUI = deps.store.onUIChanged((ui) => {
     if (!runtime) {
       return
@@ -225,6 +237,7 @@ export function startSyncBoardLiveWiring(deps: SyncBoardLiveWiringDeps): SyncBoa
     stop() {
       unsubscribeSettings()
       unsubscribeWorktreeMeta()
+      unsubscribeWorktreeMetaRemoved()
       unsubscribeUI()
       stopRuntime()
     }

@@ -6,7 +6,7 @@ import {
 } from '../protocol/sync-relay-request-auth'
 import type { SyncRelayPushRow } from '../protocol/sync-relay-wire-protocol'
 import { createFakeSyncRelayD1 } from './__fixtures__/sync-relay-fake-d1'
-import { registerSyncRelayDevice, revokeSyncRelayDevice } from './sync-relay-d1-store'
+import { registerNewSyncRelayDevice, revokeSyncRelayDevice } from './sync-relay-d1-store'
 import syncRelayWorker, { type SyncRelayEnv } from './sync-relay-worker'
 
 const DEVICE_ID = 'device-1'
@@ -35,7 +35,7 @@ async function post(
 
 async function setup() {
   const db = createFakeSyncRelayD1()
-  await registerSyncRelayDevice(db, {
+  await registerNewSyncRelayDevice(db, {
     deviceId: DEVICE_ID,
     secretB64: Buffer.from(SECRET).toString('base64'),
     name: 'laptop',
@@ -72,13 +72,21 @@ describe('sync relay worker — device auth', () => {
 
   it('rejects a revoked device', async () => {
     const { db, env } = await setup()
+    // A second active device must exist, or the "never leave zero active devices"
+    // guard (finding #5) would itself refuse this revoke.
+    await registerNewSyncRelayDevice(db, {
+      deviceId: 'witness-device',
+      secretB64: Buffer.from(new Uint8Array(32).fill(7)).toString('base64'),
+      name: 'witness',
+      pairedAt: Date.now()
+    })
     await revokeSyncRelayDevice(db, DEVICE_ID)
     const response = await post(env, 'v1/pull', { deviceId: DEVICE_ID, sinceServerSeq: 0 })
     expect(response.status).toBe(403)
     expect((await response.json()) as { error: string }).toEqual({ error: 'device-revoked' })
   })
 
-  it('rejects a signature made with the wrong secret', async () => {
+  it('rejects a signature made with the wrong secret, opaquely (same as an unknown device)', async () => {
     const { env } = await setup()
     const wrongSecret = Uint8Array.from({ length: 32 }, (_, index) => 255 - index)
     const response = await post(
@@ -88,7 +96,9 @@ describe('sync relay worker — device auth', () => {
       { secret: wrongSecret }
     )
     expect(response.status).toBe(401)
-    expect((await response.json()) as { error: string }).toEqual({ error: 'bad-signature' })
+    // Must not leak "device exists but wrong secret" vs "no such device" — both are
+    // the same opaque reason (see sync-relay-worker-auth.ts).
+    expect((await response.json()) as { error: string }).toEqual({ error: 'unauthenticated' })
   })
 })
 
@@ -244,6 +254,14 @@ describe('sync relay worker — stale-write guard', () => {
 
   it('keeps a revoked device opaque until it proves possession of the secret', async () => {
     const { db, env } = await setup()
+    // A second active device must exist, or the "never leave zero active devices"
+    // guard (finding #5) would itself refuse this revoke.
+    await registerNewSyncRelayDevice(db, {
+      deviceId: 'witness-device',
+      secretB64: Buffer.from(new Uint8Array(32).fill(7)).toString('base64'),
+      name: 'witness',
+      pairedAt: Date.now()
+    })
     await revokeSyncRelayDevice(db, DEVICE_ID)
 
     const wrongSecret = await post(

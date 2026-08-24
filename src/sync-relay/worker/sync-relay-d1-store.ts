@@ -173,12 +173,11 @@ export async function lookupSyncRelayDevice(
   }
 }
 
-/** Auth seam for ticket #42's pairing flow — the relay itself never mints device rows. */
 /**
- * Insert-only registration for /v1/pair: returns false when the id already exists.
- * A vouching device must never be able to overwrite another device's secret, nor
- * flip a revoked row back to active — that would make revocation reversible by
- * anyone still holding any valid credential.
+ * Insert-only registration used by both /v1/pair and /v1/bootstrap: returns false when
+ * the id already exists. A vouching device (or a racing bootstrap) must never be able
+ * to overwrite another device's secret, nor flip a revoked row back to active — either
+ * would make revocation reversible by anyone still holding any valid credential.
  */
 export async function registerNewSyncRelayDevice(
   db: SyncRelayD1Database,
@@ -196,28 +195,34 @@ export async function registerNewSyncRelayDevice(
   return inserted.length > 0
 }
 
-export async function registerSyncRelayDevice(
-  db: SyncRelayD1Database,
-  args: { deviceId: string; secretB64: string; name: string; pairedAt: number }
-): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO sync_devices (device_id, secret_b64, name, status, paired_at)
-       VALUES (?, ?, ?, 'active', ?)
-       ON CONFLICT(device_id) DO UPDATE SET secret_b64 = excluded.secret_b64, name = excluded.name, status = 'active'`
-    )
-    .bind(args.deviceId, args.secretB64, args.name, args.pairedAt)
-    .run()
-}
-
+/**
+ * Revokes a device, refusing when it is the fleet's only active one — losing that would
+ * leave nothing able to re-pair (a vouching device must itself be active) or
+ * re-bootstrap (bootstrap only accepts an empty table, and revoked rows still count
+ * against that — see countSyncRelayDevices). Single atomic UPDATE so two concurrent
+ * revokes cannot both slip past the "at least one active device" guard.
+ */
 export async function revokeSyncRelayDevice(
   db: SyncRelayD1Database,
   deviceId: string
-): Promise<void> {
-  await db
-    .prepare("UPDATE sync_devices SET status = 'revoked' WHERE device_id = ?")
+): Promise<boolean> {
+  const updated = await db
+    .prepare(
+      `UPDATE sync_devices SET status = 'revoked'
+       WHERE device_id = ?
+         AND (status != 'active'
+              OR (SELECT COUNT(*) FROM sync_devices WHERE status = 'active') > 1)
+       RETURNING device_id`
+    )
     .bind(deviceId)
-    .run()
+    .all<{ device_id: string }>()
+  if (updated.length > 0) {
+    return true
+  }
+  // The UPDATE only misses a row when the id is unknown (harmless no-op) or when it is
+  // the fleet's last active device — only the latter is an actual refusal.
+  const device = await lookupSyncRelayDevice(db, deviceId)
+  return device?.status !== 'active'
 }
 
 export async function touchSyncRelayDeviceLastSeen(

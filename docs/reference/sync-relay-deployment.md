@@ -73,10 +73,15 @@ one itself. Ticket #42 ships the actual pairing flow (Settings → Sync Devices)
   while `sync_devices` is empty — racing to bootstrap an empty table is the
   same trust boundary as knowing the freshly-deployed Worker URL and D1
   binding — so bootstrap the first device immediately after `wrangler deploy`,
-  before the URL is anywhere it could leak. `SyncPairingRuntime#bootstrap` in
+  before the URL is anywhere it could leak. The empty-table check and the
+  actual insert are two separate steps, so two concurrent first callers could
+  both pass the check; the insert itself is insert-only
+  (`registerNewSyncRelayDevice`), so only one can win and the loser gets a
+  `403 already-bootstrapped` instead of silently overwriting the winner's
+  secret. `SyncPairingRuntime#bootstrap` in
   [`src/main/sync-pairing/sync-pairing-runtime.ts`](../../src/main/sync-pairing/sync-pairing-runtime.ts)
   drives this from the Devices screen; you can still call
-  `registerSyncRelayDevice` directly (or insert the row) as a manual fallback.
+  `registerNewSyncRelayDevice` directly (or insert the row) as a manual fallback.
 - **Every device after that**: any already-active device can vouch for a new
   one via `POST /v1/pair` (HMAC-authenticated with its own secret). The
   pairing flow mints a **two-half secret** — one half travels in the
@@ -96,6 +101,19 @@ one itself. Ticket #42 ships the actual pairing flow (Settings → Sync Devices)
 Revoke a device by flipping its `status` to `'revoked'`
 (`revokeSyncRelayDevice`, or `POST /v1/revoke` from any other active device) —
 the worker rejects every subsequent request from it with `403`, immediately.
+`revokeSyncRelayDevice` refuses (returns `false`; the route answers
+`409 last-active-device`) when the target is the fleet's only active device —
+losing that would make both re-pairing (needs an active vouching device) and
+re-bootstrapping (needs an *empty* table, and revoked rows still count)
+permanently impossible.
+
+Every auth failure that happens *before* a caller proves possession of a
+device's secret — unknown device id, malformed header, stale timestamp, wrong
+signature — answers with the same opaque `401 unauthenticated` in the same
+amount of time; only a request that verifies successfully can ever learn
+`403 device-revoked`. This is deliberate: it stops a prober from enumerating
+paired device ids via the response body or via timing (see
+[`sync-relay-worker-auth.ts`](../../src/sync-relay/worker/sync-relay-worker-auth.ts)).
 
 ## Capability negotiation
 
