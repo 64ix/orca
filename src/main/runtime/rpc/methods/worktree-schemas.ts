@@ -143,6 +143,7 @@ export const WorktreeSet = WorktreeSelector.extend({
   baseRef: OptionalString,
   workspaceStatus: OptionalString,
   workflowStage: WorkflowStageSchema,
+  consumedMergedPRNumbers: z.array(z.number()).optional(),
   pushTarget: z
     .object({
       remoteName: z.string(),

@@ -29,6 +29,7 @@ import type {
 } from '../../../shared/automations-types'
 import { normalizeProxyUrl } from '../../../shared/network-proxy'
 import { normalizeWorkflowStage } from '../../../shared/workflow-stages'
+import { normalizeConsumedMergedPRNumbers } from '../../../shared/consumed-merge-markers'
 import { normalizeKagiSessionLink } from '../../../shared/browser-url'
 import type { FolderWorkspace, WorkspaceKey } from '../../../shared/folder-workspace-types'
 import type { GlobalSettings } from '../../../shared/global-settings-types'
@@ -2516,6 +2517,15 @@ export class Store {
       updated.workflowStage = workflowStage
     } else {
       delete updated.workflowStage
+    }
+    // Same degradation contract: only non-empty finite number lists survive.
+    const consumedMergedPRNumbers = normalizeConsumedMergedPRNumbers(
+      updated.consumedMergedPRNumbers
+    )
+    if (consumedMergedPRNumbers) {
+      updated.consumedMergedPRNumbers = consumedMergedPRNumbers
+    } else {
+      delete updated.consumedMergedPRNumbers
     }
     this.state.worktreeMeta[worktreeId] = updated
     this.scheduleSave()

@@ -6,6 +6,7 @@ import { normalizeWorkspaceLinkedItem } from './workspace-linked-item'
 import { isWorkspaceLinkedItemSourceContextMatch } from './workspace-linked-item-source-context'
 import { normalizeWorkspaceCreatorProvenance } from './workspace-creator-provenance'
 import { normalizeWorkflowStage } from './workflow-stages'
+import { normalizeConsumedMergedPRNumbers } from './consumed-merge-markers'
 
 export function normalizeFolderWorkspaceName(
   name: string | null | undefined,
@@ -58,6 +59,7 @@ export function normalizeFolderWorkspaces(
     const linkedTaskSourceContext = normalizeStoredTaskSourceContext(raw.linkedTaskSourceContext)
     const creatorProvenance = normalizeWorkspaceCreatorProvenance(raw.creatorProvenance)
     const workflowStage = normalizeWorkflowStage(raw.workflowStage)
+    const consumedMergedPRNumbers = normalizeConsumedMergedPRNumbers(raw.consumedMergedPRNumbers)
     seen.add(raw.id)
     workspaces.push({
       id: raw.id,
@@ -91,6 +93,7 @@ export function normalizeFolderWorkspaces(
         ? { workspaceStatus: raw.workspaceStatus }
         : {}),
       ...(workflowStage ? { workflowStage } : {}),
+      ...(consumedMergedPRNumbers ? { consumedMergedPRNumbers } : {}),
       ...(isTuiAgent(raw.createdWithAgent) ? { createdWithAgent: raw.createdWithAgent } : {}),
       ...(raw.pendingFirstAgentMessageRename === true
         ? { pendingFirstAgentMessageRename: true }

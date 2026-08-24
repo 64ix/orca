@@ -7,6 +7,7 @@ import { getNextProjectGroupOrder } from '../../../shared/project-groups'
 import { normalizeStoredTaskSourceContext } from '../../../shared/task-source-context'
 import { normalizeWorkspaceLinkedItem } from '../../../shared/workspace-linked-item'
 import { normalizeWorkflowStage } from '../../../shared/workflow-stages'
+import { normalizeConsumedMergedPRNumbers } from '../../../shared/consumed-merge-markers'
 import { isWorkspaceLinkedItemSourceContextMatch } from '../../../shared/workspace-linked-item-source-context'
 import { folderWorkspaceKey } from '../../../shared/workspace-scope'
 import type { StoreOwnedPersistedState } from '../loading-store/store-owned-state'
@@ -129,6 +130,7 @@ export class FolderWorkspacePersistenceOperations {
         | 'firstAgentMessageRenameError'
         | 'lastActivityAt'
         | 'diffComments'
+        | 'consumedMergedPRNumbers'
       >
     >
   ): FolderWorkspace | null {
@@ -201,6 +203,16 @@ export class FolderWorkspacePersistenceOperations {
     }
     if (updates.createdWithAgent !== undefined) {
       workspace.createdWithAgent = updates.createdWithAgent
+    }
+    if (updates.consumedMergedPRNumbers !== undefined) {
+      const consumedMergedPRNumbers = normalizeConsumedMergedPRNumbers(
+        updates.consumedMergedPRNumbers
+      )
+      if (consumedMergedPRNumbers) {
+        workspace.consumedMergedPRNumbers = consumedMergedPRNumbers
+      } else {
+        delete workspace.consumedMergedPRNumbers
+      }
     }
     if (updates.pendingFirstAgentMessageRename !== undefined) {
       workspace.pendingFirstAgentMessageRename = updates.pendingFirstAgentMessageRename

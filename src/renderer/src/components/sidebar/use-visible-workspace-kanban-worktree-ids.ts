@@ -27,6 +27,7 @@ type ClassicDrawerVisibilityOptions = Omit<
  * What the classic kanban drawer shows: sidebar-filtered workspaces minus
  * staged ones (#40). Exclusivity is a display rule — staged workspaces keep
  * their manual workspaceStatus in data and reappear here once unstaged.
+ * Declared stages only: fact-derived effective stages never hide a row here.
  */
 export function computeClassicDrawerWorktreeIds(
   worktreesByRepo: Record<string, Worktree[]>,

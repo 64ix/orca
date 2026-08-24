@@ -133,6 +133,8 @@ export type Worktree = {
   workspaceStatus?: WorkspaceStatus
   /** Feature-stage pipeline assignment for delivery tracking. null/absent = unstaged. Kept independent of workspaceStatus. */
   workflowStage?: WorkflowStage | null
+  /** Read-side projection of WorktreeMeta.consumedMergedPRNumbers for fact-stage derivation (#22). */
+  consumedMergedPRNumbers?: number[]
   diffComments?: DiffComment[]
   mobileDiffReview?: MobileDiffReviewState
   automationProvenance?: AutomationWorkspaceProvenance

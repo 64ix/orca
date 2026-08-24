@@ -954,6 +954,7 @@ const FolderWorkspaceUpdateArgs = z.object({
       manualOrder: z.number().finite().optional(),
       workspaceStatus: z.string().optional(),
       workflowStage: WorkflowStageSchema,
+      consumedMergedPRNumbers: z.array(z.number()).optional(),
       createdWithAgent: z.string().refine(isTuiAgent).optional(),
       pendingFirstAgentMessageRename: z.boolean().optional(),
       firstAgentMessageRenameError: z.string().nullable().optional(),
