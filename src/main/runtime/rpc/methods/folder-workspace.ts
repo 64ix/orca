@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { defineMethod, type RpcMethod } from '../core'
 import { OptionalFiniteNumber, OptionalString, requiredString } from '../schemas'
 import { isTuiAgent } from '../../../../shared/tui-agent-config'
+import { assertStageWriteAllowed } from '../../../../shared/stage-authority/stage-write-authority'
 import { TaskSourceContextSchema } from '../../../../shared/task-source-context-schema'
 import { WorkflowStageSchema } from '../../../../shared/workflow-stage-schema'
 import { WorkspaceLinkedItemSchema } from '../../../../shared/workspace-linked-item-schema'
@@ -110,9 +111,20 @@ export const FOLDER_WORKSPACE_METHODS: RpcMethod[] = [
   defineMethod({
     name: 'folderWorkspace.update',
     params: FolderWorkspaceUpdate,
-    handler: async (params, { runtime }) => ({
-      folderWorkspace: await runtime.updateFolderWorkspace(params.folderWorkspaceId, params.updates)
-    })
+    handler: async (params, { runtime }) => {
+      // Why: same agent authority gate as worktree.set; folder stages stay human-gated for shipped.
+      assertStageWriteAllowed({
+        callerKind: 'agent',
+        requestedStage: params.updates.workflowStage,
+        workspaceKind: 'folder'
+      })
+      return {
+        folderWorkspace: await runtime.updateFolderWorkspace(
+          params.folderWorkspaceId,
+          params.updates
+        )
+      }
+    }
   }),
   defineMethod({
     name: 'folderWorkspace.delete',
