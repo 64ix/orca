@@ -139,7 +139,10 @@ export function SyncDevicesPane(): React.JSX.Element {
               id="sync-bootstrap-relay-url"
               value={relayUrl}
               onChange={(e) => setRelayUrl(e.target.value)}
-              placeholder="https://your-relay.example.workers.dev"
+              placeholder={translate(
+                'auto.components.settings.SyncDevicesPane.3c4d5e6f7a',
+                'https://your-relay.example.workers.dev'
+              )}
             />
           </div>
           <Button onClick={() => void startFleet()} disabled={bootstrapping || !relayUrl.trim()}>

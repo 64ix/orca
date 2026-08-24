@@ -125,7 +125,10 @@ export function SyncDeviceJoinDialog({
               id="sync-join-offer"
               value={offerInput}
               onChange={(e) => setOfferInput(e.target.value)}
-              placeholder="orca://pair?code=..."
+              placeholder={translate(
+                'auto.components.settings.SyncDeviceJoinDialog.9f0a1b2c3d',
+                'orca://pair?code=...'
+              )}
               className="font-mono text-xs"
             />
           </div>
@@ -140,7 +143,10 @@ export function SyncDeviceJoinDialog({
               id="sync-join-code"
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value)}
-              placeholder="ABCD-EFGH-..."
+              placeholder={translate(
+                'auto.components.settings.SyncDeviceJoinDialog.0a1b2c3d4e',
+                'ABCD-EFGH-...'
+              )}
               className="font-mono text-sm tracking-wider"
             />
           </div>
