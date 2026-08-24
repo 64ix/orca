@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -54,7 +54,9 @@ export default function FeatureBoardPage(): React.JSX.Element {
     frozenColumnOrder
   )
   const columnsRef = useRef(columns)
-  columnsRef.current = columns
+  useEffect(() => {
+    columnsRef.current = columns
+  }, [columns])
 
   const [adoptionStage, setAdoptionStage] = useState<WorkflowStage | null>(null)
   // Why: adoption creates a git worktree — folder-repo columns get no "+" (spec 24 #48).

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
@@ -54,11 +54,17 @@ export function useFeatureBoardCardDrop(
 ): (commit: FeatureBoardCardDropCommit) => void {
   const repoMap = useRepoMap()
   const columnsRef = useRef(columns)
-  columnsRef.current = columns
+  useEffect(() => {
+    columnsRef.current = columns
+  }, [columns])
   const allCardsRef = useRef(allCards)
-  allCardsRef.current = allCards
+  useEffect(() => {
+    allCardsRef.current = allCards
+  }, [allCards])
   const repoMapRef = useRef(repoMap)
-  repoMapRef.current = repoMap
+  useEffect(() => {
+    repoMapRef.current = repoMap
+  }, [repoMap])
 
   return useCallback(({ cardId, stage, dropIndex }: FeatureBoardCardDropCommit) => {
     const targetColumnCards = columnsRef.current.get(stage) ?? []

@@ -72,9 +72,11 @@ export function useFeatureBoardCardPointerDrag({
   const onDropCardRef = useRef(onDropCard)
   const onDragActiveChangeRef = useRef(onDragActiveChange)
   const onDragTargetChangeRef = useRef(onDragTargetChange)
-  onDropCardRef.current = onDropCard
-  onDragActiveChangeRef.current = onDragActiveChange
-  onDragTargetChangeRef.current = onDragTargetChange
+  useEffect(() => {
+    onDropCardRef.current = onDropCard
+    onDragActiveChangeRef.current = onDragActiveChange
+    onDragTargetChangeRef.current = onDragTargetChange
+  }, [onDropCard, onDragActiveChange, onDragTargetChange])
 
   const stopPointerDrag = useCallback(
     (commit: boolean) => {
