@@ -94,7 +94,7 @@ describe('#10142 close confirmation policy is the same for keyboard and mouse', 
 
   // Control: the keyboard entry point does probe for running children.
   it('keyboard Cmd+W path probes for running child processes before closing', () => {
-    const source = readFileSync(join(__dirname, '../terminal-pane/TerminalPane.tsx'), 'utf8')
+    const source = readFileSync(join(__dirname, '../terminal-pane/use-pane-close-flow.ts'), 'utf8')
     const handler = source.slice(source.indexOf('const handleRequestClosePane'))
     expect(handler.slice(0, handler.indexOf('useImperativeHandle'))).toContain(
       'inspectRuntimeTerminalProcess'
