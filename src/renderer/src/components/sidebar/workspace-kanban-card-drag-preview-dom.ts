@@ -7,6 +7,20 @@ const POINTER_DRAGGING_ATTR = 'data-workspace-board-pointer-dragging'
 const POINTER_DRAG_PREVIEW_ATTR = 'data-workspace-board-card-drag-preview'
 const POINTER_DRAG_STACK_ATTR = 'data-workspace-board-card-drag-stack'
 
+/**
+ * Which DOM attribute identifies a draggable card and how to find one — the only thing that
+ * differs between pointer-based kanban boards sharing this preview/dragging-state DOM (the
+ * classic workspace drawer and the feature board, #47). The preview/indicator styling attrs
+ * above stay shared verbatim since their CSS (`main.css`) is not scoped to either board.
+ */
+export type CardDragIdentity = { cardSelector: string; cardIdAttribute: string }
+
+export function deriveCardDragIdentity(cardSelector: string): CardDragIdentity {
+  return { cardSelector, cardIdAttribute: cardSelector.replace(/[[\]]/g, '') }
+}
+
+const WORKSPACE_BOARD_CARD_DRAG_IDENTITY = deriveCardDragIdentity(CARD_SELECTOR)
+
 type DragPreviewState = {
   startX: number
   startY: number
@@ -25,11 +39,14 @@ export function setDragDocumentStyles(enabled: boolean): void {
   document.documentElement.toggleAttribute(POINTER_DRAGGING_ATTR, enabled)
 }
 
-export function setDraggedCardsDragging(args: {
-  board: HTMLElement | null
-  worktreeIdentities: readonly string[]
-  enabled: boolean
-}): void {
+export function setDraggedCardsDragging(
+  args: {
+    board: HTMLElement | null
+    worktreeIdentities: readonly string[]
+    enabled: boolean
+  },
+  identity: CardDragIdentity = WORKSPACE_BOARD_CARD_DRAG_IDENTITY
+): void {
   const { board, worktreeIdentities, enabled } = args
   if (!board) {
     return
@@ -43,20 +60,20 @@ export function setDraggedCardsDragging(args: {
     return
   }
   const ids = new Set(worktreeIdentities)
-  for (const card of board.querySelectorAll<HTMLElement>(CARD_SELECTOR)) {
-    if (ids.has(card.dataset.workspaceBoardCardId ?? '')) {
+  for (const card of board.querySelectorAll<HTMLElement>(identity.cardSelector)) {
+    if (ids.has(card.getAttribute(identity.cardIdAttribute) ?? '')) {
       card.setAttribute(POINTER_CARD_DRAGGING_ATTR, 'true')
     }
   }
 }
 
-function removeDuplicatePreviewAttributes(preview: HTMLElement): void {
-  preview.removeAttribute('data-workspace-board-card-id')
+function removeDuplicatePreviewAttributes(preview: HTMLElement, identity: CardDragIdentity): void {
+  preview.removeAttribute(identity.cardIdAttribute)
   preview.removeAttribute(POINTER_CARD_DRAGGING_ATTR)
   preview.removeAttribute('id')
   preview.removeAttribute('aria-describedby')
-  preview.querySelectorAll<HTMLElement>('[data-workspace-board-card-id]').forEach((element) => {
-    element.removeAttribute('data-workspace-board-card-id')
+  preview.querySelectorAll<HTMLElement>(`[${identity.cardIdAttribute}]`).forEach((element) => {
+    element.removeAttribute(identity.cardIdAttribute)
   })
   preview.querySelectorAll<HTMLElement>(`[${POINTER_CARD_DRAGGING_ATTR}]`).forEach((element) => {
     element.removeAttribute(POINTER_CARD_DRAGGING_ATTR)
@@ -67,13 +84,21 @@ function removeDuplicatePreviewAttributes(preview: HTMLElement): void {
   })
 }
 
-export function updateDragPreviewPosition(state: DragPreviewState): void {
+export function updateDragPreviewPosition(
+  state: Pick<
+    DragPreviewState,
+    'currentX' | 'currentY' | 'previewOffsetX' | 'previewOffsetY' | 'preview'
+  >
+): void {
   const left = state.currentX - state.previewOffsetX
   const top = state.currentY - state.previewOffsetY
   state.preview?.style.setProperty('transform', `translate3d(${left}px, ${top}px, 0)`)
 }
 
-export function createDragPreview(state: DragPreviewState): HTMLElement {
+export function createDragPreview(
+  state: DragPreviewState,
+  identity: CardDragIdentity = WORKSPACE_BOARD_CARD_DRAG_IDENTITY
+): HTMLElement {
   const rect = state.sourceCard.getBoundingClientRect()
   const preview = document.createElement('div')
   const previewCard = state.sourceCard.cloneNode(true) as HTMLElement
@@ -82,7 +107,7 @@ export function createDragPreview(state: DragPreviewState): HTMLElement {
   preview.setAttribute(POINTER_DRAG_PREVIEW_ATTR, 'true')
   preview.setAttribute('aria-hidden', 'true')
   previewCard.setAttribute(POINTER_DRAG_CARD_ATTR, 'true')
-  removeDuplicatePreviewAttributes(previewCard)
+  removeDuplicatePreviewAttributes(previewCard, identity)
   preview.appendChild(previewCard)
   if (state.worktreeIds.length > 1) {
     const countBadge = document.createElement('span')

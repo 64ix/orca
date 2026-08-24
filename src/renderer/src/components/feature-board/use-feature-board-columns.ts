@@ -3,7 +3,10 @@ import { useAppStore } from '@/store'
 import { getFeatureBoardColumnOrderForProjects } from '../../../../shared/feature-board-column-order'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { buildFeatureBoardCards, type FeatureBoardCard } from './feature-board-card-model'
-import { buildFeatureBoardColumns } from './feature-board-view-model'
+import {
+  buildFeatureBoardColumns,
+  type FeatureBoardColumnOrderByStage
+} from './feature-board-view-model'
 import { getFeatureBoardScopedWorktrees } from './feature-board-project-scope'
 import { useFeatureBoardEffectiveStages } from './use-feature-board-effective-stage'
 import { useFeatureBoardAwaitingInputWorktreeIds } from './use-feature-board-awaiting-input'
@@ -47,13 +50,16 @@ export function useFeatureBoardCards(selectedRepoIds: ReadonlySet<string>): Feat
 /**
  * Assembles the board's seven columns for the selected project(s): runs `useFeatureBoardCards`
  * through the pure `buildFeatureBoardColumns` seam (order stability, stale-id filtering,
- * elevation). No drag is wired yet (#47), so `frozenColumnOrder` always stays unset.
- * `visibleCardIds` is #50's search/filter seam — `null`/absent renders every scoped card.
+ * elevation). `visibleCardIds` is #50's search/filter seam — `null`/absent renders every scoped
+ * card. `frozenColumnOrder` is #47's drag freeze — while a drag is in flight it snapshots the
+ * board's rendered order so a background awaiting-input flip cannot reflow cards out from under
+ * the pointer; `null`/absent means "not dragging", so elevation recomputes normally.
  */
 export function useFeatureBoardColumns(
   selectedRepoIds: ReadonlySet<string>,
   selectedProjectKeys: readonly string[],
-  visibleCardIds?: ReadonlySet<string> | null
+  visibleCardIds?: ReadonlySet<string> | null,
+  frozenColumnOrder?: FeatureBoardColumnOrderByStage | null
 ): Map<WorkflowStage, FeatureBoardCard[]> {
   const featureBoardColumnOrder = useAppStore((s) => s.featureBoardColumnOrder)
   const cards = useFeatureBoardCards(selectedRepoIds)
@@ -64,7 +70,7 @@ export function useFeatureBoardColumns(
   )
 
   return useMemo(
-    () => buildFeatureBoardColumns({ cards, columnOrder, visibleCardIds }),
-    [cards, columnOrder, visibleCardIds]
+    () => buildFeatureBoardColumns({ cards, columnOrder, frozenColumnOrder, visibleCardIds }),
+    [cards, columnOrder, frozenColumnOrder, visibleCardIds]
   )
 }

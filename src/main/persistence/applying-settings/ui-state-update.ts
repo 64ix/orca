@@ -134,6 +134,9 @@ export function updatePersistedUI(
     workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(
       sanitizedUpdates.workspaceBoardColumnWidth ?? operations.state.ui?.workspaceBoardColumnWidth
     ),
+    featureBoardColumnWidth: clampWorkspaceBoardColumnWidth(
+      sanitizedUpdates.featureBoardColumnWidth ?? operations.state.ui?.featureBoardColumnWidth
+    ),
     syncTaskStatusFromWorkspaceBoard:
       sanitizedUpdates.syncTaskStatusFromWorkspaceBoard !== undefined
         ? sanitizedUpdates.syncTaskStatusFromWorkspaceBoard === true
