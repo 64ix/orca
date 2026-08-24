@@ -20,3 +20,8 @@ export function formatTerminalPasteExecutionError(
   }
   return 'Paste failed.'
 }
+
+export function formatClipboardImagePasteError(error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error)
+  return `Image paste failed: ${detail}`
+}

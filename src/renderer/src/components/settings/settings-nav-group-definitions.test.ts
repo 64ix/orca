@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { LucideProps } from 'lucide-react'
 import type { SettingsNavSection } from '@/lib/settings-navigation-types'
 import {
   SETTINGS_NAV_GROUPS,
@@ -7,8 +8,10 @@ import {
   getSettingsNavGroupDefinitionsForSearch
 } from './settings-nav-group-definitions'
 
+const noopIcon = (_props: LucideProps) => null
+
 function section(id: string, group: string): SettingsNavSection {
-  return { id, group, title: id, description: '', searchEntries: [] } as SettingsNavSection
+  return { id, group, title: id, description: '', icon: noopIcon, searchEntries: [] }
 }
 
 describe('settings nav group definitions', () => {
