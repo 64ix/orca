@@ -208,3 +208,42 @@ export async function touchSyncRelayDeviceLastSeen(
     .bind(now, deviceId)
     .run()
 }
+
+export async function countSyncRelayDevices(db: SyncRelayD1Database): Promise<number> {
+  const value = await db
+    .prepare('SELECT COUNT(*) as count FROM sync_devices')
+    .first<number>('count')
+  return value ?? 0
+}
+
+export type SyncRelayDeviceSummaryRecord = {
+  deviceId: string
+  name: string
+  status: 'active' | 'revoked'
+  pairedAt: number
+  lastSeenAt: number | null
+}
+
+/** Public device metadata for the devices screen — never includes secret_b64. */
+export async function listSyncRelayDevices(
+  db: SyncRelayD1Database
+): Promise<SyncRelayDeviceSummaryRecord[]> {
+  const rows = await db
+    .prepare(
+      'SELECT device_id, name, status, paired_at, last_seen_at FROM sync_devices ORDER BY paired_at ASC'
+    )
+    .all<{
+      device_id: string
+      name: string
+      status: string
+      paired_at: number
+      last_seen_at: number | null
+    }>()
+  return rows.map((row) => ({
+    deviceId: row.device_id,
+    name: row.name,
+    status: row.status === 'revoked' ? 'revoked' : 'active',
+    pairedAt: row.paired_at,
+    lastSeenAt: row.last_seen_at ?? null
+  }))
+}
