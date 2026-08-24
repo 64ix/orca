@@ -26,6 +26,7 @@ import {
   Palette,
   PanelsTopLeft,
   Play,
+  RefreshCw,
   Server,
   ShieldCheck,
   SlidersHorizontal,
@@ -71,6 +72,7 @@ import {
   getWebRuntimeEnvironmentsSearchEntry
 } from '@/components/settings/runtime-environments-search'
 import { getSshPaneSearchEntries } from '@/components/settings/ssh-search'
+import { getSyncDevicesPaneSearchEntries } from '@/components/settings/sync-devices-search'
 import { getMobileSettingsPaneSearchEntries } from '@/components/settings/mobile-settings-search'
 import { getMobileEmulatorSearchEntries } from '@/components/settings/mobile-emulator-search'
 import { getComputerUsePaneSearchEntries } from '@/components/settings/computer-use-search'
@@ -554,6 +556,17 @@ export function buildSettingsNavigationMetadata({
             ),
             icon: Cable,
             searchEntries: getSshPaneSearchEntries(),
+            group: 'remote'
+          },
+          {
+            id: 'sync-devices',
+            title: translate('auto.hooks.useSettingsNavigationMetadata.a1b2c3d4e5', 'Sync Devices'),
+            description: translate(
+              'auto.hooks.useSettingsNavigationMetadata.b2c3d4e5f6',
+              'Pair machines for self-hosted multi-device sync.'
+            ),
+            icon: RefreshCw,
+            searchEntries: getSyncDevicesPaneSearchEntries(),
             group: 'remote'
           }
         ]
