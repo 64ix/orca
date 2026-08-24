@@ -7,16 +7,18 @@
 import type { WorktreeMeta } from '../../shared/worktree/meta-types'
 import type { SyncUnitState } from './sync-unit-state'
 
-export type WorktreeMetaIdentityFold = {
-  units: Record<string, SyncUnitState<WorktreeMeta>>
+export type WorktreeMetaIdentityFold<T = WorktreeMeta> = {
+  units: Record<string, SyncUnitState<T>>
   /** New tombstone edits for superseded ids — feed these into the write queue so peers converge too. */
-  tombstoned: SyncUnitState<WorktreeMeta>[]
+  tombstoned: SyncUnitState<T>[]
 }
 
-export function collapseRenamedWorktreeMetaUnits(
-  units: Readonly<Record<string, SyncUnitState<WorktreeMeta>>>,
+// Generic over T (not hardcoded to the full WorktreeMeta) so #46 can run this over its
+// narrower SyncedWorktreeMetaFields projection — only priorWorktreeIds is ever read.
+export function collapseRenamedWorktreeMetaUnits<T extends Pick<WorktreeMeta, 'priorWorktreeIds'>>(
+  units: Readonly<Record<string, SyncUnitState<T>>>,
   now: number = Date.now()
-): WorktreeMetaIdentityFold {
+): WorktreeMetaIdentityFold<T> {
   const supersededIds = new Set<string>()
   for (const unit of Object.values(units)) {
     if (unit.tombstone) {
@@ -27,14 +29,14 @@ export function collapseRenamedWorktreeMetaUnits(
     }
   }
 
-  const next: Record<string, SyncUnitState<WorktreeMeta>> = {}
-  const tombstoned: SyncUnitState<WorktreeMeta>[] = []
+  const next: Record<string, SyncUnitState<T>> = {}
+  const tombstoned: SyncUnitState<T>[] = []
   for (const [rowId, unit] of Object.entries(units)) {
     if (!supersededIds.has(rowId) || unit.tombstone) {
       next[rowId] = unit
       continue
     }
-    const dead: SyncUnitState<WorktreeMeta> = {
+    const dead: SyncUnitState<T> = {
       ...unit,
       tombstone: true,
       value: null,
