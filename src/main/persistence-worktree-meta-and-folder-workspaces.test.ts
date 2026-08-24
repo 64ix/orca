@@ -87,6 +87,44 @@ describe('Store', () => {
     expect(updated.comment).toBe('updated')
   })
 
+  it('notifies onWorktreeMetaRemoved when removeWorktreeMeta deletes the meta record', async () => {
+    const store = await createStore()
+    store.setWorktreeMeta('wt1', { displayName: 'first' })
+    const removed: string[] = []
+    const unsubscribe = store.onWorktreeMetaRemoved((worktreeId) => removed.push(worktreeId))
+
+    store.removeWorktreeMeta('wt1')
+
+    expect(removed).toEqual(['wt1'])
+    expect(store.getWorktreeMeta('wt1')).toBeUndefined()
+    unsubscribe()
+  })
+
+  it('does not fire onWorktreeMetaRemoved when a host-qualified removal preserves the persisted record', async () => {
+    // A same-id worktree owned by a different host: the persisted meta record survives,
+    // so this removal must not look like a delete to sync (finding #4 — no tombstone
+    // should be pushed for a record that is still alive under a different owner).
+    const store = await createStore()
+    store.setWorktreeMeta('wt1', { displayName: 'remote-owned', hostId: 'runtime:env-a' })
+    const removed: string[] = []
+    store.onWorktreeMetaRemoved((worktreeId) => removed.push(worktreeId))
+
+    store.removeWorktreeMeta('wt1', 'runtime:env-b')
+
+    expect(removed).toEqual([])
+    expect(store.getWorktreeMeta('wt1')).toBeDefined()
+  })
+
+  it('does not fire onWorktreeMetaRemoved for a worktreeId with no meta record to begin with', async () => {
+    const store = await createStore()
+    const removed: string[] = []
+    store.onWorktreeMetaRemoved((worktreeId) => removed.push(worktreeId))
+
+    store.removeWorktreeMeta('never-existed')
+
+    expect(removed).toEqual([])
+  })
+
   it('persists paired Jira linked-item metadata and drops mismatched source context', async () => {
     const store = await createStore()
     const linkedWorkItem = {

@@ -551,6 +551,8 @@ export class Store {
   // Why: #46's board sync needs a single choke point for every WorktreeMeta write
   // (RPC, MCP tools, IPC, sort-order updates, ...) instead of patching each call site.
   private worktreeMetaChangeListeners = new Set<(worktreeId: string, meta: WorktreeMeta) => void>()
+  // Why: sync must tombstone a deleted/dismissed worktree's row too, not just edits.
+  private worktreeMetaRemovedListeners = new Set<(worktreeId: string) => void>()
 
   constructor(options: StoreOptions = {}) {
     // Why: profile switching yields multiple state paths; capture per Store so late async writes can't follow a global path.
@@ -2574,9 +2576,15 @@ export class Store {
       )
     )
     if (!preservesDifferentPersistedOwner) {
+      const hadMeta = worktreeId in this.state.worktreeMeta
       delete this.state.worktreeMeta[worktreeId]
       delete this.state.worktreeLineageById[worktreeId]
       delete this.state.workspaceLineageByChildKey[worktreeWorkspaceKey(worktreeId)]
+      // Only when the meta record itself is actually gone — a host-preserved record
+      // above must not be tombstoned, since the row it maps to is still alive.
+      if (hadMeta) {
+        this.notifyWorktreeMetaRemoved(worktreeId)
+      }
     }
     for (const partition of partitions) {
       this.removeWorkspaceSessionOwnerInPartition(worktreeId, partition, {
@@ -2702,6 +2710,20 @@ export class Store {
   private notifyWorktreeMetaChanged(worktreeId: string, meta: WorktreeMeta): void {
     for (const listener of this.worktreeMetaChangeListeners) {
       listener(worktreeId, meta)
+    }
+  }
+
+  /** Fires when removeWorktreeMeta() actually deletes a worktree's meta record. */
+  onWorktreeMetaRemoved(listener: (worktreeId: string) => void): () => void {
+    this.worktreeMetaRemovedListeners.add(listener)
+    return () => {
+      this.worktreeMetaRemovedListeners.delete(listener)
+    }
+  }
+
+  private notifyWorktreeMetaRemoved(worktreeId: string): void {
+    for (const listener of this.worktreeMetaRemovedListeners) {
+      listener(worktreeId)
     }
   }
 

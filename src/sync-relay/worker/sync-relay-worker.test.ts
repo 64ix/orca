@@ -78,7 +78,7 @@ describe('sync relay worker — device auth', () => {
     expect((await response.json()) as { error: string }).toEqual({ error: 'device-revoked' })
   })
 
-  it('rejects a signature made with the wrong secret', async () => {
+  it('rejects a signature made with the wrong secret, opaquely (same as an unknown device)', async () => {
     const { env } = await setup()
     const wrongSecret = Uint8Array.from({ length: 32 }, (_, index) => 255 - index)
     const response = await post(
@@ -88,7 +88,9 @@ describe('sync relay worker — device auth', () => {
       { secret: wrongSecret }
     )
     expect(response.status).toBe(401)
-    expect((await response.json()) as { error: string }).toEqual({ error: 'bad-signature' })
+    // Must not leak "device exists but wrong secret" vs "no such device" — both are
+    // the same opaque reason (see sync-relay-worker-auth.ts).
+    expect((await response.json()) as { error: string }).toEqual({ error: 'unauthenticated' })
   })
 })
 
