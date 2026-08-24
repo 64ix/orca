@@ -85,6 +85,7 @@ import { callRuntimeEnvironment } from './ipc/runtime-environment-transport-rout
 import { resolveEnvironment } from '../shared/runtime-environment-store'
 import { getPreferredPairingOffer } from '../shared/runtime-environments'
 import { OrcaRuntimeRpcServer } from './runtime/runtime-rpc'
+import { OrcaMcpServer } from './mcp/orca-mcp-server'
 import {
   recordRuntimeRpcStartFailure,
   showRuntimeRpcStartupFailureDialog
@@ -372,6 +373,7 @@ let claudeRuntimeAuth: ClaudeRuntimeAuthService | null = null
 let runtime: OrcaRuntimeService | null = null
 let rateLimits: RateLimitService | null = null
 let runtimeRpc: OrcaRuntimeRpcServer | null = null
+let mcpServer: OrcaMcpServer | null = null
 const serveReadinessPublisher = new ServeReadinessPublisher()
 let desktopRelayService: DesktopRelayService | null = null
 let desktopRelayStatus: RelayBrokerStatus = 'offline'
@@ -3100,6 +3102,13 @@ void app.whenReady().then(async () => {
       : {}),
     webClientRoot: getBundledWebClientRoot()
   })
+  // Why: agent-facing MCP surface shares the runtime's lifecycle; a startup
+  // failure must not take the app down — discovery just stays unpublished.
+  mcpServer = new OrcaMcpServer({
+    runtime,
+    userDataPath: getCanonicalUserDataPath(),
+    version: app.getVersion()
+  })
   registerMobileHandlers(runtimeRpc, {
     getRelayStatus: () => desktopRelayStatus,
     consumePendingUnpairedDeviceAuthFailure: (webContentsId) => {
@@ -3173,6 +3182,9 @@ void app.whenReady().then(async () => {
       console.error('[runtime] Failed to start headless RPC transport:', error)
       throw error
     })
+    await mcpServer?.start().catch((error) => {
+      console.error('[mcp] Failed to start MCP server:', error)
+    })
     settleServeDesktopActivation()
     installServeSignalHandlers()
     // Why: headless serve has no renderer to run the normal cli:install flow; do it here for macOS/Linux only (Windows-excluded: install() only mutates registry PATH, not child terminals).
@@ -3240,6 +3252,10 @@ void app.whenReady().then(async () => {
   if (!runtimeRpcStartResult.ok) {
     void showRuntimeRpcStartupFailureDialog(win, runtimeRpcStartResult.error)
   }
+  // Why: MCP binds loopback-only with a per-launch token; failure degrades to "no discovery file", never a boot failure.
+  await mcpServer?.start().catch((error) => {
+    console.error('[mcp] Failed to start MCP server:', error)
+  })
 
   const cloudAuth = getOrcaCloudAuthConfig()
   if (cloudAuth.configured) {
@@ -3394,6 +3410,12 @@ app.on('will-quit', (e) => {
           console.error('[runtime] Failed to stop local RPC transport:', error)
         })
     : Promise.resolve()
+  // Why: stop() clears the discovery file (pid-owned) before closing the listener.
+  const mcpStopAndClear = mcpServer
+    ? mcpServer.stop().catch((error) => {
+        console.error('[mcp] Failed to stop MCP server:', error)
+      })
+    : Promise.resolve()
   // Why: allSettled (not all) keeps fail-open — a daemon-disconnect rejection still quits instead of hanging.
   // Why: telemetry flush folds in before app.quit() (bounded 2s); catch defensively so a flush failure can't cancel the quit chain.
   // Why: normal quits keep the detached daemon for warm reattach, but a dead dev parent leaves the temp/dev profile ownerless.
@@ -3406,6 +3428,7 @@ app.on('will-quit', (e) => {
   settleTeardownWithinDeadline([
     { name: 'daemon', promise: daemonTeardown },
     { name: 'runtime-rpc', promise: rpcStopAndClear },
+    { name: 'mcp-server', promise: mcpStopAndClear },
     { name: 'watchers', promise: watcherShutdown },
     { name: 'emulator', promise: emulatorShutdown },
     { name: 'ssh', promise: sshShutdown },
