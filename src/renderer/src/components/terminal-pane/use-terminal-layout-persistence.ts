@@ -3,7 +3,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react'
 import type { PaneManager, ManagedPane } from '@/lib/pane-manager/pane-manager'
 import { useAppStore } from '../../store'
 import { serializeTerminalLayout } from './layout-serialization'
-import type { TerminalLayoutSnapshot } from '../../../../shared/terminal-tab-types'
+import type { TerminalLayoutSnapshot, TerminalTab } from '../../../../shared/terminal-tab-types'
 import { clearTerminalScrollbackAndFollowOutput } from '@/lib/pane-manager/terminal-scrollback-clear'
 import { clearWebRuntimeTerminalBuffer } from '@/runtime/web-runtime-session'
 import { isRemoteRuntimePtyId } from '@/runtime/runtime-terminal-inspection'
@@ -13,7 +13,6 @@ import {
   createRemotePaneLayoutPusher,
   type RemotePaneLayoutPusher
 } from './remote-pane-layout-push'
-import type { TerminalTab } from '../../../../shared/terminal-tab-types'
 import {
   isSyntheticSinglePaneTitle,
   sanitizeTerminalLayoutPaneTitles

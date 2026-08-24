@@ -5,9 +5,9 @@ import type { ExecutionHostId } from '../../../../shared/execution-host'
 import {
   getSettingsTargetHostSelection,
   resolveSettingsTargetRepoId,
-  type SettingsProject
+  type SettingsProject,
+  type buildRepoIdToHostSelection
 } from './settings-project-list'
-import type { buildRepoIdToHostSelection } from './settings-project-list'
 import type {
   SettingsNavSection,
   SettingsNavTarget,
