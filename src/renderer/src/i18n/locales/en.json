@@ -5005,7 +5005,8 @@
           "fee535205b": "Tasks",
           "d599269755": "Hide from sidebar",
           "artifacts": "Artifacts",
-          "skills": "Skills"
+          "skills": "Skills",
+          "featureBoard": "Board"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Clear",
@@ -16285,6 +16286,29 @@
         "hours": "{{value0}}h",
         "days": "{{value0}}d",
         "underOneMinute": "<1m"
+      }
+    },
+    "featureBoard": {
+      "card": {
+        "awaitingInput": "Awaiting your input",
+        "folderWorkspace": "Folder workspace — moved manually"
+      },
+      "column": {
+        "empty": "No cards"
+      },
+      "page": {
+        "close": "Close board",
+        "closeTooltip": "Close",
+        "title": "Feature board"
+      },
+      "stage": {
+        "idea": "Idea",
+        "exploring": "Exploring",
+        "spec": "Spec",
+        "implementing": "Implementing",
+        "review": "Review",
+        "shipped": "Shipped",
+        "triage": "Triage"
       }
     }
   },
