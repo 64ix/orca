@@ -29,15 +29,26 @@ export type SyncFlushResult = { ok: boolean; local: SyncUnitTable }
 // Bounds the pull->push retry loop within one flush() call when a push is rejected;
 // further attempts happen on the caller's next flush() (reconnect/timer), not a busy-loop.
 const MAX_FLUSH_ROUNDS = 3
+// Bounds one flush's changefeed drain. Hitting it is not data loss: the cursor keeps
+// the progress made and the next flush resumes from there.
+const MAX_PULL_PAGES = 50
 
 export class SyncReconciliationEngine {
-  private cursor = 0
+  private cursor: number
 
   constructor(
     private readonly transport: SyncRelayTransport,
     private readonly crypto: SyncRowCrypto,
-    private readonly queue: SyncWriteQueue
-  ) {}
+    private readonly queue: SyncWriteQueue,
+    initialCursor = 0
+  ) {
+    this.cursor = initialCursor
+  }
+
+  /** Changefeed position reached so far; #46 persists it so a restart resumes instead of refetching everything. */
+  get serverCursor(): number {
+    return this.cursor
+  }
 
   /** Durably queues a local edit; caller already applied `value` to local persistence. */
   recordLocalEdit(args: {
@@ -110,16 +121,28 @@ export class SyncReconciliationEngine {
   }
 
   private async pullAndDecode(): Promise<{ ok: true; rows: SyncUnitState[] } | { ok: false }> {
-    const result = await this.transport.pull(this.cursor)
-    if (!result.ok) {
-      return { ok: false }
-    }
-    this.cursor = result.latestServerSeq
     const rows: SyncUnitState[] = []
-    for (const row of result.rows as SyncRelayStoredRow[]) {
-      const decoded = decodeSyncRelayStoredRow(row, this.crypto.rowKey)
-      if (decoded) {
-        rows.push(decoded)
+    for (let page = 0; page < MAX_PULL_PAGES; page++) {
+      const result = await this.transport.pull(this.cursor)
+      if (!result.ok) {
+        return { ok: false }
+      }
+      const stored = result.rows as SyncRelayStoredRow[]
+      for (const row of stored) {
+        const decoded = decodeSyncRelayStoredRow(row, this.crypto.rowKey)
+        if (decoded) {
+          rows.push(decoded)
+        }
+      }
+      // pull() is page-limited while latestServerSeq is the relay's global counter, so
+      // trusting it after a full page would skip everything past this page for good.
+      // Only an empty page proves we have caught up with the changefeed.
+      this.cursor =
+        stored.length === 0
+          ? Math.max(this.cursor, result.latestServerSeq)
+          : stored.reduce((highest, row) => Math.max(highest, row.serverSeq), this.cursor)
+      if (this.cursor >= result.latestServerSeq) {
+        break
       }
     }
     return { ok: true, rows }

@@ -7,9 +7,10 @@ import type {
   SyncRelayPushResult,
   SyncRelayPullResult
 } from '../../sync-relay/client/sync-relay-client'
-import type {
-  SyncRelayPushRow,
-  SyncRelayStoredRow
+import {
+  MAX_SYNC_RELAY_ROWS_PER_REQUEST,
+  type SyncRelayPushRow,
+  type SyncRelayStoredRow
 } from '../../sync-relay/protocol/sync-relay-wire-protocol'
 import { decodeSyncRelayStoredRow, encodeSyncUnitPushRow } from './sync-row-codec'
 import {
@@ -32,6 +33,9 @@ class FakeSyncRelay {
   private rows = new Map<string, SyncRelayStoredRow>()
   private counter = 0
   private beforeNextPush: (() => void) | null = null
+
+  // Mirrors the worker: pull() is page-limited while latestServerSeq is the global counter.
+  constructor(private readonly pageLimit = MAX_SYNC_RELAY_ROWS_PER_REQUEST) {}
 
   runBeforeNextPush(fn: () => void): void {
     this.beforeNextPush = fn
@@ -72,7 +76,10 @@ class FakeSyncRelay {
   }
 
   pull(sinceServerSeq: number): SyncRelayPullResult {
-    const rows = [...this.rows.values()].filter((row) => row.serverSeq > sinceServerSeq)
+    const rows = [...this.rows.values()]
+      .filter((row) => row.serverSeq > sinceServerSeq)
+      .sort((left, right) => left.serverSeq - right.serverSeq)
+      .slice(0, this.pageLimit)
     return { ok: true, rows, latestServerSeq: this.counter }
   }
 
@@ -239,5 +246,68 @@ describe('SyncReconciliationEngine — offline write queue durability + reconnec
         isPinned: true
       })
     }
+  })
+})
+
+describe('SyncReconciliationEngine — changefeed paging', () => {
+  it('drains every page instead of jumping the cursor to latestServerSeq', async () => {
+    // Two rows per page against five rows: a cursor that trusted latestServerSeq after
+    // the first page would strand rows 3-5 on the relay forever.
+    const relay = new FakeSyncRelay(2)
+    const online = { value: true }
+    const transport = fakeTransport(relay, online)
+
+    const writer = new SyncReconciliationEngine(transport, crypto, memoryQueue())
+    for (let index = 1; index <= 5; index++) {
+      writer.recordLocalEdit({
+        table: 'worktreeMeta',
+        rowId: `row-${index}`,
+        value: { workflowStage: 'implementing' },
+        tombstone: false,
+        currentVersion: 0
+      })
+    }
+    expect((await writer.flush({})).ok).toBe(true)
+
+    const reader = new SyncReconciliationEngine(transport, crypto, memoryQueue())
+    const result = await reader.flush({})
+
+    expect(result.ok).toBe(true)
+    expect(Object.keys(result.local).sort()).toEqual([
+      syncUnitKey('worktreeMeta', 'row-1'),
+      syncUnitKey('worktreeMeta', 'row-2'),
+      syncUnitKey('worktreeMeta', 'row-3'),
+      syncUnitKey('worktreeMeta', 'row-4'),
+      syncUnitKey('worktreeMeta', 'row-5')
+    ])
+  })
+
+  it('resumes from a persisted cursor rather than refetching the whole changefeed', async () => {
+    const relay = new FakeSyncRelay()
+    const online = { value: true }
+    const transport = fakeTransport(relay, online)
+
+    const writer = new SyncReconciliationEngine(transport, crypto, memoryQueue())
+    writer.recordLocalEdit({
+      table: 'worktreeMeta',
+      rowId: 'row-1',
+      value: { workflowStage: 'review' },
+      tombstone: false,
+      currentVersion: 0
+    })
+    await writer.flush({})
+
+    const caughtUp = new SyncReconciliationEngine(transport, crypto, memoryQueue())
+    await caughtUp.flush({})
+    expect(caughtUp.serverCursor).toBeGreaterThan(0)
+
+    // A restart handed the persisted cursor sees nothing new.
+    const restarted = new SyncReconciliationEngine(
+      transport,
+      crypto,
+      memoryQueue(),
+      caughtUp.serverCursor
+    )
+    expect((await restarted.flush({})).local).toEqual({})
   })
 })
