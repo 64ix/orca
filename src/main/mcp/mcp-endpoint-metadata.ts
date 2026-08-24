@@ -15,7 +15,7 @@ export type OrcaMcpEndpointMetadata = {
   startedAt: number
 }
 
-export function getOrcaMcpMetadataPath(userDataPath: string): string {
+function getOrcaMcpMetadataPath(userDataPath: string): string {
   return join(userDataPath, ORCA_MCP_METADATA_FILE)
 }
 

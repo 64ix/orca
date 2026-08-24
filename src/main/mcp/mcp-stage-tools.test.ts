@@ -238,6 +238,47 @@ describe('link_issue', () => {
       }
     })
   })
+
+  it('derives the folder item provider from the URL host', async () => {
+    const runtime = makeRuntime()
+    const cases = [
+      ['https://gitlab.com/gitlab-org/gitlab/-/issues/7', 'gitlab'],
+      ['https://acme.atlassian.net/browse/ORCA-9', 'jira'],
+      ['https://linear.app/acme/issue/ENG-3', 'linear']
+    ] as const
+
+    for (const [url, provider] of cases) {
+      await callMcpStageTool(runtime, { workspaceSelector: 'folder:fw-1' }, 'link_issue', {
+        issue: 1,
+        title: 'T',
+        url
+      })
+      expect(runtime.updateFolderWorkspace).toHaveBeenLastCalledWith('fw-1', {
+        linkedTask: expect.objectContaining({ provider })
+      })
+    }
+  })
+
+  it('fails closed on unrecognized issue URL hosts instead of guessing a provider', async () => {
+    const runtime = makeRuntime()
+
+    for (const url of [
+      'https://bitbucket.org/acme/repo/issues/5',
+      'https://gitea.acme.dev/acme/repo/issues/5',
+      'not-a-url'
+    ]) {
+      const reply = await callMcpStageTool(
+        runtime,
+        { workspaceSelector: 'folder:fw-1' },
+        'link_issue',
+        { issue: 1, title: 'T', url }
+      )
+      expect(reply.isError).toBe(true)
+      expect(textOf(reply)).toContain('Unrecognized issue URL host')
+    }
+    // Fail-closed: no provider item is ever written for an unknown host.
+    expect(runtime.updateFolderWorkspace).not.toHaveBeenCalled()
+  })
 })
 
 describe('read_board', () => {

@@ -97,6 +97,20 @@ describe('steering message and explanations', () => {
 
     expect(decision).toMatchObject({ allowed: true, effectiveStage: 'implementing' })
     if (decision.allowed) {
+      // No facts passed: the explanation must not imply derivation consulted any.
+      expect(decision.explanation).toBe('declared implementing (no provider facts consulted)')
+    }
+  })
+
+  it('keeps the full fact-derived explanation when facts are actually supplied', () => {
+    const decision = decideStageWrite({
+      callerKind: 'agent',
+      requestedStage: 'implementing',
+      facts: { self: { pullRequests: [] } }
+    })
+
+    expect(decision).toMatchObject({ allowed: true, effectiveStage: 'implementing' })
+    if (decision.allowed) {
       expect(decision.explanation).toBe('declared implementing; effective stage is implementing')
     }
   })
@@ -149,7 +163,7 @@ describe('steering message and explanations', () => {
 
     expect(decision).toMatchObject({ allowed: true, effectiveStage: null })
     if (decision.allowed) {
-      expect(decision.explanation).toBe('stage unchanged; effective stage is unstaged')
+      expect(decision.explanation).toBe('stage unchanged (no provider facts consulted)')
     }
   })
 
