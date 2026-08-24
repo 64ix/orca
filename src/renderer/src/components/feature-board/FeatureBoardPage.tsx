@@ -69,7 +69,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
   const { columnWidth, isResizingColumn, onColumnResizeStart, onColumnResizeKeyDown } =
     useWorkspaceKanbanColumnResize(featureBoardColumnWidth, setFeatureBoardColumnWidth)
 
-  const handleDropCard = useFeatureBoardCardDrop(columns)
+  const handleDropCard = useFeatureBoardCardDrop(columns, cards)
 
   const handleDragActiveChange = useCallback((active: boolean) => {
     if (!active) {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { computeFeatureBoardColumnOrderAfterDrop } from './feature-board-column-order-drop'
+import {
+  computeFeatureBoardColumnOrderAfterDrop,
+  restoreHiddenFeatureBoardColumnOrderIds
+} from './feature-board-column-order-drop'
 
 const singleProjectMap = new Map([
   ['a', 'repo:1'],
@@ -79,5 +82,59 @@ describe('computeFeatureBoardColumnOrderAfterDrop', () => {
       projectKey: 'repo:1'
     })
     expect(order).toEqual(['a', 'new', 'b'])
+  })
+})
+
+describe('restoreHiddenFeatureBoardColumnOrderIds', () => {
+  it('is a no-op when nothing is hidden', () => {
+    const order = restoreHiddenFeatureBoardColumnOrderIds({
+      previousOrder: ['a', 'b'],
+      newVisibleOrder: ['b', 'a'],
+      cardId: 'a',
+      hiddenIds: new Set()
+    })
+    expect(order).toEqual(['b', 'a'])
+  })
+
+  it('re-inserts a card hidden by an active filter right after its old visible neighbor', () => {
+    // Old order: a, hidden, b, c. A search/filter hides "hidden" from the render, then "c"
+    // is dropped to the front — the persisted order must not lose "hidden".
+    const order = restoreHiddenFeatureBoardColumnOrderIds({
+      previousOrder: ['a', 'hidden', 'b', 'c'],
+      newVisibleOrder: ['c', 'a', 'b'],
+      cardId: 'c',
+      hiddenIds: new Set(['hidden'])
+    })
+    expect(order).toEqual(['c', 'a', 'hidden', 'b'])
+  })
+
+  it('preserves relative order of multiple hidden ids sharing the same anchor', () => {
+    const order = restoreHiddenFeatureBoardColumnOrderIds({
+      previousOrder: ['a', 'h1', 'h2', 'b'],
+      newVisibleOrder: ['b', 'a'],
+      cardId: 'b',
+      hiddenIds: new Set(['h1', 'h2'])
+    })
+    expect(order).toEqual(['b', 'a', 'h1', 'h2'])
+  })
+
+  it('prepends hidden ids that had no preceding visible neighbor', () => {
+    const order = restoreHiddenFeatureBoardColumnOrderIds({
+      previousOrder: ['h1', 'h2', 'a', 'b'],
+      newVisibleOrder: ['b', 'a'],
+      cardId: 'b',
+      hiddenIds: new Set(['h1', 'h2'])
+    })
+    expect(order).toEqual(['h1', 'h2', 'b', 'a'])
+  })
+
+  it('anchors a hidden id to the nearest still-visible predecessor, skipping the moved card itself', () => {
+    const order = restoreHiddenFeatureBoardColumnOrderIds({
+      previousOrder: ['a', 'moved', 'hidden'],
+      newVisibleOrder: ['a', 'moved'],
+      cardId: 'moved',
+      hiddenIds: new Set(['hidden'])
+    })
+    expect(order).toEqual(['a', 'hidden', 'moved'])
   })
 })
