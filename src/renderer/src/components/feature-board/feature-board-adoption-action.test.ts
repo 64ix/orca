@@ -17,15 +17,11 @@ function baseInput(overrides: Partial<FeatureBoardAdoptionInput> = {}): FeatureB
   }
 }
 
-function makeDeps(
-  launchImpl: (args: LaunchWorkItemDirectArgs) => Promise<boolean>
-): FeatureBoardAdoptionActionDeps & {
-  declareStage: ReturnType<typeof vi.fn>
-} {
+function makeDeps(launchImpl: (args: LaunchWorkItemDirectArgs) => Promise<boolean>) {
   return {
-    launch: vi.fn(launchImpl),
-    declareStage: vi.fn()
-  }
+    launch: vi.fn<(args: LaunchWorkItemDirectArgs) => Promise<boolean>>(launchImpl),
+    declareStage: vi.fn<(worktreeId: string, stage: WorkflowStage) => void>()
+  } satisfies FeatureBoardAdoptionActionDeps
 }
 
 describe('runFeatureBoardAdoption', () => {
@@ -54,7 +50,7 @@ describe('runFeatureBoardAdoption', () => {
       vi.fn(),
       deps
     )
-    const call = deps.launch.mock.calls[0][0] as LaunchWorkItemDirectArgs
+    const call = deps.launch.mock.calls[0][0]
     expect(call.item).toMatchObject({ type: 'issue', number: 7 })
   })
 
@@ -65,7 +61,7 @@ describe('runFeatureBoardAdoption', () => {
       vi.fn(),
       deps
     )
-    const call = deps.launch.mock.calls[0][0] as LaunchWorkItemDirectArgs
+    const call = deps.launch.mock.calls[0][0]
     expect(call.item).toMatchObject({ type: 'pr', number: 8 })
   })
 
