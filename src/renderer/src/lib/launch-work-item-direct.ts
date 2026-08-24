@@ -60,7 +60,8 @@ export async function launchWorkItemDirect(args: LaunchWorkItemDirectArgs): Prom
     telemetrySource,
     launchSource,
     agentOverride,
-    agentArgs
+    agentArgs,
+    onWorktreeCreated
   } = args
   const store = useAppStore.getState()
   const repo = store.repos.find((r) => r.id === repoId)
@@ -193,6 +194,7 @@ export async function launchWorkItemDirect(args: LaunchWorkItemDirectArgs): Prom
     )
     worktreeId = result.worktree.id
     const worktreePath = result.worktree.path
+    onWorktreeCreated?.(worktreeId)
 
     const createdConnectionId = getConnectionId(worktreeId)
     // Why: newly-created SSH worktrees can be activated before the store

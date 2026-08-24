@@ -16289,12 +16289,25 @@
       }
     },
     "featureBoard": {
+      "adoptionDialog": {
+        "title": "New feature in {{stage}}",
+        "description": "Create a worktree for a new feature, optionally linking an issue or pull request.",
+        "projectLabel": "Project",
+        "nameLabel": "Name",
+        "namePlaceholder": "Feature name",
+        "linkLabel": "Link an issue or PR (optional)",
+        "linkPlaceholder": "Issue/PR #, or a GitHub URL",
+        "linkNotFound": "Couldn't find that issue or PR.",
+        "cancel": "Cancel",
+        "create": "Create"
+      },
       "card": {
         "awaitingInput": "Awaiting your input",
         "folderWorkspace": "Folder workspace — moved manually"
       },
       "column": {
-        "empty": "No cards"
+        "empty": "No cards",
+        "addTooltip": "New feature in {{stage}}"
       },
       "page": {
         "close": "Close board",
