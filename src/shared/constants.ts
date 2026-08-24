@@ -477,6 +477,7 @@ export function getDefaultUIState(): PersistedUIState {
     visibleWorkspaceHostIds: null,
     workspaceHostOrder: [],
     manualRepoOrder: [],
+    featureBoardColumnOrder: [],
     showSleepingWorkspaces: DEFAULT_SHOW_SLEEPING_WORKSPACES,
     hideDefaultBranchWorkspace: false,
     hideAutomationGeneratedWorkspaces: false,

@@ -56,6 +56,29 @@ export function getFeatureBoardColumnOrderForProject(
   return result
 }
 
+/**
+ * Merged column order across every selected project, for boards scoped to more than one
+ * project at once. Each project's own relative order is preserved; projects concatenate in
+ * the given order. A single-project board is just the one-element case of this.
+ */
+export function getFeatureBoardColumnOrderForProjects(
+  order: readonly FeatureBoardColumnOrderEntry[] | null | undefined,
+  projectKeys: readonly string[]
+): Partial<Record<WorkflowStage, readonly string[]>> {
+  const result: Partial<Record<WorkflowStage, string[]>> = {}
+  for (const projectKey of projectKeys) {
+    const perProject = getFeatureBoardColumnOrderForProject(order, projectKey)
+    for (const stage of Object.keys(perProject) as WorkflowStage[]) {
+      const ids = perProject[stage]
+      if (!ids) {
+        continue
+      }
+      result[stage] = [...(result[stage] ?? []), ...ids]
+    }
+  }
+  return result
+}
+
 /** Upserts one (project, column) order list; an empty list removes the entry to keep storage tidy. */
 export function setFeatureBoardColumnOrderEntry(
   order: readonly FeatureBoardColumnOrderEntry[] | null | undefined,

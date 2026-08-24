@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getFeatureBoardColumnOrderForProject,
+  getFeatureBoardColumnOrderForProjects,
   normalizeFeatureBoardColumnOrder,
   setFeatureBoardColumnOrderEntry
 } from './feature-board-column-order'
@@ -58,6 +59,22 @@ describe('getFeatureBoardColumnOrderForProject', () => {
       { projectKey: 'p2', stage: 'idea', worktreeIds: ['z'] }
     ])
     expect(getFeatureBoardColumnOrderForProject(order, 'p1')).toEqual({})
+  })
+})
+
+describe('getFeatureBoardColumnOrderForProjects', () => {
+  it('concatenates each selected project’s own order, preserving relative order within each', () => {
+    const order = normalizeFeatureBoardColumnOrder([
+      { projectKey: 'p1', stage: 'idea', worktreeIds: ['a', 'b'] },
+      { projectKey: 'p2', stage: 'idea', worktreeIds: ['c', 'd'] }
+    ])
+    expect(getFeatureBoardColumnOrderForProjects(order, ['p1', 'p2'])).toEqual({
+      idea: ['a', 'b', 'c', 'd']
+    })
+  })
+
+  it('returns an empty object for an empty project list', () => {
+    expect(getFeatureBoardColumnOrderForProjects([], [])).toEqual({})
   })
 })
 

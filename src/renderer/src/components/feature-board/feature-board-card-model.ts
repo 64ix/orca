@@ -2,7 +2,7 @@ import { projectResolvedWorktreeLineage } from '../../../../shared/resolved-work
 import type { WorktreeLineage } from '../../../../shared/worktree/lineage-types'
 import type { Worktree } from '../../../../shared/worktree/types'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
-import { isStagedWorkspace } from '../sidebar/workspace-stage-exclusivity'
+import { isStagedWorkspace } from '@/components/sidebar/workspace-stage-exclusivity'
 import type { FeatureBoardStagedCard } from './feature-board-view-model'
 
 export type FeatureBoardCard = FeatureBoardStagedCard & {
