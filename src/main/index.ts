@@ -55,6 +55,7 @@ import { initObservability, shutdownObservability } from './observability'
 import { registerMobileHandlers } from './ipc/mobile'
 import { registerSyncPairingHandlers } from './ipc/sync-pairing'
 import { SyncPairingRuntime } from './sync-pairing/sync-pairing-runtime'
+import { startSyncBoardLiveWiring, type SyncBoardLiveWiring } from './sync/sync-board-live-wiring'
 import { initTelemetry, shutdownTelemetry, trackAppOpenedOnce, track } from './telemetry/client'
 import { classifyError } from './telemetry/classify-error'
 import { recordManagedHookInstallFailure } from './agent-hooks/install-telemetry'
@@ -363,6 +364,7 @@ let mainWindow: BrowserWindow | null = null
 /** Whether a manual app.quit() (Cmd+Q) is in progress; lets the close handler skip the running-process confirmation and go straight to close. */
 let isQuitting = false
 let store: Store | null = null
+let syncBoardLiveWiring: SyncBoardLiveWiring | null = null
 let stats: StatsCollector | null = null
 let claudeUsage: ClaudeUsageStore | null = null
 let codexUsage: CodexUsageStore | null = null
@@ -3128,12 +3130,23 @@ void app.whenReady().then(async () => {
   })
   // Why: same stable pre-setName() path as mobile pairing, so the sync identity survives
   // a later app.setName() userData relocation. Separate file/registry from device-registry.ts.
-  registerSyncPairingHandlers(
-    new SyncPairingRuntime({
-      userDataPath: getCanonicalUserDataPath(),
-      defaultDeviceName: os.hostname()
+  const syncPairingRuntime = new SyncPairingRuntime({
+    userDataPath: getCanonicalUserDataPath(),
+    defaultDeviceName: os.hostname()
+  })
+  registerSyncPairingHandlers(syncPairingRuntime)
+  // Why: #46 wires real WorktreeMeta/UI-state edits through the sync engine, gated by
+  // GlobalSettings.syncRelay.enabled and this device's pairing state — see
+  // sync-board-live-wiring.ts. `store` is assigned above; this call needs no other
+  // process wiring (subscribes to Store's own change listeners).
+  if (store) {
+    syncBoardLiveWiring?.stop()
+    syncBoardLiveWiring = startSyncBoardLiveWiring({
+      store,
+      connection: syncPairingRuntime,
+      userDataPath: getCanonicalUserDataPath()
     })
-  )
+  }
   // Why: repeated direct auth failures otherwise look like a client that never connects; point users to re-pairing.
   runtimeRpc.setOnUnpairedDeviceAuthFailure(() => {
     // Why: runtime startup races renderer mount; retain the one-shot until the listener consumes it.

@@ -16,6 +16,7 @@ import { cloneDefaultWorkspaceStatuses } from './workspace-statuses'
 import { TASK_PROVIDERS } from './task-providers'
 import { DEFAULT_WORKTREE_CARD_PROPERTIES } from './worktree/card-properties'
 import { getDefaultSourceControlAiSettings } from './source-control-ai'
+import { getDefaultSyncRelaySettings } from './sync-relay-settings'
 import { DEFAULT_APP_ICON_ID } from './app-icon'
 import { DEFAULT_OPEN_IN_APPLICATIONS } from './open-in-applications'
 import { DEFAULT_BROWSER_PAGE_ZOOM_LEVEL } from './browser-page-zoom'
@@ -391,7 +392,8 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
       customAgentCommand: ''
     },
     sourceControlAi: getDefaultSourceControlAiSettings(),
-    voice: getDefaultVoiceSettings()
+    voice: getDefaultVoiceSettings(),
+    syncRelay: getDefaultSyncRelaySettings()
   }
 }
 

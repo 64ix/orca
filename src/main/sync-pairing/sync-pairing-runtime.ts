@@ -15,6 +15,8 @@ import {
   SyncRelayClient
 } from '../../sync-relay/client/sync-relay-client'
 import type { SyncRelayDeviceSummary } from '../../sync-relay/protocol/sync-relay-wire-protocol'
+import { openSyncRow, sealSyncRow } from '../../sync-relay/crypto/sync-row-envelope'
+import { deriveSyncRowKey } from '../../sync-relay/crypto/sync-row-key-schedule'
 import { encodeSyncPairingOffer, parseSyncPairingCode } from '../../shared/sync-pairing-deep-link'
 import {
   SYNC_PAIRING_OFFER_KIND,
@@ -27,6 +29,14 @@ import {
   saveSyncPairingRelayCredential,
   type SyncPairingIdentity
 } from './sync-pairing-identity'
+import type { SyncRelayTransport, SyncRowCrypto } from '../sync/sync-reconciliation-engine'
+
+// Fixed HKDF domain-separation label for the fleet's row-content key (ticket #46). No
+// rotation on device revoke yet — see the ticket's Problem->Resolution notes.
+const SYNC_ROW_CONTENT_KEY_ID = 'fleet-v1'
+// AAD binds the sealed content key to this specific invite's new device id, so a
+// captured ciphertext from one invite can never be replayed to seed another.
+const CONTENT_KEY_ENVELOPE_TABLE = 'sync-pairing-content-key'
 
 export type SyncPairingStatus = {
   deviceId: string
@@ -92,6 +102,7 @@ export class SyncPairingRuntime {
       return { ok: false, reason: 'already-paired' }
     }
     const secret = randomBytes(32)
+    const contentKey = randomBytes(32)
     const result = await bootstrapSyncRelayDevice({
       relayUrl: args.relayUrl,
       deviceId: identity.deviceId,
@@ -105,9 +116,28 @@ export class SyncPairingRuntime {
     }
     saveSyncPairingRelayCredential(this.deps.userDataPath, identity, {
       relayUrl: args.relayUrl,
-      secretB64: secret.toString('base64')
+      secretB64: secret.toString('base64'),
+      contentKeyB64: contentKey.toString('base64')
     })
     return { ok: true }
+  }
+
+  /** Push/pull transport for #46's SyncReconciliationEngine; null until this device is paired. */
+  getRelayTransport(): SyncRelayTransport | null {
+    return this.clientFor(this.loadIdentity())
+  }
+
+  /** Row-content crypto for #46's SyncReconciliationEngine; null until this device is paired. */
+  getRowCrypto(): SyncRowCrypto | null {
+    const identity = this.loadIdentity()
+    if (!identity.relay) {
+      return null
+    }
+    const sharedSecret = Uint8Array.from(Buffer.from(identity.relay.contentKeyB64, 'base64'))
+    return {
+      keyId: SYNC_ROW_CONTENT_KEY_ID,
+      rowKey: deriveSyncRowKey({ sharedSecret, keyId: SYNC_ROW_CONTENT_KEY_ID })
+    }
   }
 
   /** Mints and registers a new device, endorsed by this (already-paired) device. */
@@ -134,6 +164,14 @@ export class SyncPairingRuntime {
     if (!pairResult.ok) {
       return { ok: false, reason: pairResult.reason }
     }
+    // Why: `combined` is a one-time secret only the relay, this device, and the joiner ever
+    // hold — sealing the fleet's stable content key under it hands the joiner the same key
+    // material every other device has, without a second manual-code channel.
+    const contentKeySealed = sealSyncRow({
+      plaintext: Uint8Array.from(Buffer.from(identity.relay.contentKeyB64, 'base64')),
+      rowKey: combined,
+      aad: { table: CONTENT_KEY_ENVELOPE_TABLE, rowId: newDeviceId, version: 1, keyId: 'invite' }
+    })
     const offerUrl = encodeSyncPairingOffer({
       kind: SYNC_PAIRING_OFFER_KIND,
       v: SYNC_PAIRING_OFFER_VERSION,
@@ -142,7 +180,8 @@ export class SyncPairingRuntime {
       secretHalfB64: halfA.toString('base64'),
       inviterDeviceId: identity.deviceId,
       inviterPublicKeyB64: identity.boxPublicKeyB64,
-      inviterName: identity.deviceName
+      inviterName: identity.deviceName,
+      contentKeySealedB64: Buffer.from(contentKeySealed).toString('base64')
     })
     return {
       ok: true,
@@ -185,11 +224,28 @@ export class SyncPairingRuntime {
     if (!handshake.ok) {
       return { ok: false, reason: handshake.reason }
     }
+    const contentKey = openSyncRow({
+      sealed: Buffer.from(offer.contentKeySealedB64, 'base64'),
+      rowKey: combined,
+      aad: {
+        table: CONTENT_KEY_ENVELOPE_TABLE,
+        rowId: offer.deviceId,
+        version: 1,
+        keyId: 'invite'
+      }
+    })
+    if (!contentKey) {
+      return { ok: false, reason: 'invalid-code' }
+    }
     const identity = this.loadIdentity()
     adoptSyncPairingJoinedIdentity(this.deps.userDataPath, identity, {
       deviceId: offer.deviceId,
       deviceName: args.deviceName ?? identity.deviceName,
-      relay: { relayUrl: offer.relayUrl, secretB64: Buffer.from(combined).toString('base64') }
+      relay: {
+        relayUrl: offer.relayUrl,
+        secretB64: Buffer.from(combined).toString('base64'),
+        contentKeyB64: Buffer.from(contentKey).toString('base64')
+      }
     })
     recordSyncPairingPeer(this.deps.userDataPath, this.loadIdentity(), {
       deviceId: offer.inviterDeviceId,

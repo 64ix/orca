@@ -1781,7 +1781,9 @@ function Settings(): React.JSX.Element {
                     )}
                     searchEntries={getSectionSearchEntries('sync-devices')}
                   >
-                    {isSectionMounted('sync-devices') ? <SyncDevicesPane /> : null}
+                    {isSectionMounted('sync-devices') ? (
+                      <SyncDevicesPane settings={settings} updateSettings={updateSettings} />
+                    ) : null}
                   </SettingsSection>
                 ) : null}
 

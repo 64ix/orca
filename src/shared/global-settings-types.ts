@@ -11,6 +11,7 @@ import type { TerminalCustomTheme } from './terminal-custom-themes'
 import type { UiLanguage } from './ui-language'
 import type { GlobalWindowsRuntimeDefault } from './project-execution-runtime'
 import type { PersistedNativeChatSessionOptions } from './native-chat-session-options'
+import type { SyncRelaySettings } from './sync-relay-settings'
 import type { ComputerAwakeMode } from './computer-awake-mode'
 import type { CommitMessageAiSettings } from './commit-message-ai-types'
 import type { HostSettingOverrides } from './host-setting-overrides'
@@ -458,6 +459,10 @@ export type GlobalSettings = {
   tabSwitchKeybindingSeed?: 'pending' | 'done'
   /** Local voice/dictation config. Optional for pre-voice profiles; getDefaultSettings() hydrates defaults via the persistence merge. */
   voice?: VoiceSettings
+  /** Self-hosted multi-device board sync (#29/#46): master on/off + the relay URL shown
+   *  as the bootstrap/join dialog's default. Optional for pre-sync profiles;
+   *  getDefaultSettings() hydrates the off default via the persistence merge. */
+  syncRelay?: SyncRelaySettings
 }
 
 export type OrcaWorkspaceLayout = {

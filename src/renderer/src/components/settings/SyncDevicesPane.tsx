@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { Switch } from '../ui/switch'
 import { SyncDeviceRow } from './SyncDeviceRow'
 import { SyncDeviceInviteDialog } from './SyncDeviceInviteDialog'
 import { SyncDeviceJoinDialog } from './SyncDeviceJoinDialog'
@@ -14,11 +16,19 @@ import type {
 } from '../../../../preload/api/sync-pairing-api'
 export { getSyncDevicesPaneSearchEntries } from './sync-devices-search'
 
-export function SyncDevicesPane(): React.JSX.Element {
+type SyncDevicesPaneProps = {
+  settings: GlobalSettings
+  updateSettings: (updates: Partial<GlobalSettings>) => void | Promise<void>
+}
+
+export function SyncDevicesPane({
+  settings,
+  updateSettings
+}: SyncDevicesPaneProps): React.JSX.Element {
   const [status, setStatus] = useState<SyncPairingStatus | null>(null)
   const [devices, setDevices] = useState<SyncPairingDeviceSummary[]>([])
   const [devicesError, setDevicesError] = useState(false)
-  const [relayUrl, setRelayUrl] = useState('')
+  const [relayUrl, setRelayUrl] = useState(settings.syncRelay?.relayUrl ?? '')
   const [bootstrapping, setBootstrapping] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [joinOpen, setJoinOpen] = useState(false)
@@ -60,8 +70,11 @@ export function SyncDevicesPane(): React.JSX.Element {
   async function startFleet(): Promise<void> {
     setBootstrapping(true)
     try {
-      const result = await window.api.sync.bootstrap({ relayUrl: relayUrl.trim() })
+      const trimmedRelayUrl = relayUrl.trim()
+      const result = await window.api.sync.bootstrap({ relayUrl: trimmedRelayUrl })
       if (result.ok) {
+        // Why: bootstrapping is an explicit "sync now" action, so turn the master switch on.
+        await updateSettings({ syncRelay: { enabled: true, relayUrl: trimmedRelayUrl } })
         await refresh()
       } else {
         toast.error(
@@ -181,6 +194,36 @@ export function SyncDevicesPane(): React.JSX.Element {
         <Button size="sm" onClick={() => setInviteOpen(true)}>
           {translate('auto.components.settings.SyncDevicesPane.9e0f1a2b3c', 'Invite a device')}
         </Button>
+      </div>
+
+      <div className="flex items-center justify-between rounded-xl border border-border/60 bg-card/50 p-4">
+        <div className="space-y-0.5">
+          <Label htmlFor="sync-relay-enabled">
+            {translate('auto.components.settings.SyncDevicesPane.3d4e5f6a7b', 'Sync board state')}
+          </Label>
+          <p className="text-muted-foreground text-xs">
+            {translate(
+              'auto.components.settings.SyncDevicesPane.4e5f6a7b8c',
+              'Keep workflow stage, links, order, and pins in sync with this fleet. Pausing keeps devices paired.'
+            )}
+          </p>
+        </div>
+        <Switch
+          id="sync-relay-enabled"
+          aria-label={translate(
+            'auto.components.settings.SyncDevicesPane.3d4e5f6a7b',
+            'Sync board state'
+          )}
+          checked={settings.syncRelay?.enabled === true}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              syncRelay: {
+                enabled: checked,
+                relayUrl: settings.syncRelay?.relayUrl ?? status.relayUrl ?? ''
+              }
+            })
+          }
+        />
       </div>
 
       {devicesError ? (

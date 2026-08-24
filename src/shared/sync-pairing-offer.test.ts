@@ -16,6 +16,7 @@ function validOffer(overrides: Partial<Record<string, unknown>> = {}) {
     inviterDeviceId: 'device-inviter-1',
     inviterPublicKeyB64: randomBytes(32).toString('base64'),
     inviterName: "Alice's laptop",
+    contentKeySealedB64: randomBytes(104).toString('base64'),
     ...overrides
   }
 }
@@ -62,5 +63,13 @@ describe('SyncPairingOfferSchema', () => {
 
   it('rejects an unknown version', () => {
     expect(SyncPairingOfferSchema.safeParse(validOffer({ v: 2 })).success).toBe(false)
+  })
+
+  it('rejects a sealed content key that is not 104 bytes', () => {
+    expect(
+      SyncPairingOfferSchema.safeParse(
+        validOffer({ contentKeySealedB64: randomBytes(32).toString('base64') })
+      ).success
+    ).toBe(false)
   })
 })

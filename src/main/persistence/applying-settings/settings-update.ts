@@ -31,6 +31,7 @@ import {
   PROTECTED_SECRET_SLOT,
   type ProtectedSecretPersistence
 } from '../../protected-secret-persistence'
+import { normalizeSyncRelaySettings } from '../../../shared/sync-relay-settings'
 import { normalizeNotificationSettings } from './onboarding-normalization'
 import { retireLegacyInstructionsForClearedTextActionRecipes } from './source-control-settings'
 import {
@@ -166,6 +167,14 @@ export function updateSettings(
     sanitizedUpdates.prBotAuthorOverrides = normalizePRBotAuthorOverrides(
       updates.prBotAuthorOverrides
     )
+  }
+  if ('syncRelay' in updates) {
+    // Why merge-then-normalize: a partial update (e.g. flipping only `enabled`) must not
+    // clobber the sibling `relayUrl`, same as the telemetry merge below.
+    sanitizedUpdates.syncRelay = normalizeSyncRelaySettings({
+      ...operations.state.settings.syncRelay,
+      ...updates.syncRelay
+    })
   }
   if ('mobilePairingCustomAddress' in updates) {
     sanitizedUpdates.mobilePairingCustomAddress = normalizeMobilePairingCustomAddress(

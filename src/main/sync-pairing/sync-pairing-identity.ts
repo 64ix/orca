@@ -22,7 +22,13 @@ export type SyncPairingPeer = {
 
 export type SyncPairingRelayCredential = {
   relayUrl: string
+  /** This device's own relay auth secret — unique per device, never shared (see sync-pairing-runtime.ts). */
   secretB64: string
+  /** Ticket #46: the fleet-wide row-content key (src/sync-relay/crypto/sync-row-key-schedule.ts's
+   *  sharedSecret input), identical across every paired device so any of them can decrypt any
+   *  other's rows. Generated once at bootstrap and carried to each joiner inside the invite,
+   *  sealed under that invite's one-time pairing secret — see sync-pairing-runtime.ts. */
+  contentKeyB64: string
 }
 
 type SyncPairingIdentityFile = {
@@ -81,11 +87,18 @@ function readIdentityFile(filePath: string): SyncPairingIdentityFile | null {
         deviceName: typeof raw.deviceName === 'string' ? raw.deviceName : raw.deviceId,
         boxPublicKeyB64: raw.boxPublicKeyB64,
         boxSecretKeyB64: raw.boxSecretKeyB64,
+        // Why: a relay credential missing the newer contentKeyB64 (pre-#46 file) degrades to
+        // unpaired rather than crashing — the device just re-bootstraps/re-joins to pick it up.
         relay:
           raw.relay &&
           typeof raw.relay.relayUrl === 'string' &&
-          typeof raw.relay.secretB64 === 'string'
-            ? { relayUrl: raw.relay.relayUrl, secretB64: raw.relay.secretB64 }
+          typeof raw.relay.secretB64 === 'string' &&
+          typeof raw.relay.contentKeyB64 === 'string'
+            ? {
+                relayUrl: raw.relay.relayUrl,
+                secretB64: raw.relay.secretB64,
+                contentKeyB64: raw.relay.contentKeyB64
+              }
             : null,
         peers: Array.isArray(raw.peers) ? raw.peers.filter(isValidPeer) : []
       }

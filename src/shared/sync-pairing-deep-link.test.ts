@@ -20,7 +20,8 @@ function makeOffer(): SyncPairingOffer {
     secretHalfB64: randomBytes(16).toString('base64'),
     inviterDeviceId: 'device-inviter-1',
     inviterPublicKeyB64: randomBytes(32).toString('base64'),
-    inviterName: "Alice's laptop"
+    inviterName: "Alice's laptop",
+    contentKeySealedB64: randomBytes(104).toString('base64')
   }
 }
 

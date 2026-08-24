@@ -11363,7 +11363,9 @@
           "0f1a2b3c4d": "Failed to load the device list.",
           "1a2b3c4d5e": "No devices paired yet.",
           "2b3c4d5e6f": "Revoking a device cuts its access immediately.",
-          "3c4d5e6f7a": "https://your-relay.example.workers.dev"
+          "3c4d5e6f7a": "https://your-relay.example.workers.dev",
+          "3d4e5f6a7b": "Sync board state",
+          "4e5f6a7b8c": "Keep workflow stage, links, order, and pins in sync with this fleet. Pausing keeps devices paired."
         },
         "sync": {
           "search": {
