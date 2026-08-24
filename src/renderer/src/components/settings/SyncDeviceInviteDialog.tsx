@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import QRCodeBrowser from 'qrcode/lib/browser'
 import { toast } from 'sonner'
 import {
@@ -21,6 +21,17 @@ type SyncDeviceInviteDialogProps = {
   onInviteCreated: () => void
 }
 
+async function copyToClipboard(value: string): Promise<void> {
+  try {
+    await window.api.ui.writeClipboardText(value)
+    toast.success(translate('auto.components.settings.SyncDeviceInviteDialog.5f6a7b8c9d', 'Copied'))
+  } catch {
+    toast.error(
+      translate('auto.components.settings.SyncDeviceInviteDialog.6a7b8c9d0e', 'Failed to copy')
+    )
+  }
+}
+
 export function SyncDeviceInviteDialog({
   open,
   onOpenChange,
@@ -31,13 +42,19 @@ export function SyncDeviceInviteDialog({
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
 
-  useEffect(() => {
-    if (!open) {
-      setInvite(null)
-      setQrDataUrl(null)
-      setName('')
-    }
-  }, [open])
+  // Why: reset on the close event itself rather than an effect keyed on `open`, so the
+  // dialog never briefly re-renders its stale invite/QR before the reset takes effect.
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next) {
+        setInvite(null)
+        setQrDataUrl(null)
+        setName('')
+      }
+      onOpenChange(next)
+    },
+    [onOpenChange]
+  )
 
   useEffect(() => {
     if (!invite) {
@@ -93,21 +110,8 @@ export function SyncDeviceInviteDialog({
     }
   }
 
-  async function copy(value: string): Promise<void> {
-    try {
-      await window.api.ui.writeClipboardText(value)
-      toast.success(
-        translate('auto.components.settings.SyncDeviceInviteDialog.5f6a7b8c9d', 'Copied')
-      )
-    } catch {
-      toast.error(
-        translate('auto.components.settings.SyncDeviceInviteDialog.6a7b8c9d0e', 'Failed to copy')
-      )
-    }
-  }
-
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
@@ -183,7 +187,7 @@ export function SyncDeviceInviteDialog({
               </Label>
               <div className="flex gap-2">
                 <Input readOnly value={invite.offerUrl} className="font-mono text-xs" />
-                <Button variant="outline" onClick={() => void copy(invite.offerUrl)}>
+                <Button variant="outline" onClick={() => void copyToClipboard(invite.offerUrl)}>
                   {translate('auto.components.settings.SyncDeviceInviteDialog.5d6e7f8a9b', 'Copy')}
                 </Button>
               </div>
@@ -201,13 +205,13 @@ export function SyncDeviceInviteDialog({
                   value={invite.manualCode}
                   className="font-mono text-sm tracking-wider"
                 />
-                <Button variant="outline" onClick={() => void copy(invite.manualCode)}>
+                <Button variant="outline" onClick={() => void copyToClipboard(invite.manualCode)}>
                   {translate('auto.components.settings.SyncDeviceInviteDialog.5d6e7f8a9b', 'Copy')}
                 </Button>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>
+              <Button onClick={() => handleOpenChange(false)}>
                 {translate('auto.components.settings.SyncDeviceInviteDialog.7f8a9b0c1d', 'Done')}
               </Button>
             </DialogFooter>
