@@ -12,9 +12,11 @@ import { FeatureBoardAdoptionDialog } from './FeatureBoardAdoptionDialog'
 import { FeatureBoardColumn } from './FeatureBoardColumn'
 import FeatureBoardSearchField from './FeatureBoardSearchField'
 import { FeatureBoardFilterMenu } from './FeatureBoardFilterMenu'
+import { FeatureBoardDismissedMenu } from './FeatureBoardDismissedMenu'
 import { getFeatureBoardStageLabel } from './feature-board-stage-labels'
 import { useFeatureBoardCards, useFeatureBoardColumns } from './use-feature-board-columns'
 import { useFeatureBoardProjectSelection } from './use-feature-board-project-selection'
+import { useFeatureBoardGhostCandidates } from './use-feature-board-ghost-candidates'
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
@@ -53,6 +55,15 @@ export default function FeatureBoardPage(): React.JSX.Element {
     searchFilters.visibleCardIds,
     frozenColumnOrder
   )
+  // Ghost cards (#49): candidates for the selected git repos; refreshed on open + visibility.
+  const ghostRepos = useMemo(
+    () =>
+      selection.groups
+        .filter((group) => selection.selected.has(group.repo.id) && isGitRepoKind(group.repo))
+        .map((group) => group.repo),
+    [selection.groups, selection.selected]
+  )
+  const ghosts = useFeatureBoardGhostCandidates(ghostRepos, selection.selected)
   const columnsRef = useRef(columns)
   useEffect(() => {
     columnsRef.current = columns
@@ -60,13 +71,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
 
   const [adoptionStage, setAdoptionStage] = useState<WorkflowStage | null>(null)
   // Why: adoption creates a git worktree — folder-repo columns get no "+" (spec 24 #48).
-  const adoptionEligibleRepos = useMemo(
-    () =>
-      selection.groups
-        .filter((group) => selection.selected.has(group.repo.id) && isGitRepoKind(group.repo))
-        .map((group) => group.repo),
-    [selection.groups, selection.selected]
-  )
+  const adoptionEligibleRepos = ghostRepos
 
   const { columnWidth, isResizingColumn, onColumnResizeStart, onColumnResizeKeyDown } =
     useWorkspaceKanbanColumnResize(featureBoardColumnWidth, setFeatureBoardColumnWidth)
@@ -140,6 +145,10 @@ export default function FeatureBoardPage(): React.JSX.Element {
           clearFilters={searchFilters.clearFilters}
           activeFilterCount={searchFilters.activeFilterCount}
         />
+        <FeatureBoardDismissedMenu
+          dismissed={ghosts.dismissedGhosts}
+          onRestore={ghosts.restore}
+        />
       </header>
       <div
         ref={boardRef}
@@ -152,6 +161,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
             key={stage}
             stage={stage}
             cards={columns.get(stage) ?? []}
+            ghosts={ghosts.ghostsByStage.get(stage) ?? []}
             headerAction={
               adoptionEligibleRepos.length > 0 ? (
                 <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />

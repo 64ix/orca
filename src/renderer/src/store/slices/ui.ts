@@ -40,6 +40,11 @@ import {
   setFeatureBoardColumnOrderEntry,
   type FeatureBoardColumnOrderEntry
 } from '../../../../shared/feature-board-column-order'
+import {
+  normalizeFeatureBoardGhostDismissals,
+  setFeatureBoardGhostDismissal,
+  type FeatureBoardGhostDismissals
+} from '../../../../shared/feature-board-ghost-dismissals'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { isTopLevelView } from '../../../../shared/top-level-view'
 import { isReleaseChannel, type ReleaseChannel } from '../../../../shared/release-channel'
@@ -808,6 +813,10 @@ export type UISlice = {
     stage: WorkflowStage,
     worktreeIds: readonly string[]
   ) => void
+  /** Dismissed ghost-card issue numbers per repo (#49); reversible via `restoreFeatureBoardGhost`. */
+  featureBoardGhostDismissals: FeatureBoardGhostDismissals
+  dismissFeatureBoardGhost: (repoId: string, issueNumber: number) => void
+  restoreFeatureBoardGhost: (repoId: string, issueNumber: number) => void
   setNewWorkspaceDraft: (draft: NonNullable<UISlice['newWorkspaceDraft']>) => void
   clearNewWorkspaceDraft: () => void
   openSettingsPage: () => void
@@ -1065,6 +1074,19 @@ export type UISlice = {
   setBrowserDefaultZoomLevel: (level: number) => void
   browserKagiSessionLink: string | null
   setBrowserKagiSessionLink: (link: string | null) => void
+}
+
+// One persistence path for both ghost-dismissal directions.
+function persistFeatureBoardGhostDismissals(
+  current: FeatureBoardGhostDismissals,
+  set: (partial: Partial<UISlice>) => void,
+  repoId: string,
+  issueNumber: number,
+  dismissed: boolean
+): void {
+  const next = setFeatureBoardGhostDismissal(current, repoId, issueNumber, dismissed)
+  window.api.ui.set({ featureBoardGhostDismissals: next }).catch(console.error)
+  set({ featureBoardGhostDismissals: next })
 }
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
@@ -1614,6 +1636,23 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     window.api.ui.set({ featureBoardColumnOrder: next }).catch(console.error)
     set({ featureBoardColumnOrder: next })
   },
+  featureBoardGhostDismissals: {},
+  dismissFeatureBoardGhost: (repoId, issueNumber) =>
+    persistFeatureBoardGhostDismissals(
+      get().featureBoardGhostDismissals,
+      set,
+      repoId,
+      issueNumber,
+      true
+    ),
+  restoreFeatureBoardGhost: (repoId, issueNumber) =>
+    persistFeatureBoardGhostDismissals(
+      get().featureBoardGhostDismissals,
+      set,
+      repoId,
+      issueNumber,
+      false
+    ),
   setNewWorkspaceDraft: (draft) => set({ newWorkspaceDraft: draft }),
   clearNewWorkspaceDraft: () => set({ newWorkspaceDraft: null }),
   openSettingsPage: () => {
@@ -2598,6 +2637,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         workspaceHostOrder: normalizeExecutionHostOrder(ui.workspaceHostOrder),
         manualRepoOrder,
         featureBoardColumnOrder: normalizeFeatureBoardColumnOrder(ui.featureBoardColumnOrder),
+        featureBoardGhostDismissals: normalizeFeatureBoardGhostDismissals(
+          ui.featureBoardGhostDismissals
+        ),
         // Why: apply the desktop-owned overlay immediately since UI state can arrive after a catalog or from another client.
         repos: orderedRepos,
         hideDefaultBranchWorkspace: ui.hideDefaultBranchWorkspace ?? false,

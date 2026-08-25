@@ -16428,6 +16428,21 @@
       "drop": {
         "refused": "Could not move this card",
         "updateFailed": "Could not update the stage"
+      },
+      "ghost": {
+        "restore": "Restore ghost card",
+        "dismiss": "Don't show this issue",
+        "badges": {
+          "ready-for-agent": "Ready for agent",
+          "ready-for-human": "Ready for human",
+          "needs-triage": "Needs triage"
+        }
+      },
+      "dismissed": {
+        "label": "Dismissed ghost cards ({{value0}})",
+        "tooltip": "Dismissed ghost cards",
+        "title": "Dismissed ghosts",
+        "restore": "Restore #{{issueNumber}}"
       }
     }
   },
