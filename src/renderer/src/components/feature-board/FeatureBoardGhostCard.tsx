@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store'
+import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
 import { runFeatureBoardGhostGrab } from './feature-board-ghost-grab-action'
@@ -24,13 +25,17 @@ const BADGE_LABEL_FALLBACKS: Record<GhostCandidateBadge, string> = {
 
 export function FeatureBoardGhostCard({
   candidate,
-  repoId
+  repoId,
+  showRepoName = false
 }: {
   candidate: GhostCandidate<GitHubWorkItem>
   repoId: string
+  /** #73: set once ghosts from several repos share the board. */
+  showRepoName?: boolean
 }): React.JSX.Element {
   const [grabbing, setGrabbing] = useState(false)
   const openModal = useAppStore((s) => s.openModal)
+  const repoName = useRepoMap().get(repoId)?.displayName
 
   // Setup-policy repos fall back to the composer modal with the issue prefetched — the same
   // escape hatch the adoption "+" uses.
@@ -73,7 +78,15 @@ export function FeatureBoardGhostCard({
           onClick={onGrab}
           disabled={grabbing}
         >
-          <span className="text-muted-foreground">#{candidate.issue.number}</span>{' '}
+          <span className="text-muted-foreground">#{candidate.issue.number}</span>
+          {showRepoName && repoName ? (
+            <>
+              {' '}
+              <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-muted-foreground">
+                {repoName}
+              </Badge>
+            </>
+          ) : null}{' '}
           {candidate.issue.title}
         </button>
         <FeatureBoardGhostDismissButton candidate={candidate} repoId={repoId} />

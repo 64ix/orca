@@ -37,6 +37,22 @@ export type FeatureBoardGhostCandidatesResult = {
   restore: (repoId: string, issueNumber: number) => void
 }
 
+/**
+ * #73: repo chips on ghost cards only help once ghosts from several repos share the board;
+ * single-repo scope renders unlabelled.
+ */
+export function boardSpansMultipleGhostRepos(
+  ghostsByStage: ReadonlyMap<WorkflowStage, readonly FeatureBoardGhostEntry[]>
+): boolean {
+  const repoIds = new Set<string>()
+  for (const entries of ghostsByStage.values()) {
+    for (const { repoId } of entries) {
+      repoIds.add(repoId)
+    }
+  }
+  return repoIds.size > 1
+}
+
 function groupGhostCandidatesByStage(
   candidates: readonly FeatureBoardGhostEntry[]
 ): ReadonlyMap<WorkflowStage, readonly FeatureBoardGhostEntry[]> {

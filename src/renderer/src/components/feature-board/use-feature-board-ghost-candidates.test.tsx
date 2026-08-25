@@ -7,7 +7,12 @@ import { getForcedOriginWorkItemsCacheKey } from '@/store/slices/github'
 import { makeRepo, makeWorktree } from '@/components/worktree-jump-palette-test-fixtures'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
 import { PER_REPO_FETCH_LIMIT } from '../../../../shared/work-items'
-import { useFeatureBoardGhostCandidates } from './use-feature-board-ghost-candidates'
+import type { WorkflowStage } from '../../../../shared/workflow-stages'
+import {
+  boardSpansMultipleGhostRepos,
+  useFeatureBoardGhostCandidates
+} from './use-feature-board-ghost-candidates'
+import type { FeatureBoardGhostEntry } from './use-feature-board-ghost-candidates'
 
 const initialState = useAppStore.getInitialState()
 
@@ -26,6 +31,29 @@ function workItem(overrides: Partial<GitHubWorkItem> = {}): GitHubWorkItem {
     ...overrides
   }
 }
+
+function ghostEntry(repoId: string, number: number): FeatureBoardGhostEntry {
+  return {
+    repoId,
+    candidate: { issue: workItem({ repoId, number }), targetStage: 'idea', badges: [] }
+  }
+}
+
+describe('boardSpansMultipleGhostRepos', () => {
+  it('is false with no ghosts or a single contributing repo, true across stages', () => {
+    expect(boardSpansMultipleGhostRepos(new Map())).toBe(false)
+    const single = new Map<WorkflowStage, FeatureBoardGhostEntry[]>([
+      ['idea', [ghostEntry('repo-1', 1)]],
+      ['spec', [ghostEntry('repo-1', 2)]]
+    ])
+    expect(boardSpansMultipleGhostRepos(single)).toBe(false)
+    const multi = new Map<WorkflowStage, FeatureBoardGhostEntry[]>([
+      ['idea', [ghostEntry('repo-1', 1)]],
+      ['spec', [ghostEntry('repo-2', 2)]]
+    ])
+    expect(boardSpansMultipleGhostRepos(multi)).toBe(true)
+  })
+})
 
 describe('useFeatureBoardGhostCandidates', () => {
   beforeEach(() => {

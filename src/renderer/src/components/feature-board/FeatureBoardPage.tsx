@@ -16,7 +16,10 @@ import { FeatureBoardDismissedMenu } from './FeatureBoardDismissedMenu'
 import { getFeatureBoardStageLabel } from './feature-board-stage-labels'
 import { useFeatureBoardCards, useFeatureBoardColumns } from './use-feature-board-columns'
 import { useFeatureBoardProjectSelection } from './use-feature-board-project-selection'
-import { useFeatureBoardGhostCandidates } from './use-feature-board-ghost-candidates'
+import {
+  boardSpansMultipleGhostRepos,
+  useFeatureBoardGhostCandidates
+} from './use-feature-board-ghost-candidates'
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
@@ -95,6 +98,10 @@ export default function FeatureBoardPage(): React.JSX.Element {
     [selection.groups, selection.selected]
   )
   const ghosts = useFeatureBoardGhostCandidates(ghostRepos, selection.selected)
+  const showGhostRepoNames = useMemo(
+    () => boardSpansMultipleGhostRepos(ghosts.ghostsByStage),
+    [ghosts.ghostsByStage]
+  )
   const columnsRef = useRef(columns)
   useEffect(() => {
     columnsRef.current = columns
@@ -203,6 +210,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
               stage={stage}
               cards={columns.get(stage) ?? []}
               ghosts={ghosts.ghostsByStage.get(stage) ?? []}
+              showGhostRepoNames={showGhostRepoNames}
               headerAction={
                 adoptionEligibleRepos.length > 0 ? (
                   <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />

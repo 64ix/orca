@@ -19,6 +19,8 @@ export type FeatureBoardColumnProps = {
   cards: readonly FeatureBoardCardModel[]
   /** Ghost cards (#49): quick-grab candidates rendered after real cards. */
   ghosts?: readonly FeatureBoardGhostEntry[]
+  /** #73: label each ghost with its source repo once several repos contribute ghosts. */
+  showGhostRepoNames?: boolean
   /** Extension point for #48 — forwarded to `FeatureBoardColumnHeader`. */
   headerAction?: React.ReactNode
   /**
@@ -39,6 +41,7 @@ export function FeatureBoardColumn({
   stage,
   cards,
   ghosts,
+  showGhostRepoNames = false,
   headerAction,
   columnWidth = 280,
   isResizingColumn = false,
@@ -77,6 +80,7 @@ export function FeatureBoardColumn({
                 key={`ghost-${repoId}-${candidate.issue.number}`}
                 candidate={candidate}
                 repoId={repoId}
+                showRepoName={showGhostRepoNames}
               />
             ))}
           </>
