@@ -7,7 +7,6 @@ import SidebarNav from './SidebarNav'
 import SetupScriptPromptCard from './SetupScriptPromptCard'
 import WorktreeList from './WorktreeList'
 import SidebarToolbar from './SidebarToolbar'
-import SidebarUsageGauge from './SidebarUsageGauge'
 import WorkspaceKanbanDrawer from './WorkspaceKanbanDrawer'
 import type { VirtualizedScrollAnchor } from '@/hooks/useVirtualizedScrollAnchor'
 import { cn } from '@/lib/utils'
@@ -128,7 +127,6 @@ function Sidebar({
             />
 
             <div className="relative shrink-0">
-              <SidebarUsageGauge />
               <SetupScriptPromptCard />
 
               {/* Fixed bottom toolbar */}
