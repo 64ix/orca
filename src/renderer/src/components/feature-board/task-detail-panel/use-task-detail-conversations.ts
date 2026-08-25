@@ -5,6 +5,7 @@ import { activateAndRevealWorktree } from '@/lib/worktree-activation'
 import { agentTypeToIconAgent } from '@/lib/agent-status'
 import { useAppStore } from '@/store'
 import { useRepos, useAllWorktrees } from '@/store/selectors'
+import { getAgentRowConversationName } from '../../../../../shared/agent-row-conversation-name'
 import { normalizeExecutionHostScope } from '../../../../../shared/execution-host'
 import { parsePaneKey } from '../../../../../shared/stable-pane-id'
 import type { Worktree } from '../../../../../shared/worktree/types'
@@ -81,6 +82,22 @@ export function useTaskDetailConversations(worktree: Worktree): {
     [titleOverrides]
   )
 
+  // Why: a live row's title must reflect a manual rename (tab.customTitle) the
+  // same way the sidebar/dashboard rows do — otherwise renaming here would be a
+  // no-op the moment this panel re-derives the row list. Single-pane precedence
+  // only (no per-leaf paneLiveTitle): this panel lists whole sessions, not panes.
+  const generatedTitlesEnabled = useAppStore((s) => s.settings?.tabAutoGenerateTitle === true)
+  const titleByPaneKey = useMemo(() => {
+    const byPaneKey = new Map<string, string>()
+    for (const agent of liveAgentRows) {
+      const name = getAgentRowConversationName(agent.tab, agent.agentType, generatedTitlesEnabled)
+      if (name) {
+        byPaneKey.set(agent.activationPaneKey ?? agent.paneKey, name)
+      }
+    }
+    return byPaneKey
+  }, [liveAgentRows, generatedTitlesEnabled])
+
   const rows = useMemo(
     () =>
       buildTaskDetailConversationRows({
@@ -89,6 +106,7 @@ export function useTaskDetailConversations(worktree: Worktree): {
         worktreeId,
         worktreeIdByVaultSessionId,
         livePaneKeyByVaultSessionId,
+        titleByPaneKey,
         titleOverrideByVaultSessionId
       }),
     [
@@ -97,6 +115,7 @@ export function useTaskDetailConversations(worktree: Worktree): {
       worktreeId,
       worktreeIdByVaultSessionId,
       livePaneKeyByVaultSessionId,
+      titleByPaneKey,
       titleOverrideByVaultSessionId
     ]
   )
