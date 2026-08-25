@@ -99,6 +99,9 @@ export function buildRows(
   const cyclicLineageIds = nestLineage
     ? getCyclicProjectedWorktreeLineageIds(lineageById, worktreeMap)
     : new Set<string>()
+  // Why null when not nesting: stage-lane root resolution must fall back to
+  // "every worktree is its own root", matching appendWorktreeRows' flat mode.
+  const stageLineage = nestLineage ? { lineageById, worktreeMap, cyclicLineageIds } : null
 
   const pendingByRepo = new Map<string, PendingCreationRef[]>()
   for (const creation of pendingCreations) {
@@ -150,7 +153,8 @@ export function buildRows(
     workspaceStatuses,
     settings,
     projectGrouping,
-    issueCache
+    issueCache,
+    stageLineage
   })
   emitPinnedGroup(
     pinnedSectionWorktrees,
@@ -228,7 +232,11 @@ export function buildRows(
     pendingByRepo,
     repoOrder,
     projectOrderBy,
-    folderWorkspaces: renderableFolderWorkspaces
+    folderWorkspaces: renderableFolderWorkspaces,
+    lineageById,
+    worktreeMap,
+    nestLineage,
+    cyclicLineageIds
   })
 
   const sectionContext: SectionAppendContext = {

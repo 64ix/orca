@@ -12,7 +12,10 @@ import { getFolderWorkspaceRevealGroupKeys } from '../navigation/folder-reveal'
 import type { FolderWorkspace } from '../../../../../../shared/folder-workspace-types'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host'
 import { isPinnedSectionWorktree } from '../../pinned-section-worktrees'
-import { getWorktreeLineageAncestors } from '../../worktree-lineage-projection'
+import {
+  getCyclicProjectedWorktreeLineageIds,
+  getWorktreeLineageAncestors
+} from '../../worktree-lineage-projection'
 
 // While the agent send picker targets a workspace, force open every section that hides it.
 export function useEffectiveCollapsedGroups(args: {
@@ -90,7 +93,12 @@ export function useEffectiveCollapsedGroups(args: {
         settings,
         projectGroups,
         projectGrouping,
-        issueCache
+        issueCache,
+        {
+          lineageById: worktreeLineageById,
+          worktreeMap,
+          cyclicLineageIds: getCyclicProjectedWorktreeLineageIds(worktreeLineageById, worktreeMap)
+        }
       )) {
         next.delete(groupKey)
       }
