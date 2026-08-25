@@ -18,6 +18,7 @@ import {
   WORKTREE_CARD_PROPERTIES
 } from '../../../../shared/worktree/card-properties'
 import { isPluginPanelTabKey } from '../../../../shared/plugins/plugin-manifest'
+import { WORKFLOW_STAGE_IDS } from '../../../../shared/workflow-stages'
 import type { TaskProvider } from '../../../../shared/task-providers'
 import { ClientUiWorkspaceFilterFields } from './client-ui-workspace-filter-fields'
 import { TaskResumeState } from './task-resume-state-schema'
@@ -176,7 +177,8 @@ const TopLevelViewSchema = z.enum([
   'space',
   'skills',
   'artifacts',
-  'mobile'
+  'mobile',
+  'board'
 ])
 const UiUpdateFields = z
   .object({
@@ -205,6 +207,17 @@ const UiUpdateFields = z
     manualRepoOrder: z
       .array(z.object({ hostId: z.string(), repoId: z.string() }).strict())
       .optional(),
+    featureBoardColumnOrder: z
+      .array(
+        z
+          .object({
+            projectKey: z.string(),
+            stage: z.enum(WORKFLOW_STAGE_IDS),
+            worktreeIds: z.array(z.string())
+          })
+          .strict()
+      )
+      .optional(),
     ...ClientUiWorkspaceFilterFields,
     // Why: rides App.tsx's debounced writer, so omitting it rejected that entire
     // payload (sidebar widths, filters, agent acks) for every paired client.
@@ -218,6 +231,7 @@ const UiUpdateFields = z
     workspaceStatuses: z.array(WorkspaceStatusDefinition).optional(),
     workspaceBoardOpacity: z.number().finite().optional(),
     workspaceBoardColumnWidth: z.number().finite().optional(),
+    featureBoardColumnWidth: z.number().finite().optional(),
     syncTaskStatusFromWorkspaceBoard: z.boolean().optional(),
     _workspaceStatusesDefaultOrderMigrated: z.boolean().optional(),
     _workspaceStatusesReorderedDefaultRepaired: z.boolean().optional(),

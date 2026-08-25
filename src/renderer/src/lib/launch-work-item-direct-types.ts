@@ -32,4 +32,7 @@ export type LaunchWorkItemDirectArgs = {
   agentArgs?: string | null
   promptDelivery?: 'draft' | 'submit-after-ready'
   launchPlatform?: NodeJS.Platform
+  /** Fires once the worktree exists, before agent detection/activation. Lets a caller
+   *  declare state (e.g. the feature board's adoption "+") without re-deriving the id. */
+  onWorktreeCreated?: (worktreeId: string) => void
 }

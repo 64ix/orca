@@ -35,6 +35,12 @@ import {
   applyManualRepoOrder,
   normalizeManualRepoOrder
 } from '../../../../shared/manual-repo-order'
+import {
+  normalizeFeatureBoardColumnOrder,
+  setFeatureBoardColumnOrderEntry,
+  type FeatureBoardColumnOrderEntry
+} from '../../../../shared/feature-board-column-order'
+import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { isTopLevelView } from '../../../../shared/top-level-view'
 import { isReleaseChannel, type ReleaseChannel } from '../../../../shared/release-channel'
 import type { UsagePercentageDisplay } from '../../../../shared/usage-percentage-display'
@@ -621,6 +627,7 @@ export type UISlice = {
     | 'skills'
     | 'artifacts'
     | 'mobile'
+    | 'board'
   previousViewBeforeSettings:
     | 'terminal'
     | 'tasks'
@@ -630,6 +637,7 @@ export type UISlice = {
     | 'skills'
     | 'artifacts'
     | 'mobile'
+    | 'board'
   previousViewBeforeActivity:
     | 'terminal'
     | 'settings'
@@ -639,6 +647,7 @@ export type UISlice = {
     | 'skills'
     | 'artifacts'
     | 'mobile'
+    | 'board'
   previousViewBeforeAutomations:
     | 'terminal'
     | 'settings'
@@ -648,6 +657,7 @@ export type UISlice = {
     | 'skills'
     | 'artifacts'
     | 'mobile'
+    | 'board'
   previousViewBeforeSpace:
     | 'terminal'
     | 'settings'
@@ -657,6 +667,7 @@ export type UISlice = {
     | 'skills'
     | 'artifacts'
     | 'mobile'
+    | 'board'
   previousViewBeforeSkills:
     | 'terminal'
     | 'settings'
@@ -666,6 +677,7 @@ export type UISlice = {
     | 'space'
     | 'artifacts'
     | 'mobile'
+    | 'board'
   previousViewBeforeMobile:
     | 'terminal'
     | 'settings'
@@ -675,6 +687,7 @@ export type UISlice = {
     | 'space'
     | 'skills'
     | 'artifacts'
+    | 'board'
   previousViewBeforeArtifacts:
     | 'terminal'
     | 'settings'
@@ -683,6 +696,17 @@ export type UISlice = {
     | 'automations'
     | 'space'
     | 'skills'
+    | 'mobile'
+    | 'board'
+  previousViewBeforeBoard:
+    | 'terminal'
+    | 'settings'
+    | 'tasks'
+    | 'activity'
+    | 'automations'
+    | 'space'
+    | 'skills'
+    | 'artifacts'
     | 'mobile'
   setActiveView: (view: UISlice['activeView']) => void
   taskPageData: {
@@ -775,6 +799,15 @@ export type UISlice = {
   closeArtifactsPage: () => void
   openMobilePage: () => void
   closeMobilePage: () => void
+  openBoardPage: () => void
+  closeBoardPage: () => void
+  /** Feature board card order: per-project, per-column ordered worktree ids (spec 21). */
+  featureBoardColumnOrder: FeatureBoardColumnOrderEntry[]
+  setFeatureBoardColumnOrder: (
+    projectKey: string,
+    stage: WorkflowStage,
+    worktreeIds: readonly string[]
+  ) => void
   setNewWorkspaceDraft: (draft: NonNullable<UISlice['newWorkspaceDraft']>) => void
   clearNewWorkspaceDraft: () => void
   openSettingsPage: () => void
@@ -929,6 +962,10 @@ export type UISlice = {
   setWorkspaceBoardOpacity: (opacity: number) => void
   workspaceBoardColumnWidth: number
   setWorkspaceBoardColumnWidth: (width: number) => void
+  /** Feature board column width (#47) — separate persisted setting from the classic drawer's,
+   *  reusing the same bounds/clamp since both are pointer-resized kanban columns. */
+  featureBoardColumnWidth: number
+  setFeatureBoardColumnWidth: (width: number) => void
   syncTaskStatusFromWorkspaceBoard: boolean
   setSyncTaskStatusFromWorkspaceBoard: (enabled: boolean) => void
   /** Transient: the in-window Agent Dashboard companion drawer is open. Not persisted. */
@@ -1272,6 +1309,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   pendingSkillsSharedView: false,
   previousViewBeforeMobile: 'terminal',
   previousViewBeforeArtifacts: 'terminal',
+  previousViewBeforeBoard: 'terminal',
   setActiveView: (view) => set({ activeView: view }),
   taskPageData: {},
   taskResumeState: undefined,
@@ -1555,6 +1593,27 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     set((state) => ({
       activeView: state.previousViewBeforeMobile
     })),
+  openBoardPage: () =>
+    set((state) => ({
+      activeView: 'board',
+      previousViewBeforeBoard:
+        state.activeView === 'board' ? state.previousViewBeforeBoard : state.activeView
+    })),
+  closeBoardPage: () =>
+    set((state) => ({
+      activeView: state.previousViewBeforeBoard
+    })),
+  featureBoardColumnOrder: [],
+  setFeatureBoardColumnOrder: (projectKey, stage, worktreeIds) => {
+    const next = setFeatureBoardColumnOrderEntry(
+      get().featureBoardColumnOrder,
+      projectKey,
+      stage,
+      worktreeIds
+    )
+    window.api.ui.set({ featureBoardColumnOrder: next }).catch(console.error)
+    set({ featureBoardColumnOrder: next })
+  },
   setNewWorkspaceDraft: (draft) => set({ newWorkspaceDraft: draft }),
   clearNewWorkspaceDraft: () => set({ newWorkspaceDraft: null }),
   openSettingsPage: () => {
@@ -2234,6 +2293,13 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     set({ workspaceBoardColumnWidth: clamped })
   },
 
+  featureBoardColumnWidth: WORKSPACE_BOARD_COLUMN_WIDTH_DEFAULT,
+  setFeatureBoardColumnWidth: (width) => {
+    const clamped = clampWorkspaceBoardColumnWidth(width)
+    window.api.ui.set({ featureBoardColumnWidth: clamped }).catch(console.error)
+    set({ featureBoardColumnWidth: clamped })
+  },
+
   syncTaskStatusFromWorkspaceBoard: false,
   setSyncTaskStatusFromWorkspaceBoard: (enabled) => {
     window.api.ui.set({ syncTaskStatusFromWorkspaceBoard: enabled }).catch(console.error)
@@ -2531,6 +2597,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         visibleWorkspaceHostIds: normalizeHydratedVisibleWorkspaceHostIds(ui),
         workspaceHostOrder: normalizeExecutionHostOrder(ui.workspaceHostOrder),
         manualRepoOrder,
+        featureBoardColumnOrder: normalizeFeatureBoardColumnOrder(ui.featureBoardColumnOrder),
         // Why: apply the desktop-owned overlay immediately since UI state can arrive after a catalog or from another client.
         repos: orderedRepos,
         hideDefaultBranchWorkspace: ui.hideDefaultBranchWorkspace ?? false,
@@ -2556,6 +2623,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         workspaceStatuses: normalizeWorkspaceStatuses(ui.workspaceStatuses),
         workspaceBoardOpacity: clampWorkspaceBoardOpacity(ui.workspaceBoardOpacity),
         workspaceBoardColumnWidth: clampWorkspaceBoardColumnWidth(ui.workspaceBoardColumnWidth),
+        featureBoardColumnWidth: clampWorkspaceBoardColumnWidth(ui.featureBoardColumnWidth),
         syncTaskStatusFromWorkspaceBoard: ui.syncTaskStatusFromWorkspaceBoard === true,
         statusBarItems: statusBarItemsWithGrok,
         statusBarVisible: ui.statusBarVisible ?? true,

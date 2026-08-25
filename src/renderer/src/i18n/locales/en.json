@@ -5005,7 +5005,8 @@
           "fee535205b": "Tasks",
           "d599269755": "Hide from sidebar",
           "artifacts": "Artifacts",
-          "skills": "Skills"
+          "skills": "Skills",
+          "featureBoard": "Board"
         },
         "SidebarRepositoryFilterSection": {
           "d3a9c4cea1": "Clear",
@@ -16285,6 +16286,76 @@
         "hours": "{{value0}}h",
         "days": "{{value0}}d",
         "underOneMinute": "<1m"
+      }
+    },
+    "featureBoard": {
+      "adoptionDialog": {
+        "title": "New feature in {{stage}}",
+        "description": "Create a worktree for a new feature, optionally linking an issue or pull request.",
+        "projectLabel": "Project",
+        "nameLabel": "Name",
+        "namePlaceholder": "Feature name",
+        "linkLabel": "Link an issue or PR (optional)",
+        "linkPlaceholder": "Issue/PR #, or a GitHub URL",
+        "linkNotFound": "Couldn't find that issue or PR.",
+        "cancel": "Cancel",
+        "create": "Create"
+      },
+      "card": {
+        "awaitingInput": "Awaiting your input",
+        "folderWorkspace": "Folder workspace — moved manually"
+      },
+      "column": {
+        "empty": "No cards",
+        "addTooltip": "New feature in {{stage}}",
+        "resizeHandle": "Resize feature board columns"
+      },
+      "page": {
+        "close": "Close board",
+        "closeTooltip": "Close",
+        "title": "Feature board"
+      },
+      "stage": {
+        "idea": "Idea",
+        "exploring": "Exploring",
+        "spec": "Spec",
+        "implementing": "Implementing",
+        "review": "Review",
+        "shipped": "Shipped",
+        "triage": "Triage"
+      },
+      "filter": {
+        "agentState": {
+          "working": "Working",
+          "blocked": "Blocked",
+          "waiting": "Waiting",
+          "done": "Done"
+        },
+        "prState": {
+          "open": "Open",
+          "draft": "Draft",
+          "merged": "Merged",
+          "closed": "Closed"
+        },
+        "editLabel": "Edit filters ({{value0}} active)",
+        "label": "Filter cards",
+        "editTooltip": "Edit filters",
+        "needsAttention": "Needs attention",
+        "stageTitle": "Stage",
+        "agentStateTitle": "Agent state",
+        "prStateTitle": "PR state",
+        "reset": "Reset filters"
+      },
+      "search": {
+        "tooLarge": "Search text is too long — the board is unfiltered",
+        "tooLargeLabel": "Too long",
+        "placeholder": "Search cards",
+        "clear": "Clear search",
+        "matchAnnouncement": "{{value0}} of {{value1}} cards match"
+      },
+      "drop": {
+        "refused": "Could not move this card",
+        "updateFailed": "Could not update the stage"
       }
     }
   },
