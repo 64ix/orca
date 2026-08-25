@@ -26,24 +26,32 @@ export type TaskDetailConversationRowActions = {
 function EditableTitle({
   title,
   label,
+  editing,
+  onStartEditing,
+  onStopEditing,
   onCommit
 }: {
   title: string
   label: string
+  editing: boolean
+  onStartEditing: () => void
+  onStopEditing: () => void
   onCommit: (title: string) => void
 }): React.JSX.Element {
-  const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(title)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (editing) {
+      setDraft(title)
       inputRef.current?.select()
     }
+    // Why: seed the draft only on entry, not on every title/onStopEditing identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing])
 
   const commit = (): void => {
-    setEditing(false)
+    onStopEditing()
     const trimmed = draft.trim()
     if (trimmed && trimmed !== title) {
       onCommit(trimmed)
@@ -62,8 +70,7 @@ function EditableTitle({
             commit()
           }
           if (event.key === 'Escape') {
-            setDraft(title)
-            setEditing(false)
+            onStopEditing()
           }
         }}
         aria-label={label}
@@ -76,10 +83,7 @@ function EditableTitle({
       type="button"
       title={title}
       className="block min-w-0 flex-1 truncate text-left text-[11px] leading-snug text-foreground/90 hover:text-foreground"
-      onClick={() => {
-        setDraft(title)
-        setEditing(true)
-      }}
+      onClick={onStartEditing}
     >
       {title}
     </button>
@@ -102,12 +106,7 @@ export function TaskDetailConversationRowItem({
     'Conversation actions'
   )
   const isVault = row.kind === 'vault'
-
-  const startRename = (): void => {
-    // Why: the editable title is the row's title button; dispatch a click so the
-    // menu and the inline editor never disagree about which row is being renamed.
-    document.querySelector<HTMLButtonElement>(`[data-conversation-title="${row.key}"]`)?.click()
-  }
+  const [editingTitle, setEditingTitle] = useState(false)
 
   return (
     <div
@@ -118,13 +117,14 @@ export function TaskDetailConversationRowItem({
       <span className="inline-flex shrink-0" title={row.title}>
         <AgentIcon agent={iconAgent} size={14} />
       </span>
-      <span data-conversation-title={row.key} className="contents">
-        <EditableTitle
-          title={row.title}
-          label={renameLabel}
-          onCommit={(title) => actions.onRename(row, title)}
-        />
-      </span>
+      <EditableTitle
+        title={row.title}
+        label={renameLabel}
+        editing={editingTitle}
+        onStartEditing={() => setEditingTitle(true)}
+        onStopEditing={() => setEditingTitle(false)}
+        onCommit={(title) => actions.onRename(row, title)}
+      />
       <div className="flex shrink-0 items-center opacity-0 transition-opacity group-hover/conversation-row:opacity-100 group-focus-within/conversation-row:opacity-100">
         {!isVault ? (
           <Tooltip>
@@ -159,7 +159,7 @@ export function TaskDetailConversationRowItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-40">
-            <DropdownMenuItem onSelect={startRename}>
+            <DropdownMenuItem onSelect={() => setEditingTitle(true)}>
               <Pencil className="size-4" />
               {renameLabel}
             </DropdownMenuItem>
