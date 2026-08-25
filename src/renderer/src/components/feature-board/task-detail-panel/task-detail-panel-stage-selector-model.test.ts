@@ -30,9 +30,7 @@ describe('buildTaskDetailStageSelector', () => {
       currentEffectiveStage: { stage: 'review', reason: 'open-pull-request', factId: '7' }
     })
     expect(model.currentStage).toBe('review')
-    expect(model.currentExplanation).toContain(
-      'an open pull request keeps the effective stage at review'
-    )
+    expect(model.currentExplanation).toBe('Open pull request #7 keeps the stage at Review.')
   })
 
   it('locks stages a governing open PR overrides, each with the guard explanation', () => {
@@ -46,8 +44,8 @@ describe('buildTaskDetailStageSelector', () => {
     expect(byStage.get('review')?.allowed).toBe(true)
     expect(byStage.get('review')?.lockReason).toBeNull()
     expect(byStage.get('implementing')?.allowed).toBe(false)
-    expect(byStage.get('implementing')?.lockReason).toContain(
-      'an open pull request keeps the effective stage at review'
+    expect(byStage.get('implementing')?.lockReason).toBe(
+      'Open pull request #7 keeps the stage at Review.'
     )
     // The current stage's own option stays free and matches the header explanation.
     expect(byStage.get('review')?.explanation).toBe(model.currentExplanation)
@@ -61,7 +59,9 @@ describe('buildTaskDetailStageSelector', () => {
       currentEffectiveStage: shippedByMerge
     })
     expect(model.shippedSource).toEqual({ kind: 'merged-pr', prNumber: 42 })
-    expect(model.currentExplanation).toContain('unconsumed merged pull request')
+    expect(model.currentExplanation).toBe(
+      'Merged pull request #42 keeps the stage at Shipped until you de-ship it.'
+    )
   })
 
   it('presents shipped as human-set when no merge governs', () => {
@@ -125,5 +125,52 @@ describe('buildTaskDetailStageSelector', () => {
     ])
     const implementing = model.options.find((option) => option.stage === 'implementing')
     expect(implementing?.label).toBeTruthy()
+  })
+
+  it('explains a governing closed PR and a governing open issue in the option lock reasons', () => {
+    const closedPrModel = buildTaskDetailStageSelector({
+      workspaceKind: 'git-worktree',
+      facts: { self: { pullRequests: [{ id: '3', state: 'closed', activityAt: 1 }] } },
+      consumedMergedPRNumbers: null,
+      currentEffectiveStage: { stage: 'triage', reason: 'closed-pull-request', factId: '3' }
+    })
+    expect(closedPrModel.currentExplanation).toBe(
+      'A closed pull request moves the stage to Triage.'
+    )
+    const implementingUnderClosedPr = closedPrModel.options.find(
+      (option) => option.stage === 'implementing'
+    )
+    expect(implementingUnderClosedPr?.allowed).toBe(false)
+    expect(implementingUnderClosedPr?.lockReason).toBe(
+      'A closed pull request moves the stage to Triage.'
+    )
+
+    const openIssueModel = buildTaskDetailStageSelector({
+      workspaceKind: 'git-worktree',
+      facts: { self: { issues: [{ id: '9', state: 'open' }] } },
+      consumedMergedPRNumbers: null,
+      currentEffectiveStage: { stage: 'spec', reason: 'open-issue', factId: '9' }
+    })
+    expect(openIssueModel.currentExplanation).toBe('An open issue moves the stage to Spec.')
+  })
+
+  it('explains a plain human declaration without a governing fact', () => {
+    const model = buildTaskDetailStageSelector({
+      workspaceKind: 'git-worktree',
+      facts: null,
+      consumedMergedPRNumbers: null,
+      currentEffectiveStage: declaredImplementing
+    })
+    expect(model.currentExplanation).toBe('You set this stage.')
+  })
+
+  it('explains the folder manual regime in the header copy', () => {
+    const model = buildTaskDetailStageSelector({
+      workspaceKind: 'folder',
+      facts: null,
+      consumedMergedPRNumbers: null,
+      currentEffectiveStage: { stage: 'implementing', reason: 'folder-manual-regime', factId: null }
+    })
+    expect(model.currentExplanation).toBe('Folder workspaces move only when you set the stage.')
   })
 })
