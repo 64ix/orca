@@ -58,6 +58,9 @@ export type WorktreeVirtualRowContext = {
   onWorkspaceStatusDragOver: (event: React.DragEvent, status: WorkspaceStatus) => void
   onWorkspaceStatusDragLeave: (event: React.DragEvent) => void
   onWorkspaceStatusDrop: (event: React.DragEvent, status: WorkspaceStatus) => void
+  onWorkflowStageDragOver: (event: React.DragEvent, laneKey: string) => void
+  onWorkflowStageDragLeave: (event: React.DragEvent) => void
+  onWorkflowStageDrop: (event: React.DragEvent, laneKey: string) => void
 }
 
 function renderHostHeaderVirtualRow(
@@ -218,6 +221,10 @@ export function renderWorktreeVirtualRow(
     ctx.groupBy === 'workspace-status'
       ? getWorkspaceStatus(row.worktree, ctx.workspaceStatuses)
       : null
+  // Why: dropping onto any row in a stage lane declares the lane's stage, same as status
+  // mode — read the row's rendered lane (sectionKey), not its own effective stage: a
+  // lineage child has no stage of its own and renders under its root's lane (#45).
+  const itemWorkflowStageLaneKey = ctx.groupBy === 'workflow-stage' ? row.sectionKey : null
   const itemPreviewOffset =
     ctx.worktreeDragState.previewOffsetsByWorktreeId.get(row.worktree.id) ?? 0
 
@@ -232,6 +239,8 @@ export function renderWorktreeVirtualRow(
       ref={ctx.measureVirtualRowElement}
       data-workspace-status-drop-target={itemWorkspaceStatus ? '' : undefined}
       data-workspace-status={itemWorkspaceStatus ?? undefined}
+      data-workflow-stage-drop-target={itemWorkflowStageLaneKey ? '' : undefined}
+      data-workflow-stage-lane={itemWorkflowStageLaneKey ?? undefined}
       className={cn(
         'absolute left-0 right-0 top-0',
         ctx.worktreeDragState.draggingWorktreeId !== null &&
@@ -241,13 +250,23 @@ export function renderWorktreeVirtualRow(
       onDragOver={
         itemWorkspaceStatus
           ? (event) => ctx.onWorkspaceStatusDragOver(event, itemWorkspaceStatus)
-          : undefined
+          : itemWorkflowStageLaneKey
+            ? (event) => ctx.onWorkflowStageDragOver(event, itemWorkflowStageLaneKey)
+            : undefined
       }
-      onDragLeave={itemWorkspaceStatus ? ctx.onWorkspaceStatusDragLeave : undefined}
+      onDragLeave={
+        itemWorkspaceStatus
+          ? ctx.onWorkspaceStatusDragLeave
+          : itemWorkflowStageLaneKey
+            ? ctx.onWorkflowStageDragLeave
+            : undefined
+      }
       onDrop={
         itemWorkspaceStatus
           ? (event) => ctx.onWorkspaceStatusDrop(event, itemWorkspaceStatus)
-          : undefined
+          : itemWorkflowStageLaneKey
+            ? (event) => ctx.onWorkflowStageDrop(event, itemWorkflowStageLaneKey)
+            : undefined
       }
     >
       {renderWorktreeItemRow(ctx.item, row, false)}

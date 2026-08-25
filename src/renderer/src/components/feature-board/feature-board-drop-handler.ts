@@ -14,7 +14,9 @@ import type { WorkflowStage } from '../../../../shared/workflow-stages'
 export type FeatureBoardCardDropRequest = {
   /** The worktree's current persisted consumed-merge markers, for the de-ship diff below. */
   consumedMergedPRNumbers: readonly number[] | null | undefined
-  targetStage: WorkflowStage
+  /** Board columns are always a concrete stage; the sidebar's "Sans stage" lane reuses this
+   *  core with `null` to declare an unstaged drop (#53). */
+  targetStage: WorkflowStage | null
   /** Board drops are always a human gesture — injectable so the refusal branch is testable. */
   callerKind: StageWriteCallerKind
   workspaceKind?: WorkflowDerivationWorkspaceKind | null

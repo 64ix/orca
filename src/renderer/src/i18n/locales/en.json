@@ -16432,6 +16432,14 @@
         "refused": "Could not move this card",
         "updateFailed": "Could not update the stage"
       }
+    },
+    "sidebar": {
+      "worktreeList": {
+        "stageDrop": {
+          "refused": "Could not set the stage",
+          "updateFailed": "Could not update the stage"
+        }
+      }
     }
   },
   "dashboardPopout": {

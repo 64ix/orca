@@ -10,6 +10,7 @@ import type { WorktreeDragSession } from '../drag/use-session'
 import type { useFolderWorkspacePathStatusRows } from '../listing/use-folder-path-statuses'
 import type { usePrimaryActiveWorktreeRow } from '../navigation/use-active-row'
 import type { useWorkspaceStatusRowDrag } from '../drag/use-status-row-drag'
+import type { useWorkflowStageRowDrag } from '../drag/use-workflow-stage-row-drag'
 import type { useWorktreeNativeDrag } from '../drag/use-native-drag'
 import type { WorktreeSidebarHeaderDrag } from '../drag/use-header-drag'
 import type { WorktreeListVirtualizer } from './use-virtualizer'
@@ -34,6 +35,7 @@ type BuildArgs = {
   primaryActive: ReturnType<typeof usePrimaryActiveWorktreeRow>
   reveal: SidebarRevealHighlight
   statusDrag: ReturnType<typeof useWorkspaceStatusRowDrag>
+  stageDrag: ReturnType<typeof useWorkflowStageRowDrag>
   nativeDrag: ReturnType<typeof useWorktreeNativeDrag>
   headerDrag: WorktreeSidebarHeaderDrag
   getCachedFolderWorkspacePathStatus: ReturnType<typeof useFolderWorkspacePathStatusRows>
@@ -50,7 +52,7 @@ type BuildArgs = {
 // Assembles the per-render context the row dispatcher reads. Plain data — everything in it
 // is either a prop, a memoised hook result, or a stable callback.
 export function buildWorktreeVirtualRowContext(args: BuildArgs): WorktreeVirtualRowContext {
-  const { props, runtime, session, statusDrag, headerDrag, primaryActive, reveal } = args
+  const { props, runtime, session, statusDrag, stageDrag, headerDrag, primaryActive, reveal } = args
   return {
     renderRows: args.renderRows,
     firstHeaderIndex: args.firstHeaderIndex,
@@ -73,6 +75,9 @@ export function buildWorktreeVirtualRowContext(args: BuildArgs): WorktreeVirtual
     onWorkspaceStatusDragOver: statusDrag.handleWorkspaceStatusDragOver,
     onWorkspaceStatusDragLeave: statusDrag.handleWorkspaceStatusDragLeave,
     onWorkspaceStatusDrop: statusDrag.handleWorkspaceStatusDrop,
+    onWorkflowStageDragOver: stageDrag.handleWorkflowStageDragOver,
+    onWorkflowStageDragLeave: stageDrag.handleWorkflowStageDragLeave,
+    onWorkflowStageDrop: stageDrag.handleWorkflowStageDrop,
     header: {
       groupBy: props.groupBy,
       collapsedGroups: props.collapsedGroups,
@@ -82,6 +87,7 @@ export function buildWorktreeVirtualRowContext(args: BuildArgs): WorktreeVirtual
       highlightedRevealRowKey: reveal.highlightedRevealRowKey,
       dragOverStatus: runtime.dragOverStatus,
       pinDragOver: runtime.pinDragOver,
+      dragOverStageLaneKey: stageDrag.dragOverStageLaneKey,
       headerDrag,
       getCachedFolderWorkspacePathStatus: args.getCachedFolderWorkspacePathStatus,
       toggleGroupWithScrollAnchor: args.toggleGroupWithScrollAnchor,
@@ -107,7 +113,10 @@ export function buildWorktreeVirtualRowContext(args: BuildArgs): WorktreeVirtual
       onWorkspaceStatusDragLeave: statusDrag.handleWorkspaceStatusDragLeave,
       onWorkspacePinDragOver: statusDrag.handleWorkspacePinDragOver,
       onWorkspacePinDragLeave: statusDrag.handleWorkspacePinDragLeave,
-      onWorkspaceStatusDrop: statusDrag.handleWorkspaceStatusDrop
+      onWorkspaceStatusDrop: statusDrag.handleWorkspaceStatusDrop,
+      onWorkflowStageDragOver: stageDrag.handleWorkflowStageDragOver,
+      onWorkflowStageDragLeave: stageDrag.handleWorkflowStageDragLeave,
+      onWorkflowStageDrop: stageDrag.handleWorkflowStageDrop
     },
     item: {
       settings: args.settings,
