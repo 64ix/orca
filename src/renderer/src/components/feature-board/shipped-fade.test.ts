@@ -61,7 +61,12 @@ describe('resolveShippedEntryTime (entry-time fallback)', () => {
 
 describe('restoredShippedCardMeta (restore re-arm)', () => {
   it('un-archives and re-stamps the shipped entry time so the fade re-arms', () => {
-    expect(restoredShippedCardMeta(NOW)).toEqual({ isArchived: false, shippedAt: NOW })
+    expect(restoredShippedCardMeta('shipped', NOW)).toEqual({ isArchived: false, shippedAt: NOW })
+  })
+
+  it('does not stamp a card that is not shipped (no fade clock before it ships)', () => {
+    expect(restoredShippedCardMeta('review', NOW)).toEqual({ isArchived: false })
+    expect(restoredShippedCardMeta(null, NOW)).toEqual({ isArchived: false })
   })
 })
 

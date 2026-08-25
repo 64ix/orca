@@ -41,12 +41,20 @@ export function isShippedFaded(params: ShippedFadeCheckParams): boolean {
   return now - shippedAt >= delayDays * DAY_MS
 }
 
-export type RestoredShippedCardMeta = { isArchived: false; shippedAt: number }
+export type RestoredShippedCardMeta = {
+  isArchived: false
+  /** Only present when the restored card is actually `shipped` — a stale stamp
+   *  on a non-shipped card would start the fade clock before it ever ships. */
+  shippedAt?: number
+}
 
-/** Meta to persist on restore (#26): un-archive and re-stamp shipped entry so
- *  the fade delay re-arms from now; stage itself is untouched. */
-export function restoredShippedCardMeta(now: number): RestoredShippedCardMeta {
-  return { isArchived: false, shippedAt: now }
+/** Meta to persist on restore (#26): un-archive; re-stamp shipped entry only when
+ *  the card's stage is `shipped`, so the fade delay re-arms from now. */
+export function restoredShippedCardMeta(
+  stage: WorkflowStage | null | undefined,
+  now: number
+): RestoredShippedCardMeta {
+  return stage === 'shipped' ? { isArchived: false, shippedAt: now } : { isArchived: false }
 }
 
 export type ResolveShippedEntryTimeParams = {

@@ -54,10 +54,17 @@ export default function FeatureBoardPage(): React.JSX.Element {
   const [archiveSinkExpanded, setArchiveSinkExpanded] = useState(false)
   const restoreArchivedCard = useCallback(
     (worktreeId: string) => {
-      // Why re-stamp shippedAt: restore returns the card to `shipped` and re-arms the fade delay.
-      void updateWorktreeMeta(worktreeId, restoredShippedCardMeta(Date.now()))
+      // Why re-stamp shippedAt: restore returns a *shipped* card to the column and re-arms
+      // the fade delay; a non-shipped card must not inherit a stamp that pre-dates its ship.
+      const restored = Object.values(worktreesByRepo)
+        .flat()
+        .find((worktree) => worktree.id === worktreeId)
+      void updateWorktreeMeta(
+        worktreeId,
+        restoredShippedCardMeta(restored?.workflowStage, Date.now())
+      )
     },
-    [updateWorktreeMeta]
+    [updateWorktreeMeta, worktreesByRepo]
   )
 
   // Why frozen order lives here, not in the drag hook: unlike a background awaiting-input
