@@ -4,10 +4,11 @@ import { WORKFLOW_STAGE_IDS } from '../../../../../../shared/workflow-stages'
 import type { Worktree } from '../../../../../../shared/worktree/types'
 import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import { issueCacheKey as getIssueCacheKey } from '@/store/slices/github'
+import type { GlobalSettings } from '../../../../../../shared/global-settings-types'
 import { worktree, repoMap } from '../../worktree-list-groups-test-fixtures'
 import { WORKFLOW_STAGE_SANS_KEY, WORKFLOW_STAGE_LANE_PREFIX } from './workflow-stage-grouping'
 
-const SETTINGS = { activeRuntimeEnvironmentId: null as string | null }
+const SETTINGS = { activeRuntimeEnvironmentId: null as string | null } as GlobalSettings
 
 function staged(overrides: Partial<Worktree> & { id: string }): Worktree {
   return { ...worktree, ...overrides }
