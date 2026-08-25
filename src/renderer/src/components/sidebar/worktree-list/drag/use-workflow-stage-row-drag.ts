@@ -76,7 +76,8 @@ export function useWorkflowStageRowDrag(args: {
         (decision) => !decision.outcome.allowed && !decision.outcome.skipped
       )
       // Why: all-or-nothing — a refused id aborts the whole gesture rather than partially
-      // declaring stage on the rest of a multi-select drag.
+      // declaring stage on the rest of a multi-select drag. Unreachable while the guard only
+      // refuses agent callers (sidebar drops are always human); kept so widening it fails loud.
       if (refusal && !refusal.outcome.allowed && !refusal.outcome.skipped) {
         toast.error(
           translate('components.sidebar.worktreeList.stageDrop.refused', 'Could not set the stage'),
