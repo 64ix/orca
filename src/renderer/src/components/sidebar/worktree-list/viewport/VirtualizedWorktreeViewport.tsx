@@ -14,6 +14,7 @@ import { useSidebarRevealHighlight } from '../navigation/use-reveal-highlight'
 import { useVirtualRowMeasurementSync } from './use-row-measurement'
 import { useVisiblePrRefreshReporting } from './use-visible-review-refresh'
 import { useWorkspaceStatusRowDrag } from '../drag/use-status-row-drag'
+import { useWorkflowStageRowDrag } from '../drag/use-workflow-stage-row-drag'
 import { useWorktreeDragRuntime } from '../drag/use-runtime'
 import { useWorktreeDragSession } from '../drag/use-session'
 import { useWorktreeDocumentDrop } from '../drag/use-document-drop'
@@ -157,6 +158,7 @@ export const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktr
     pinnedDisplayPolicy,
     defaultHostId: props.defaultHostId,
     prCache: props.prCache,
+    issueCache: props.issueCache,
     workspaceStatuses,
     settings,
     projectGroups,
@@ -241,6 +243,11 @@ export const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktr
     onMoveWorktreeToStatus: props.onMoveWorktreeToStatus,
     onPinWorktree: props.onPinWorktree
   })
+  const stageDrag = useWorkflowStageRowDrag({
+    worktreeMap,
+    repoMap,
+    worktreeLineageById
+  })
 
   useVisiblePrRefreshReporting({
     currentWorktreeId: props.currentWorktreeId,
@@ -310,6 +317,7 @@ export const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktr
     primaryActive,
     reveal,
     statusDrag,
+    stageDrag,
     nativeDrag,
     headerDrag,
     getCachedFolderWorkspacePathStatus,

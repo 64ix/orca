@@ -1,6 +1,7 @@
 import type React from 'react'
 
 import type { Repo } from '../../../../shared/repo-types'
+import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import type { WorkspaceStatus, Worktree } from '../../../../shared/worktree/types'
 import type { WorktreeCardPrDisplay } from './worktree-card-pr-display'
 
@@ -52,6 +53,8 @@ export type WorktreeCardProps = {
   nativeDragEnabled?: boolean
   affiliateListMode?: boolean
   statusPrDisplay?: WorktreeCardPrDisplay | null
+  /** Effective workflow stage for the sidebar row badge (#45); absent renders no badge. */
+  effectiveStage?: WorkflowStage | null
 }
 
 type DefaultedWorktreeCardProp =
@@ -69,6 +72,7 @@ type DefaultedWorktreeCardProp =
   | 'isLineageDropTarget'
   | 'affiliateListMode'
   | 'statusPrDisplay'
+  | 'effectiveStage'
 
 export type ResolvedWorktreeCardProps = Omit<WorktreeCardProps, DefaultedWorktreeCardProp> & {
   isActiveSurface: boolean
@@ -85,6 +89,7 @@ export type ResolvedWorktreeCardProps = Omit<WorktreeCardProps, DefaultedWorktre
   isLineageDropTarget: boolean
   affiliateListMode: boolean
   statusPrDisplay: WorktreeCardPrDisplay | null
+  effectiveStage: WorkflowStage | null
 }
 
 export const EMPTY_WORKSPACE_PORTS = []

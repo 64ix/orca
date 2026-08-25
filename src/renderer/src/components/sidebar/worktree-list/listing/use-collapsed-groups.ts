@@ -12,7 +12,10 @@ import { getFolderWorkspaceRevealGroupKeys } from '../navigation/folder-reveal'
 import type { FolderWorkspace } from '../../../../../../shared/folder-workspace-types'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host'
 import { isPinnedSectionWorktree } from '../../pinned-section-worktrees'
-import { getWorktreeLineageAncestors } from '../../worktree-lineage-projection'
+import {
+  getCyclicProjectedWorktreeLineageIds,
+  getWorktreeLineageAncestors
+} from '../../worktree-lineage-projection'
 
 // While the agent send picker targets a workspace, force open every section that hides it.
 export function useEffectiveCollapsedGroups(args: {
@@ -25,6 +28,7 @@ export function useEffectiveCollapsedGroups(args: {
   worktreeMap: Map<string, Worktree>
   worktreeLineageById: Record<string, WorktreeLineage>
   prCache: AppState['prCache'] | null
+  issueCache: AppState['issueCache'] | null
   workspaceStatuses: readonly WorkspaceStatusDefinition[]
   settings: AppState['settings']
   projectGroups: readonly ProjectGroup[]
@@ -42,6 +46,7 @@ export function useEffectiveCollapsedGroups(args: {
     worktreeMap,
     worktreeLineageById,
     prCache,
+    issueCache,
     workspaceStatuses,
     settings,
     projectGroups,
@@ -87,7 +92,13 @@ export function useEffectiveCollapsedGroups(args: {
         workspaceStatuses,
         settings,
         projectGroups,
-        projectGrouping
+        projectGrouping,
+        issueCache,
+        {
+          lineageById: worktreeLineageById,
+          worktreeMap,
+          cyclicLineageIds: getCyclicProjectedWorktreeLineageIds(worktreeLineageById, worktreeMap)
+        }
       )) {
         next.delete(groupKey)
       }
@@ -108,6 +119,7 @@ export function useEffectiveCollapsedGroups(args: {
     pinnedDisplayPolicy,
     visibleWorktrees,
     prCache,
+    issueCache,
     projectGroups,
     projectGrouping,
     repoMap,

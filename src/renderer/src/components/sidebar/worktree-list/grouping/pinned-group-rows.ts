@@ -1,6 +1,7 @@
 import type { Repo } from '../../../../../../shared/repo-types'
 import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import type { Worktree } from '../../../../../../shared/worktree/types'
+import type { WorkflowStage } from '../../../../../../shared/workflow-stages'
 import { getWorktreeExecutionHostId } from '../../../../../../shared/execution-host'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host'
 import { PINNED_GROUP_KEY, PINNED_GROUP_META } from './group-keys'
@@ -27,7 +28,8 @@ export function emitPinnedGroup(
   worktreeMap: Map<string, Worktree>,
   nestLineage: boolean,
   cyclicLineageIds: ReadonlySet<string>,
-  noticeHostContextLabelByRepoId?: ReadonlyMap<string, NoticeHostContext>
+  noticeHostContextLabelByRepoId?: ReadonlyMap<string, NoticeHostContext>,
+  effectiveStages?: ReadonlyMap<string, WorkflowStage>
 ): void {
   if (pinnedSectionWorktrees.length === 0) {
     return
@@ -81,7 +83,8 @@ export function emitPinnedGroup(
     collapsedGroups,
     groupDepth: 0,
     sectionKey: PINNED_GROUP_KEY,
-    cyclicLineageIds
+    cyclicLineageIds,
+    effectiveStages
   })
   if (!allowImportedFallback) {
     return

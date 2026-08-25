@@ -1,6 +1,7 @@
 import type { Repo } from '../../../../../../shared/repo-types'
 import type { ProjectOrderBy } from '../../../../../../shared/ui-chrome-types'
 import type { WorkspaceStatusDefinition, Worktree } from '../../../../../../shared/worktree/types'
+import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import type { AppState } from '../../../../store/types'
 import {
   getWorkspaceStatus,
@@ -14,6 +15,12 @@ import {
 } from './folder-workspace-lanes'
 import { PR_GROUP_META, PR_GROUP_ORDER, getPRGroupKey, getPRLaneKey } from './group-keys'
 import type { PRGroupKey } from './group-keys'
+import {
+  getWorkflowStageLaneKeyForWorktree,
+  getWorkflowStageLaneLabel,
+  WORKFLOW_STAGE_LANE_ORDER,
+  type WorkflowStageLineageContext
+} from './workflow-stage-grouping'
 import { addRepoIdToGroup, getProjectGroupingForRepo } from './project-grouping'
 import type {
   OrderedGroupEntry,
@@ -41,6 +48,9 @@ function getLaneLabelForKey(
   if (groupBy === 'pr-status') {
     return PR_GROUP_META[key.replace(/^pr:/, '') as PRGroupKey].label
   }
+  if (groupBy === 'workflow-stage') {
+    return getWorkflowStageLaneLabel(key)
+  }
   return key
 }
 
@@ -50,6 +60,7 @@ export function buildOrderedGroups(args: {
   naturalWorktrees: readonly Worktree[]
   repoMap: Map<string, Repo>
   prCache: Record<string, unknown> | null
+  issueCache: Record<string, unknown> | null
   settings: AppState['settings'] | undefined
   workspaceStatuses: readonly WorkspaceStatusDefinition[]
   projectIndex: ProjectGroupingIndex | null
@@ -60,12 +71,17 @@ export function buildOrderedGroups(args: {
   repoOrder: Map<string, number> | undefined
   projectOrderBy: ProjectOrderBy
   folderWorkspaces?: readonly RenderableFolderWorkspace[]
+  lineageById?: Readonly<Record<string, WorktreeLineage>>
+  worktreeMap?: ReadonlyMap<string, Worktree>
+  nestLineage?: boolean
+  cyclicLineageIds?: ReadonlySet<string>
 }): OrderedGroupEntry[] {
   const {
     groupBy,
     naturalWorktrees,
     repoMap,
     prCache,
+    issueCache,
     settings,
     workspaceStatuses,
     projectIndex,
@@ -75,8 +91,18 @@ export function buildOrderedGroups(args: {
     pendingByRepo,
     repoOrder,
     projectOrderBy,
-    folderWorkspaces = []
+    folderWorkspaces = [],
+    lineageById,
+    worktreeMap,
+    nestLineage = false,
+    cyclicLineageIds = new Set<string>()
   } = args
+  // Why null when not nesting: an unresolved lineage context must make every
+  // worktree its own root, matching appendWorktreeRows' flat-list behavior.
+  const stageLineage: WorkflowStageLineageContext | null =
+    nestLineage && lineageById && worktreeMap
+      ? { lineageById, worktreeMap, cyclicLineageIds }
+      : null
 
   const grouped = new Map<string, WorktreeGroupEntry>()
   for (const w of naturalWorktrees) {
@@ -93,6 +119,13 @@ export function buildOrderedGroups(args: {
       key = getWorkspaceStatusGroupKey(workspaceStatus)
       label =
         workspaceStatuses.find((status) => status.id === workspaceStatus)?.label ?? workspaceStatus
+    } else if (groupBy === 'workflow-stage') {
+      key = getWorkflowStageLaneKeyForWorktree(
+        w,
+        { repoMap, prCache, issueCache, settings },
+        stageLineage
+      )
+      label = getWorkflowStageLaneLabel(key)
     } else {
       const prGroup = getPRGroupKey(w, repoMap, prCache, settings)
       key = getPRLaneKey(prGroup)
@@ -218,6 +251,16 @@ export function buildOrderedGroups(args: {
     // all-lanes drag target; keep the sidebar compact by omitting empty lanes.
     for (const status of workspaceStatuses) {
       const key = getWorkspaceStatusGroupKey(status.id)
+      const group = grouped.get(key)
+      if (group) {
+        orderedGroups.push([key, group])
+      }
+    }
+  } else if (groupBy === 'workflow-stage') {
+    // Why: the stage pipeline is fixed, so iterate it in canonical order with
+    // "Sans stage" first; like the other lane modes, empty lanes stay hidden
+    // to keep the sidebar compact.
+    for (const key of WORKFLOW_STAGE_LANE_ORDER) {
       const group = grouped.get(key)
       if (group) {
         orderedGroups.push([key, group])

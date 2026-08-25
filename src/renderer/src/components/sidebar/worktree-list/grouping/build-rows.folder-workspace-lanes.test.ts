@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildRows } from './build-rows'
 import { getFolderWorkspaceLaneKey } from './folder-workspace-lanes'
 import { getPRGroupKey, getPRLaneKey } from './group-keys'
+import { WORKFLOW_STAGE_SANS_KEY } from './workflow-stage-grouping'
 import type { Row, WorktreeGroupBy } from './row-types'
 import { repo, worktree } from '../../worktree-list-groups-test-fixtures'
 import type { FolderWorkspace } from '../../../../../../shared/folder-workspace-types'
@@ -81,7 +82,13 @@ function folderRows(rows: Row[]): Extract<Row, { type: 'folder-workspace' }>[] {
   )
 }
 
-const ALL_GROUP_BY: WorktreeGroupBy[] = ['repo', 'workspace-status', 'pr-status', 'none']
+const ALL_GROUP_BY: WorktreeGroupBy[] = [
+  'repo',
+  'workspace-status',
+  'pr-status',
+  'workflow-stage',
+  'none'
+]
 
 describe('folder workspaces render under every Group by mode', () => {
   // The three non-repo arms are the acceptance evidence; the repo arm is a
@@ -107,6 +114,15 @@ describe('a folder workspace can be the only member of a lane', () => {
     expect(header && 'count' in header ? header.count : null).toBe(1)
   })
 
+  it('creates the sans stage lane with no worktrees present', () => {
+    const rows = buildSidebarRows({ groupBy: 'workflow-stage', worktrees: [] })
+    expect(folderRows(rows)).toHaveLength(1)
+    const header = rows.find((row) => row.type === 'header')
+    expect(header).toBeDefined()
+    expect(header && 'count' in header ? header.count : null).toBe(1)
+    expect(header && 'key' in header ? header.key : null).toBe(WORKFLOW_STAGE_SANS_KEY)
+  })
+
   it('renders in flat mode with no worktrees present', () => {
     // Pre-fix the whole All section was gated on naturalWorktrees.length > 0,
     // so a folder-only account saw nothing at all.
@@ -126,6 +142,15 @@ describe('lane assignment', () => {
       getPRGroupKey(worktree, new Map([[GROUPED_REPO.id, GROUPED_REPO]]), null)
     )
     expect(laneKey).toBe(noPrWorktreeLane)
+  })
+
+  it('routes folder workspaces to the sans stage lane in workflow-stage mode', () => {
+    const laneKey = getFolderWorkspaceLaneKey(
+      { folderWorkspace: makeFolderWorkspace(), projectGroup: GROUP },
+      'workflow-stage',
+      []
+    )
+    expect(laneKey).toBe(WORKFLOW_STAGE_SANS_KEY)
   })
 })
 
@@ -175,7 +200,7 @@ describe('membership is decided once, not per mode', () => {
     )
     // Parity with today's behaviour: nothing filters folder workspaces by
     // isArchived, so a mode must not be the thing that hides one.
-    expect(counts).toEqual([1, 1, 1, 1])
+    expect(counts).toEqual([1, 1, 1, 1, 1])
   })
 })
 
