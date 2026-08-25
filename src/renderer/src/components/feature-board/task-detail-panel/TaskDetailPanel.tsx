@@ -34,6 +34,26 @@ function VitalsRow({
   )
 }
 
+/** Truncated value revealed whole by a tooltip on hover. */
+function TruncatedValue({
+  value,
+  className
+}: {
+  value: string
+  className?: string
+}): React.JSX.Element {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={cn('min-w-0 truncate', className)}>{value}</span>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4} className="max-w-72 break-all font-mono">
+        {value}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 /** Branch value: mono + truncation; folder workspaces have no branch. */
 function BranchValue({ branch }: { branch: string | null }): React.JSX.Element {
   if (branch === null) {
@@ -47,16 +67,7 @@ function BranchValue({ branch }: { branch: string | null }): React.JSX.Element {
     )
   }
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground/90">
-          {branch}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={6} className="max-w-72 break-all font-mono">
-        {branch}
-      </TooltipContent>
-    </Tooltip>
+    <TruncatedValue value={branch} className="flex-1 font-mono text-[11px] text-foreground/90" />
   )
 }
 
@@ -77,18 +88,12 @@ function DiffStatsValue({
   return (
     <>
       <span className="shrink-0 tabular-nums text-foreground/90">{filesLabel}</span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="min-w-0 truncate text-muted-foreground/70">
-            {translate('components.featureBoard.panel.vsBase', 'vs {{value0}}', {
-              value0: baseLabel
-            })}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" sideOffset={6} className="max-w-72 break-all font-mono">
-          {baseLabel}
-        </TooltipContent>
-      </Tooltip>
+      <TruncatedValue
+        value={translate('components.featureBoard.panel.vsBase', 'vs {{value0}}', {
+          value0: baseLabel
+        })}
+        className="text-muted-foreground/70"
+      />
     </>
   )
 }
@@ -149,7 +154,7 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
               <X className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom" sideOffset={6}>
+          <TooltipContent side="top" sideOffset={4}>
             {closeLabel}
           </TooltipContent>
         </Tooltip>
@@ -169,22 +174,16 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
             </span>
           ) : (
             vitals.agentStates.map((state) => (
-              <Tooltip key={state}>
-                <TooltipTrigger asChild>
-                  <span
-                    className={cn(
-                      'inline-flex min-w-0 items-center gap-1',
-                      state === 'done' && 'text-muted-foreground'
-                    )}
-                  >
-                    <AgentStateDot state={state} size="sm" />
-                    <span className="truncate text-[11px]">{agentStateLabel(state)}</span>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>
-                  {agentStateLabel(state)}
-                </TooltipContent>
-              </Tooltip>
+              <span
+                key={state}
+                className={cn(
+                  'inline-flex min-w-0 items-center gap-1',
+                  state === 'done' && 'text-muted-foreground'
+                )}
+              >
+                <AgentStateDot state={state} size="sm" />
+                <span className="truncate text-[11px]">{agentStateLabel(state)}</span>
+              </span>
             ))
           )}
         </VitalsRow>
