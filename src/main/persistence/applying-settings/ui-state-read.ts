@@ -19,6 +19,7 @@ import {
 } from '../../../shared/execution-host'
 import { normalizeManualRepoOrder } from '../../../shared/manual-repo-order'
 import { normalizeFeatureBoardColumnOrder } from '../../../shared/feature-board-column-order'
+import { normalizeFeatureBoardGhostDismissals } from '../../../shared/feature-board-ghost-dismissals'
 import { normalizeBrowserPageZoomLevel } from '../../../shared/browser-page-zoom'
 import { normalizeFeatureTipIds } from '../../../shared/feature-tips'
 import { normalizeContextualTourIds } from '../../../shared/contextual-tours'
@@ -67,6 +68,9 @@ export function getPersistedUI(
     workspaceHostOrder: normalizeExecutionHostOrder(state.ui?.workspaceHostOrder),
     manualRepoOrder: normalizeManualRepoOrder(state.ui?.manualRepoOrder),
     featureBoardColumnOrder: normalizeFeatureBoardColumnOrder(state.ui?.featureBoardColumnOrder),
+    featureBoardGhostDismissals: normalizeFeatureBoardGhostDismissals(
+      state.ui?.featureBoardGhostDismissals
+    ),
     browserDefaultZoomLevel: normalizeBrowserPageZoomLevel(state.ui?.browserDefaultZoomLevel),
     showDotfilesByWorktree: normalizeShowDotfilesByWorktree(state.ui?.showDotfilesByWorktree),
     featureTipsSeenIds: normalizeFeatureTipIds(state.ui?.featureTipsSeenIds),

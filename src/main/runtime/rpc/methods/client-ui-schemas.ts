@@ -218,6 +218,9 @@ const UiUpdateFields = z
           .strict()
       )
       .optional(),
+    featureBoardGhostDismissals: z
+      .record(z.string(), z.array(z.number().int().positive()))
+      .optional(),
     ...ClientUiWorkspaceFilterFields,
     // Why: rides App.tsx's debounced writer, so omitting it rejected that entire
     // payload (sidebar widths, filters, agent acks) for every paired client.

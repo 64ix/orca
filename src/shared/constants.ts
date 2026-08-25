@@ -480,6 +480,7 @@ export function getDefaultUIState(): PersistedUIState {
     workspaceHostOrder: [],
     manualRepoOrder: [],
     featureBoardColumnOrder: [],
+    featureBoardGhostDismissals: {},
     showSleepingWorkspaces: DEFAULT_SHOW_SLEEPING_WORKSPACES,
     hideDefaultBranchWorkspace: false,
     hideAutomationGeneratedWorkspaces: false,
