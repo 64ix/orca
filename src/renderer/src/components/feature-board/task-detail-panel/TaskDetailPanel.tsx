@@ -77,11 +77,18 @@ function DiffStatsValue({
   return (
     <>
       <span className="shrink-0 tabular-nums text-foreground/90">{filesLabel}</span>
-      <span className="min-w-0 truncate text-muted-foreground/70" title={baseLabel}>
-        {translate('components.featureBoard.panel.vsBase', 'vs {{value0}}', {
-          value0: baseLabel
-        })}
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="min-w-0 truncate text-muted-foreground/70">
+            {translate('components.featureBoard.panel.vsBase', 'vs {{value0}}', {
+              value0: baseLabel
+            })}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={6} className="max-w-72 break-all font-mono">
+          {baseLabel}
+        </TooltipContent>
+      </Tooltip>
     </>
   )
 }
@@ -162,17 +169,22 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
             </span>
           ) : (
             vitals.agentStates.map((state) => (
-              <span
-                key={state}
-                className={cn(
-                  'inline-flex min-w-0 items-center gap-1',
-                  state === 'done' && 'text-muted-foreground'
-                )}
-                title={agentStateLabel(state)}
-              >
-                <AgentStateDot state={state} size="sm" />
-                <span className="truncate text-[11px]">{agentStateLabel(state)}</span>
-              </span>
+              <Tooltip key={state}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      'inline-flex min-w-0 items-center gap-1',
+                      state === 'done' && 'text-muted-foreground'
+                    )}
+                  >
+                    <AgentStateDot state={state} size="sm" />
+                    <span className="truncate text-[11px]">{agentStateLabel(state)}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  {agentStateLabel(state)}
+                </TooltipContent>
+              </Tooltip>
             ))
           )}
         </VitalsRow>

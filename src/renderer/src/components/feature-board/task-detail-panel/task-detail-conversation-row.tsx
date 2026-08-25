@@ -79,14 +79,20 @@ function EditableTitle({
     )
   }
   return (
-    <button
-      type="button"
-      title={title}
-      className="block min-w-0 flex-1 truncate text-left text-[11px] leading-snug text-foreground/90 hover:text-foreground"
-      onClick={onStartEditing}
-    >
-      {title}
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="block min-w-0 flex-1 truncate text-left text-[11px] leading-snug text-foreground/90 hover:text-foreground"
+          onClick={onStartEditing}
+        >
+          {title}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4} className="max-w-72 break-all">
+        {title}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -114,9 +120,16 @@ export function TaskDetailConversationRowItem({
       className="group/conversation-row flex min-w-0 items-center gap-1.5 rounded-sm py-0.5 pr-0.5 worktree-agent-row-hover"
     >
       <AgentStateDot state={row.state ?? 'done'} size="sm" />
-      <span className="inline-flex shrink-0" title={row.title}>
-        <AgentIcon agent={iconAgent} size={14} />
-      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex shrink-0">
+            <AgentIcon agent={iconAgent} size={14} />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4} className="max-w-72 break-all">
+          {row.title}
+        </TooltipContent>
+      </Tooltip>
       <EditableTitle
         title={row.title}
         label={renameLabel}
