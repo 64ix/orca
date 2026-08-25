@@ -17,9 +17,10 @@ import { useWorktreeStageDerivation } from './use-worktree-stage-derivation'
 
 /**
  * Stage section of the task detail panel (#55): shows where the card sits, why it is held
- * there (guard-authored), presents `shipped` as human-or-fact, and offers every stage as an
- * option — locked ones inline with the guard's own explanation. Writes go through the same
- * board-drop guard delegate, so gating and de-ship bookkeeping never diverge from drops.
+ * there (localized from the guard-derived governing fact), presents `shipped` as
+ * human-or-fact, and offers every stage as an option — locked ones inline with their own
+ * explanation. Writes go through the same board-drop guard delegate, so gating and de-ship
+ * bookkeeping never diverge from drops.
  */
 export function TaskDetailPanelStageSelector({
   card

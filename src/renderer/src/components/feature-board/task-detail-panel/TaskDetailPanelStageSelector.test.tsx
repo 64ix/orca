@@ -105,4 +105,40 @@ describe('TaskDetailPanelStageSelector', () => {
     fireEvent.click(implementingOption)
     expect(updateWorktreeMeta).not.toHaveBeenCalled()
   })
+
+  it('reads shipped as human-or-fact: merged PR vs a plain human declaration', () => {
+    const repo = makeRepo()
+    const mergedWorktree = makeWorktree('a', 'A', { workflowStage: 'shipped', head: 'sha-1' })
+    const merged: PRInfo = {
+      number: 42,
+      title: 'Feature',
+      state: 'merged',
+      url: 'https://github.com/64ix/orca/pull/42',
+      checksStatus: 'success',
+      updatedAt: '2026-08-01T00:00:00.000Z',
+      mergeable: 'MERGEABLE',
+      headSha: mergedWorktree.head
+    }
+    const cacheKey = getGitHubPRCacheKey(
+      repo.path,
+      repo.id,
+      mergedWorktree.branch.replace(/^refs\/heads\//, ''),
+      { activeRuntimeEnvironmentId: null },
+      repo.connectionId,
+      repo.executionHostId,
+      true
+    )
+    useAppStore.setState({
+      repos: [repo],
+      prCache: { [cacheKey]: { data: merged, fetchedAt: Date.now() } }
+    })
+    const { unmount } = render(<TaskDetailPanelStageSelector card={cardFor(mergedWorktree)} />)
+    expect(screen.getByText('set by merged PR #42')).toBeTruthy()
+    unmount()
+
+    const humanShippedWorktree = makeWorktree('b', 'B', { workflowStage: 'shipped' })
+    useAppStore.setState({ repos: [repo], prCache: {} })
+    render(<TaskDetailPanelStageSelector card={cardFor(humanShippedWorktree)} />)
+    expect(screen.getByText('set by you')).toBeTruthy()
+  })
 })
