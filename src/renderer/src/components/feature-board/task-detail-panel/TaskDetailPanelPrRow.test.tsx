@@ -88,3 +88,53 @@ describe('TaskDetailPanelPrRow', () => {
     expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { linkedBitbucketPR: null })
   })
 })
+
+describe('TaskDetailPanelPrRow provider routing', () => {
+  beforeEach(() => {
+    useAppStore.setState(initialState, true)
+  })
+
+  afterEach(() => {
+    cleanup()
+    useAppStore.setState(initialState, true)
+  })
+
+  function renderWithSpy(): ReturnType<typeof vi.fn> {
+    const updateWorktreeMeta = vi.fn().mockResolvedValue({ ok: true })
+    useAppStore.setState({ updateWorktreeMeta })
+    render(<TaskDetailPanelPrRow worktree={makeWorktree('a', 'A')} />)
+    return updateWorktreeMeta
+  }
+
+  function link(value: string): void {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Pull request' }), { target: { value } })
+    fireEvent.click(screen.getByRole('button', { name: 'Link' }))
+  }
+
+  it('routes a GitLab MR URL to the GitLab slot', () => {
+    const updateWorktreeMeta = renderWithSpy()
+    link('https://gitlab.com/group/project/-/merge_requests/77')
+    expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { linkedGitLabMR: 77 })
+  })
+
+  it('rejects a GitLab issue URL instead of linking it as an MR', () => {
+    const updateWorktreeMeta = renderWithSpy()
+    link('https://gitlab.com/group/project/-/issues/923')
+    expect(updateWorktreeMeta).not.toHaveBeenCalled()
+    expect(screen.getByText('Enter a pull request number or URL')).toBeTruthy()
+  })
+
+  it('routes the !n GitLab MR shorthand to the GitLab slot', () => {
+    const updateWorktreeMeta = renderWithSpy()
+    link('!12')
+    expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { linkedGitLabMR: 12 })
+  })
+
+  it('keeps bare and # numbers on the GitHub slot, matching the meta-dialog flow', () => {
+    const updateWorktreeMeta = renderWithSpy()
+    link('#5')
+    expect(updateWorktreeMeta).toHaveBeenNthCalledWith(1, 'a', { linkedPR: 5 })
+    link('6')
+    expect(updateWorktreeMeta).toHaveBeenNthCalledWith(2, 'a', { linkedPR: 6 })
+  })
+})

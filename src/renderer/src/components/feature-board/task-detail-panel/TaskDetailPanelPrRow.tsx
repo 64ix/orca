@@ -5,17 +5,20 @@ import { Input } from '@/components/ui/input'
 import { useAppStore } from '@/store'
 import { translate } from '@/i18n/i18n'
 import type { Worktree } from '../../../../../shared/worktree/types'
-import type { WorktreeMeta } from '../../../../../shared/worktree/meta-types'
-import { parseGitHubWorkItemNumberForMetaField } from '@/components/sidebar/worktree-meta-updates'
+import type { HostedReviewLinkKey } from '@/store/slices/worktrees/listing/worktree-slice-types'
+import {
+  buildLinkedReviewSlotUpdate,
+  parseLinkedReviewSlotInput
+} from './linked-review-slot-input'
 
 type LinkedReviewSlot = {
   /** WorktreeMeta key holding this provider's linked review number. */
-  metaKey: keyof WorktreeMeta
+  metaKey: HostedReviewLinkKey
   label: string
   number: number
 }
 
-type LinkedReviewSlotKey = { metaKey: keyof WorktreeMeta; labelKey: 'prAbbrev' | 'mrAbbrev' }
+type LinkedReviewSlotKey = { metaKey: HostedReviewLinkKey; labelKey: 'prAbbrev' | 'mrAbbrev' }
 
 const LINKED_REVIEW_SLOTS: readonly LinkedReviewSlotKey[] = [
   { metaKey: 'linkedPR', labelKey: 'prAbbrev' },
@@ -43,9 +46,8 @@ function firstLinkedReviewSlot(worktree: Worktree): LinkedReviewSlot | null {
 
 /**
  * PR row of the task detail panel (#55): link/unlink only — Orca has no Assigned PR, and
- * most-recent-activity-wins governs stages. Linking follows the meta-dialog flow
- * (`parseGitHubWorkItemNumberForMetaField` → `{ linkedPR: n }`), unlinking clears whichever
- * provider slot is set.
+ * most-recent-activity-wins governs stages. Linking routes the pasted number/URL to its
+ * provider slot (`parseLinkedReviewSlotInput`); unlinking clears whichever provider slot is set.
  */
 export function TaskDetailPanelPrRow({ worktree }: { worktree: Worktree }): React.JSX.Element {
   const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
@@ -66,14 +68,14 @@ export function TaskDetailPanelPrRow({ worktree }: { worktree: Worktree }): Reac
   )
 
   const handleLink = () => {
-    const number = parseGitHubWorkItemNumberForMetaField(prInput.trim(), 'pr')
-    if (number === null) {
+    const slot = parseLinkedReviewSlotInput(prInput)
+    if (slot === null) {
       setInputError(invalidLabel)
       return
     }
     setInputError(null)
     setPrInput('')
-    void updateWorktreeMeta(worktree.id, { linkedPR: number })
+    void updateWorktreeMeta(worktree.id, buildLinkedReviewSlotUpdate(slot.metaKey, slot.number))
   }
 
   return (
@@ -92,9 +94,10 @@ export function TaskDetailPanelPrRow({ worktree }: { worktree: Worktree }): Reac
             size="sm"
             className="h-6 shrink-0 rounded-full px-2 text-[11px]"
             onClick={() =>
-              void updateWorktreeMeta(worktree.id, {
-                [linkedReview.metaKey]: null
-              } as Partial<WorktreeMeta>)
+              void updateWorktreeMeta(
+                worktree.id,
+                buildLinkedReviewSlotUpdate(linkedReview.metaKey, null)
+              )
             }
             aria-label={`${unlinkLabel} ${linkedReview.label} #${linkedReview.number}`}
           >
