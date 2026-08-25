@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next'
 import React, { useMemo, useState } from 'react'
 import { Check, ChevronDown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -47,7 +46,6 @@ export function TaskDetailPanelStageSelector({
 
   const stageLabel = translate('components.featureBoard.panel.stage', 'Stage')
   const changeLabel = translate('components.featureBoard.panel.changeStage', 'Change')
-  useTranslation()
   const currentLabel = model.currentStage ? getFeatureBoardStageLabel(model.currentStage) : null
 
   return (
