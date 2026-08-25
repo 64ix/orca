@@ -12,6 +12,7 @@ import { FeatureBoardAdoptionDialog } from './FeatureBoardAdoptionDialog'
 import { FeatureBoardColumn } from './FeatureBoardColumn'
 import FeatureBoardSearchField from './FeatureBoardSearchField'
 import { FeatureBoardFilterMenu } from './FeatureBoardFilterMenu'
+import { FeatureBoardDismissedMenu } from './FeatureBoardDismissedMenu'
 import { getFeatureBoardStageLabel } from './feature-board-stage-labels'
 import { useFeatureBoardCards, useFeatureBoardColumns } from './use-feature-board-columns'
 import { useFeatureBoardProjectSelection } from './use-feature-board-project-selection'
@@ -143,6 +144,10 @@ export default function FeatureBoardPage(): React.JSX.Element {
           setNeedsAttentionOnly={searchFilters.setNeedsAttentionOnly}
           clearFilters={searchFilters.clearFilters}
           activeFilterCount={searchFilters.activeFilterCount}
+        />
+        <FeatureBoardDismissedMenu
+          dismissed={ghosts.dismissedGhosts}
+          onRestore={ghosts.restore}
         />
       </header>
       <div

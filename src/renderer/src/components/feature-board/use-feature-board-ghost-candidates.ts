@@ -18,13 +18,19 @@ export type FeatureBoardGhostEntry = {
   candidate: GhostCandidate<GitHubWorkItem>
 }
 
+/** A dismissed ghost surfaced for the un-dismiss panel, keyed per repo (issue numbers collide across repos). */
+export type DismissedGhostEntry = {
+  repoId: string
+  issueNumber: number
+  /** Resolved title from the open-issues cache while the issue is still open; absent otherwise. */
+  title?: string
+}
+
 export type FeatureBoardGhostCandidatesResult = {
   /** Ghosts grouped by their target column (`idea` / `spec`); other stages absent. */
   ghostsByStage: ReadonlyMap<WorkflowStage, readonly FeatureBoardGhostEntry[]>
-  totalCount: number
-  /** Dismissed numbers across the selected repos (for un-dismiss UI affordances). */
-  dismissedIssueNumbers: ReadonlySet<number>
-  dismiss: (repoId: string, issueNumber: number) => void
+  /** Dismissed ghosts across the selected repos, per repo — drives the un-dismiss panel. */
+  dismissedGhosts: readonly DismissedGhostEntry[]
   restore: (repoId: string, issueNumber: number) => void
 }
 
@@ -58,17 +64,17 @@ export function useFeatureBoardGhostCandidates(
   const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
   const issueCache = useAppStore((s) => s.issueCache)
   const featureBoardGhostDismissals = useAppStore((s) => s.featureBoardGhostDismissals)
-  const dismissFeatureBoardGhost = useAppStore((s) => s.dismissFeatureBoardGhost)
   const restoreFeatureBoardGhost = useAppStore((s) => s.restoreFeatureBoardGhost)
   const prefetchWorkItems = useAppStore((s) => s.prefetchWorkItems)
   const fetchIssue = useAppStore((s) => s.fetchIssue)
   const repoMap = useRepoMap()
 
-  // Why repo-keyed: worktrees of unselected projects must not exclude candidates.
+  // Why repo-keyed + non-archived only: worktrees of unselected projects must not exclude
+  // candidates, and an issue linked only to an archived worktree may resurface as a ghost.
   const scopedWorktrees = useMemo(
     () =>
       Object.entries(worktreesByRepo).flatMap(([repoId, worktrees]) =>
-        scopedRepoIds.has(repoId) ? worktrees : []
+        scopedRepoIds.has(repoId) ? worktrees.filter((worktree) => !worktree.isArchived) : []
       ),
     [worktreesByRepo, scopedRepoIds]
   )
@@ -210,25 +216,31 @@ export function useFeatureBoardGhostCandidates(
 
   const ghostsByStage = useMemo(() => groupGhostCandidatesByStage(candidates), [candidates])
 
-  const dismissedIssueNumbers = useMemo(() => {
-    const all = new Set<number>()
+  const dismissedGhosts = useMemo(() => {
+    const issueByRepoNumber = new Map<string, GitHubWorkItem>()
+    for (const item of openIssues) {
+      issueByRepoNumber.set(`${item.repoId}\n${item.number}`, item)
+    }
+    const entries: DismissedGhostEntry[] = []
     for (const repo of selectedRepos) {
       for (const number of getFeatureBoardDismissedIssueNumbers(
         featureBoardGhostDismissals,
         repo.id
       )) {
-        all.add(number)
+        entries.push({
+          repoId: repo.id,
+          issueNumber: number,
+          title: issueByRepoNumber.get(`${repo.id}\n${number}`)?.title
+        })
       }
     }
-    return all
-  }, [selectedRepos, featureBoardGhostDismissals])
+    return entries
+  }, [openIssues, selectedRepos, featureBoardGhostDismissals])
 
   return {
     ghostsByStage,
-    totalCount: candidates.length,
-    dismissedIssueNumbers,
-    // Slice actions are stable store references.
-    dismiss: dismissFeatureBoardGhost,
+    dismissedGhosts,
+    // Slice action is a stable store reference.
     restore: restoreFeatureBoardGhost
   }
 }
