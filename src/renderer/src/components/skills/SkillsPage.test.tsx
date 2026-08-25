@@ -39,7 +39,25 @@ function discoveryResult(names: string[]): SkillDiscoveryResult {
 }
 
 function skillsApi(discover: ReturnType<typeof vi.fn>) {
-  return { discover, onInstallProgress: () => () => undefined }
+  return {
+    discover,
+    onInstallProgress: () => () => undefined,
+    catalog: vi.fn().mockResolvedValue({ schemaVersion: 1, skills: [], scannedAt: 1 }),
+    freshnessInventory: vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      installations: [],
+      eligibleUpdateNames: [],
+      scanIssues: [],
+      scannedAt: 1
+    }),
+    startCatalogInstall: vi.fn().mockResolvedValue({ started: true }),
+    cancelCatalogInstall: vi.fn().mockResolvedValue(undefined),
+    acknowledgeCatalogInstall: vi.fn().mockResolvedValue(undefined),
+    getCatalogInstall: vi.fn().mockResolvedValue({ state: 'idle' }),
+    onCatalogInstallRun: () => () => undefined,
+    getUpdateRun: vi.fn().mockResolvedValue({ state: 'idle' }),
+    onUpdateRun: () => () => undefined
+  }
 }
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {

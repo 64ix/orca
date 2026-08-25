@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { discoverSkillsForRuntimeTarget } from '@/runtime/runtime-skills-client'
 import { useActiveSkillDiscoveryRuntimeTarget } from '@/hooks/use-active-skill-discovery-runtime-target'
+import { useActiveProjectSkillRuntime } from '@/hooks/useActiveProjectSkillRuntime'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import type { DiscoveredSkill, SkillDiscoveryResult } from '../../../../shared/skills'
 import { SkillsList } from './SkillsList'
@@ -25,6 +26,7 @@ import { useSkillDiscoveryHostLabel } from './use-skill-discovery-host-label'
 import { countSkillsBySource, filterSkills, type SkillsFilterState } from './skills-filter'
 import { skillAgentByRootPath, skillAgentOptions } from './skill-agent-filter'
 import { SkillSharedLinksView } from './SkillSharedLinksView'
+import { SkillsCatalogSection } from './SkillsCatalogSection'
 import { useOwnedSkillShares } from './use-owned-skill-shares'
 import type { SkillsPageView } from './skills-page-view'
 import { translate } from '@/i18n/i18n'
@@ -50,6 +52,7 @@ export default function SkillsPage(): React.JSX.Element {
   const pendingSkillsSharedView = useAppStore((s) => s.pendingSkillsSharedView)
   const clearPendingSkillsSharedView = useAppStore((s) => s.clearPendingSkillsSharedView)
   const runtimeTarget = useActiveSkillDiscoveryRuntimeTarget()
+  const activeSkillRuntime = useActiveProjectSkillRuntime()
   const hostLabel = useSkillDiscoveryHostLabel(runtimeTarget)
   const [result, setResult] = useState<SkillDiscoveryResult | null>(null)
   const [loading, setLoading] = useState(true)
@@ -312,6 +315,16 @@ export default function SkillsPage(): React.JSX.Element {
                   onInstallFromLink={openInstallDialog}
                 />
               )}
+              {/* Why: install/uninstall/update run on the executing host, so the
+                  catalog only renders when that host is this machine. Remote
+                  runtimes keep the existing remote-share notice instead. */}
+              {activeSkillRuntime.canUseLocalSkillFreshness ? (
+                <SkillsCatalogSection
+                  discoveredSkills={skills}
+                  installabilityKnown={result !== null}
+                  query={filters.query}
+                />
+              ) : null}
             </>
           )}
         </div>
