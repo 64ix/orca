@@ -56,12 +56,11 @@ export function resolveTaskDetailDiffStats(
   if (!summary) {
     return { kind: 'unavailable', message: null }
   }
-  switch (summary.status) {
-    case 'ready':
-      return { kind: 'ready', changedFiles: summary.changedFiles, baseRef: summary.baseRef }
-    case 'loading':
-      return { kind: 'loading' }
-    default:
-      return { kind: 'unavailable', message: summary.errorMessage ?? null }
+  if (summary.status === 'ready') {
+    return { kind: 'ready', changedFiles: summary.changedFiles, baseRef: summary.baseRef }
   }
+  if (summary.status === 'loading') {
+    return { kind: 'loading' }
+  }
+  return { kind: 'unavailable', message: summary.errorMessage ?? null }
 }
