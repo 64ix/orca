@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils'
 import { useFeatureBoardCardAgentStates } from '../use-feature-board-card-agent-states'
 import type { FeatureBoardCard } from '../feature-board-card-model'
 import { buildTaskDetailVitals } from './task-detail-panel-view-model'
+import { TaskDetailPanelStageSelector } from './TaskDetailPanelStageSelector'
+import { TaskDetailPanelPrRow } from './TaskDetailPanelPrRow'
 
 export const TASK_DETAIL_PANEL_WIDTH_PX = 300
 
@@ -85,14 +87,20 @@ function DiffStatsValue({
 
 /**
  * Board-attached detail panel (#52): fixed-width inspector opened by clicking a card.
- * Renders the vitals (branch, agent state, diff stats) from existing worktree + branch
- * compare data. The conversation rows (#54), stage selector, and PR row (#55) are later
- * tickets — this shell only carries the vitals section they will join.
+ * Renders vitals (branch, agent state, diff stats), the stage selector with its
+ * authority-guard explanations (#55), and the PR link row. The conversation rows (#54)
+ * join later.
  */
 export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX.Element {
   const closeCardDetail = useAppStore((s) => s.closeBoardCardDetail)
   const repoMap = useRepoMap()
   const repo = repoMap.get(card.worktree.repoId)
+  // Spec-29 streams land meta changes in this same store — read the live row, not the card snapshot.
+  const worktree = useAppStore(
+    (s) =>
+      s.worktreesByRepo[card.worktree.repoId]?.find((w) => w.id === card.worktree.id) ??
+      card.worktree
+  )
   const agentStatesByWorktree = useFeatureBoardCardAgentStates([card.worktree.id])
   const branchCompareSummary = useAppStore(
     (s) => s.gitBranchCompareSummaryByWorktree[card.worktree.id]
@@ -101,12 +109,12 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
   const vitals = useMemo(
     () =>
       buildTaskDetailVitals({
-        worktree: card.worktree,
+        worktree,
         repo,
         agentStates: agentStatesByWorktree.get(card.worktree.id) ?? EMPTY_AGENT_STATES,
         branchCompareSummary
       }),
-    [card.worktree, repo, agentStatesByWorktree, branchCompareSummary]
+    [worktree, repo, agentStatesByWorktree, branchCompareSummary]
   )
 
   const panelLabel = translate('components.featureBoard.panel.label', 'Task details')
@@ -193,6 +201,8 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
             </span>
           )}
         </VitalsRow>
+        <TaskDetailPanelStageSelector card={{ ...card, worktree }} />
+        <TaskDetailPanelPrRow worktree={worktree} />
       </div>
     </aside>
   )
