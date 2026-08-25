@@ -11,6 +11,7 @@ const EMPTY_STATE: WorktreeListReviewCacheState = {
   folderWorkspaces: [],
   hostedReviewCache: {},
   prCache: {},
+  issueCache: {},
   settings: null
 }
 
@@ -23,6 +24,7 @@ describe('selectWorktreeListReviewCacheInputs', () => {
       {
         ...EMPTY_STATE,
         prCache: { branch: {} as never },
+        issueCache: { issue: {} as never },
         hostedReviewCache: { branch: {} as never }
       },
       'repo',
@@ -42,7 +44,19 @@ describe('selectWorktreeListReviewCacheInputs', () => {
       []
     )
 
-    expect(selected).toEqual({ prCache, hostedReviewCache: null })
+    expect(selected).toEqual({ prCache, issueCache: null, hostedReviewCache: null })
+  })
+
+  it('keeps the PR and issue caches live for workflow-stage grouping', () => {
+    const prCache = { branch: {} as never }
+    const issueCache = { issue: {} as never }
+    const selected = selectWorktreeListReviewCacheInputs(
+      { ...EMPTY_STATE, prCache, issueCache },
+      'workflow-stage',
+      []
+    )
+
+    expect(selected).toEqual({ prCache, issueCache, hostedReviewCache: null })
   })
 
   it('keeps the PR cache live for legacy folder-card review displays', () => {
@@ -53,7 +67,7 @@ describe('selectWorktreeListReviewCacheInputs', () => {
       ['pr']
     )
 
-    expect(selected).toEqual({ prCache, hostedReviewCache: null })
+    expect(selected).toEqual({ prCache, issueCache: null, hostedReviewCache: null })
   })
 
   it('keeps both caches live for new-style folder status displays', () => {
@@ -71,7 +85,7 @@ describe('selectWorktreeListReviewCacheInputs', () => {
       ['status']
     )
 
-    expect(selected).toEqual({ prCache, hostedReviewCache })
+    expect(selected).toEqual({ prCache, issueCache: null, hostedReviewCache })
   })
 
   it('ignores both caches when folder cards hide review presentation', () => {

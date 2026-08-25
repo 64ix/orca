@@ -24,7 +24,7 @@ function makeLineage(worktree: Worktree, parent: Worktree): WorktreeLineage {
 }
 
 export function setLineageFixtureState(
-  groupBy: 'none' | 'repo' | 'workspace-status' = 'none',
+  groupBy: 'none' | 'repo' | 'workspace-status' | 'workflow-stage' = 'none',
   options: {
     childWorktreeOverrides?: Partial<Worktree>
     deletingWorktreeIds?: string[]

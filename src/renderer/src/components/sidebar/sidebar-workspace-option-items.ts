@@ -25,6 +25,12 @@ export const GROUP_BY_OPTIONS = [
     }
   },
   {
+    id: 'workflow-stage',
+    get label() {
+      return translate('auto.components.sidebar.SidebarWorkspaceOptionsMenu.stageGroupBy', 'Stage')
+    }
+  },
+  {
     id: 'repo',
     get label() {
       return translate('auto.components.sidebar.SidebarWorkspaceOptionsMenu.2170d553cf', 'Project')

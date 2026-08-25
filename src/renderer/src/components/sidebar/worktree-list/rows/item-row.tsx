@@ -213,6 +213,7 @@ export function renderWorktreeItemRow(
         onCardDragStart={ctx.onCardDragStart}
         onCardDragEnd={ctx.onCardDragEnd}
         hideRepoBadge={ctx.groupBy === 'repo'}
+        effectiveStage={itemRow.effectiveStage ?? null}
         // Why: pinned worktrees mix repos in one section, so only it needs the leading repo identity chip.
         hostContextLabel={itemRow.hostContextLabel}
         inPinnedSection={itemRow.sectionKey === PINNED_GROUP_KEY}

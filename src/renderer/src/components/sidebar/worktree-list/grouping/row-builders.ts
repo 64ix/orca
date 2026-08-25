@@ -1,6 +1,7 @@
 import type { Repo } from '../../../../../../shared/repo-types'
 import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import type { Worktree } from '../../../../../../shared/worktree/types'
+import type { WorkflowStage } from '../../../../../../shared/workflow-stages'
 import { getWorktreeHostIdentity } from '../../../../../../shared/worktree/host-qualified-identity'
 import { isValidResolvedWorktreeLineageEdge } from '../../../../../../shared/resolved-worktree-lineage'
 import { getProjectedWorktreeLineage } from '../../worktree-lineage-projection'
@@ -76,6 +77,7 @@ function buildWorktreeRow(
     lineageChildCount: number
     lineageCollapsed: boolean
     hostContextLabel?: string
+    effectiveStage?: WorkflowStage
   }
 ): WorktreeRow {
   return {
@@ -90,6 +92,7 @@ function buildWorktreeRow(
     isLastLineageChild: options.isLastLineageChild,
     lineageChildCount: options.lineageChildCount,
     ...(options.hostContextLabel ? { hostContextLabel: options.hostContextLabel } : {}),
+    ...(options.effectiveStage ? { effectiveStage: options.effectiveStage } : {}),
     ...(options.lineageChildCount > 0
       ? { lineageGroupKey: getWorktreeLineageGroupKey(worktree) }
       : {}),
@@ -111,6 +114,7 @@ export function appendWorktreeRows(
     hostContextLabelByRepoId?: ReadonlyMap<string, string>
     hostContextLabelByWorktreeIdentity?: ReadonlyMap<string, string>
     cyclicLineageIds: ReadonlySet<string>
+    effectiveStages?: ReadonlyMap<string, WorkflowStage>
   }
 ): void {
   const {
@@ -120,7 +124,8 @@ export function appendWorktreeRows(
     sectionKey,
     hostContextLabelByRepoId,
     hostContextLabelByWorktreeIdentity,
-    cyclicLineageIds
+    cyclicLineageIds,
+    effectiveStages
   } = options
   if (!nestLineage) {
     for (const worktree of worktrees) {
@@ -136,7 +141,8 @@ export function appendWorktreeRows(
           lineageCollapsed: false,
           hostContextLabel:
             hostContextLabelByWorktreeIdentity?.get(getWorktreeHostIdentity(worktree)) ??
-            hostContextLabelByRepoId?.get(worktree.repoId)
+            hostContextLabelByRepoId?.get(worktree.repoId),
+          effectiveStage: effectiveStages?.get(worktree.id)
         })
       )
     }
@@ -206,7 +212,8 @@ export function appendWorktreeRows(
           lineageCollapsed,
           hostContextLabel:
             hostContextLabelByWorktreeIdentity?.get(worktreeIdentity) ??
-            hostContextLabelByRepoId?.get(worktree.repoId)
+            hostContextLabelByRepoId?.get(worktree.repoId),
+          effectiveStage: effectiveStages?.get(worktree.id)
         })
       )
       if (lineageCollapsed) {

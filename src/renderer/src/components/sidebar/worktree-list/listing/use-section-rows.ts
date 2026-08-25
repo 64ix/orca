@@ -31,6 +31,7 @@ type SectionRowsArgs = {
   worktreeMap: Map<string, Worktree>
   worktreeLineageById: Record<string, WorktreeLineage>
   prCache: AppState['prCache'] | null
+  issueCache: AppState['issueCache'] | null
   settings: AppState['settings']
   workspaceStatuses: readonly WorkspaceStatusDefinition[]
   effectiveCollapsedGroups: Set<string>
@@ -166,13 +167,15 @@ export function useSidebarSectionRows(args: SectionRowsArgs) {
         args.visibleFolderWorkspacesForRows,
         hostLabelById,
         defaultHostId,
-        args.pinnedDisplayPolicy
+        args.pinnedDisplayPolicy,
+        args.issueCache
       ),
     [
       args.groupBy,
       worktrees,
       repoMap,
       args.prCache,
+      args.issueCache,
       effectiveCollapsedGroups,
       defaultHostId,
       repoOrder,

@@ -25,6 +25,7 @@ export function useEffectiveCollapsedGroups(args: {
   worktreeMap: Map<string, Worktree>
   worktreeLineageById: Record<string, WorktreeLineage>
   prCache: AppState['prCache'] | null
+  issueCache: AppState['issueCache'] | null
   workspaceStatuses: readonly WorkspaceStatusDefinition[]
   settings: AppState['settings']
   projectGroups: readonly ProjectGroup[]
@@ -42,6 +43,7 @@ export function useEffectiveCollapsedGroups(args: {
     worktreeMap,
     worktreeLineageById,
     prCache,
+    issueCache,
     workspaceStatuses,
     settings,
     projectGroups,
@@ -87,7 +89,8 @@ export function useEffectiveCollapsedGroups(args: {
         workspaceStatuses,
         settings,
         projectGroups,
-        projectGrouping
+        projectGrouping,
+        issueCache
       )) {
         next.delete(groupKey)
       }
@@ -108,6 +111,7 @@ export function useEffectiveCollapsedGroups(args: {
     pinnedDisplayPolicy,
     visibleWorktrees,
     prCache,
+    issueCache,
     projectGroups,
     projectGrouping,
     repoMap,

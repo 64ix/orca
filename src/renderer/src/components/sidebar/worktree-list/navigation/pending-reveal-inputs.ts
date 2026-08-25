@@ -41,6 +41,7 @@ export type PendingSidebarRevealArgs = {
   pinnedDisplayPolicy: PinnedWorktreeDisplayPolicy
   defaultHostId: ExecutionHostId
   prCache: AppState['prCache'] | null
+  issueCache: AppState['issueCache'] | null
   workspaceStatuses: readonly WorkspaceStatusDefinition[]
   settings: AppState['settings']
   projectGroups: readonly ProjectGroup[]
@@ -135,7 +136,8 @@ export function expandGroupsForWorktreeReveal(
           args.workspaceStatuses,
           args.settings,
           args.projectGroups,
-          args.projectGrouping
+          args.projectGrouping,
+          args.issueCache
         )
   for (const groupKey of groupKeys) {
     if (args.collapsedGroups.has(groupKey)) {

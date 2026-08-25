@@ -73,6 +73,7 @@ export function useVisiblePrRefreshReporting(args: {
     const shouldTrackSidebarWorktree = rightSidebarShowsPR && sidebarWorktreeHasGitHubReview
     const shouldTrackVisibleRows =
       groupBy === 'pr-status' ||
+      groupBy === 'workflow-stage' ||
       (newCardStyle
         ? cardProps.includes('status')
         : cardProps.includes('pr') || cardProps.includes('ci'))

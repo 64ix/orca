@@ -94,6 +94,30 @@ describe('getGroupKeyForWorktree', () => {
       'workspace-status:in-progress'
     )
   })
+
+  it('returns the declared-stage lane in workflow-stage mode', () => {
+    const stagedWorktree = { ...worktree, id: 'wt-staged', workflowStage: 'review' as const }
+    expect(getGroupKeyForWorktree('workflow-stage', stagedWorktree, repoMap, null)).toBe(
+      'workflow-stage:review'
+    )
+  })
+
+  it('returns the sans lane when the worktree has no effective stage', () => {
+    expect(getGroupKeyForWorktree('workflow-stage', worktree, repoMap, null)).toBe(
+      'workflow-stage:sans'
+    )
+  })
+
+  it('derives the lane from cached PR facts in workflow-stage mode', () => {
+    const prCache = {
+      'repo-1::feature/super-critical': {
+        data: { state: 'merged', headSha: worktree.head, number: 12 }
+      }
+    }
+    expect(getGroupKeyForWorktree('workflow-stage', worktree, repoMap, prCache)).toBe(
+      'workflow-stage:shipped'
+    )
+  })
 })
 
 describe('buildRows with pinned worktrees', () => {
