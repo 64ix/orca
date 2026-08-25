@@ -106,6 +106,11 @@ export const DEFAULT_EDITOR_AUTO_SAVE_DELAY_MS = 1000
 export const MIN_EDITOR_AUTO_SAVE_DELAY_MS = 250
 export const MAX_EDITOR_AUTO_SAVE_DELAY_MS = 10_000
 
+// Why: shipped cards fade into the board's Archived sink after this many days (#26).
+export const DEFAULT_AUTO_ARCHIVE_DELAY_DAYS = 14
+export const MIN_AUTO_ARCHIVE_DELAY_DAYS = 1
+export const MAX_AUTO_ARCHIVE_DELAY_DAYS = 365
+
 // Why: first-time seed only — doubles on each dismissal without starring; later thresholds live in starNagNextThreshold.
 export const STAR_NAG_INITIAL_THRESHOLD = 35
 
@@ -190,6 +195,7 @@ export function getDefaultSettings(homedir: string): GlobalSettings {
     appFontFamily: DEFAULT_APP_FONT_FAMILY,
     editorAutoSave: false,
     editorAutoSaveDelayMs: DEFAULT_EDITOR_AUTO_SAVE_DELAY_MS,
+    autoArchiveDelayDays: DEFAULT_AUTO_ARCHIVE_DELAY_DAYS,
     editorMinimapEnabled: false,
     // Why empty: the editor keeps following the terminal font unless the user opts in.
     editorFontFamily: '',

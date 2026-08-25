@@ -18,6 +18,7 @@ import { useFeatureBoardProjectSelection } from './use-feature-board-project-sel
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
+import { FeatureBoardArchiveSink } from './FeatureBoardArchiveSink'
 import type { FeatureBoardColumnOrderByStage } from './feature-board-view-model'
 
 /**
@@ -37,7 +38,26 @@ export default function FeatureBoardPage(): React.JSX.Element {
   const searchFilters = useFeatureBoardSearchFilters(cards)
   const featureBoardColumnWidth = useAppStore((s) => s.featureBoardColumnWidth)
   const setFeatureBoardColumnWidth = useAppStore((s) => s.setFeatureBoardColumnWidth)
+  const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
+  const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
   const boardRef = useRef<HTMLDivElement>(null)
+
+  // Archived sink (#26): all archived worktrees of the selected project(s).
+  const archivedWorktrees = useMemo(
+    () =>
+      Object.values(worktreesByRepo)
+        .flat()
+        .filter((worktree) => selection.selected.has(worktree.repoId) && worktree.isArchived),
+    [worktreesByRepo, selection.selected]
+  )
+  const [archiveSinkExpanded, setArchiveSinkExpanded] = useState(false)
+  const restoreArchivedCard = useCallback(
+    (worktreeId: string) => {
+      // Why re-stamp shippedAt: restore returns the card to `shipped` and re-arms the fade delay.
+      void updateWorktreeMeta(worktreeId, { isArchived: false, shippedAt: Date.now() })
+    },
+    [updateWorktreeMeta]
+  )
 
   // Why frozen order lives here, not in the drag hook: unlike a background awaiting-input
   // flip, the drop commit itself must read the *pre*-unfreeze rendered order (see
@@ -164,6 +184,12 @@ export default function FeatureBoardPage(): React.JSX.Element {
             onColumnResizeKeyDown={onColumnResizeKeyDown}
           />
         ))}
+        <FeatureBoardArchiveSink
+          worktrees={archivedWorktrees}
+          expanded={archiveSinkExpanded}
+          onToggle={() => setArchiveSinkExpanded((open) => !open)}
+          onRestore={restoreArchivedCard}
+        />
       </div>
       {adoptionStage && (
         <FeatureBoardAdoptionDialog

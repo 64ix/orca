@@ -13,6 +13,9 @@ import type { FeatureBoardCard as FeatureBoardCardModel } from './feature-board-
 export type FeatureBoardColumnProps = {
   stage: WorkflowStage
   cards: readonly FeatureBoardCardModel[]
+  /** Overrides the stage-derived header label — used by the Archived sink (#26). */
+  labelOverride?: string
+  onHeaderClick?: () => void
   /** Extension point for #48 — forwarded to `FeatureBoardColumnHeader`. */
   headerAction?: React.ReactNode
   /**
@@ -32,6 +35,8 @@ export type FeatureBoardColumnProps = {
 export function FeatureBoardColumn({
   stage,
   cards,
+  labelOverride,
+  onHeaderClick,
   headerAction,
   columnWidth = 280,
   isResizingColumn = false,
@@ -48,7 +53,13 @@ export function FeatureBoardColumn({
       style={{ width: `${columnWidth}px` }}
       data-feature-board-column={stage}
     >
-      <FeatureBoardColumnHeader stage={stage} count={cards.length} headerAction={headerAction} />
+      <FeatureBoardColumnHeader
+        stage={stage}
+        count={cards.length}
+        labelOverride={labelOverride}
+        headerAction={headerAction}
+        onClick={onHeaderClick}
+      />
       <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
         {cards.length === 0 ? (
           <div className="px-1 py-6 text-center text-[12px] text-muted-foreground/70">
