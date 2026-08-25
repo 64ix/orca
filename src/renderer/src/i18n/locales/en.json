@@ -16390,7 +16390,16 @@
         "filesChanged": "{{value0}} files changed",
         "vsBase": "vs {{value0}}",
         "diffLoading": "Loading…",
-        "diffUnavailable": "Branch compare unavailable"
+        "diffUnavailable": "Branch compare unavailable",
+        "conversations": "Conversations",
+        "conversationsLoading": "Loading…",
+        "noConversations": "No sessions for this worktree",
+        "conversationFocus": "Focus session",
+        "conversationResume": "Resume in worktree",
+        "conversationRename": "Rename",
+        "conversationActions": "Conversation actions",
+        "conversationDismiss": "Dismiss",
+        "conversationDelete": "Delete"
       },
       "column": {
         "empty": "No cards",
