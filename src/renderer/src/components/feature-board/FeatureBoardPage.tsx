@@ -18,6 +18,9 @@ import { useFeatureBoardProjectSelection } from './use-feature-board-project-sel
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
+import { TaskDetailPanel } from './task-detail-panel/TaskDetailPanel'
+import { collectTaskDetailPanelVisibleCardIds } from './task-detail-panel/task-detail-panel-selection'
+import { useTaskDetailPanelSelection } from './task-detail-panel/use-task-detail-panel-selection'
 import type { FeatureBoardColumnOrderByStage } from './feature-board-view-model'
 
 /**
@@ -92,6 +95,18 @@ export default function FeatureBoardPage(): React.JSX.Element {
     onDragTargetChange: setDragOverStage
   })
 
+  // Why: the rendered (post search/filter) card set drives the panel lifecycle (#52) — the
+  // panel must not point at a card that left the visible board data.
+  const visibleCardIds = useMemo(
+    () => collectTaskDetailPanelVisibleCardIds([...columns.values()]),
+    [columns]
+  )
+  const { selectedCardId } = useTaskDetailPanelSelection(visibleCardIds)
+  const selectedCard = useMemo(
+    () => (selectedCardId ? (cards.find((card) => card.id === selectedCardId) ?? null) : null),
+    [selectedCardId, cards]
+  )
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3">
@@ -141,29 +156,32 @@ export default function FeatureBoardPage(): React.JSX.Element {
           activeFilterCount={searchFilters.activeFilterCount}
         />
       </header>
-      <div
-        ref={boardRef}
-        className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3"
-        data-feature-board=""
-        onPointerDownCapture={onCardPointerDownCapture}
-      >
-        {WORKFLOW_STAGE_IDS.map((stage) => (
-          <FeatureBoardColumn
-            key={stage}
-            stage={stage}
-            cards={columns.get(stage) ?? []}
-            headerAction={
-              adoptionEligibleRepos.length > 0 ? (
-                <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />
-              ) : undefined
-            }
-            columnWidth={columnWidth}
-            isResizingColumn={isResizingColumn}
-            isDragTarget={dragOverStage === stage}
-            onColumnResizeStart={onColumnResizeStart}
-            onColumnResizeKeyDown={onColumnResizeKeyDown}
-          />
-        ))}
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+        <div
+          ref={boardRef}
+          className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-3"
+          data-feature-board=""
+          onPointerDownCapture={onCardPointerDownCapture}
+        >
+          {WORKFLOW_STAGE_IDS.map((stage) => (
+            <FeatureBoardColumn
+              key={stage}
+              stage={stage}
+              cards={columns.get(stage) ?? []}
+              headerAction={
+                adoptionEligibleRepos.length > 0 ? (
+                  <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />
+                ) : undefined
+              }
+              columnWidth={columnWidth}
+              isResizingColumn={isResizingColumn}
+              isDragTarget={dragOverStage === stage}
+              onColumnResizeStart={onColumnResizeStart}
+              onColumnResizeKeyDown={onColumnResizeKeyDown}
+            />
+          ))}
+        </div>
+        {selectedCard ? <TaskDetailPanel card={selectedCard} /> : null}
       </div>
       {adoptionStage && (
         <FeatureBoardAdoptionDialog
