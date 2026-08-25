@@ -101,6 +101,8 @@ export type GithubWorkItemApi = {
     query?: string
     page?: number
     noCache?: boolean
+    /** Per-request source override (#25): `'origin'` pins the fork-local board regardless of repo preference. */
+    issueSourcePreference?: 'upstream' | 'origin' | 'auto'
   }) => Promise<ListWorkItemsResult<Omit<GitHubWorkItem, 'repoId'>>>
   updateIssue: (
     args: GitHubRepoSelectorArgs & {

@@ -211,6 +211,8 @@ type GitHubWorkItemsListArgs = {
   query?: string
   page?: number
   noCache?: true
+  /** Per-request source override; `'origin'` pins the fork-local board (#25) regardless of repo preference. */
+  issueSourcePreference?: IssueSourcePreference
 }
 
 function settingsForGitHubRepoOwner(
@@ -633,6 +635,8 @@ type FetchOptions = {
   requireComplete?: boolean
   allowStaleFallback?: boolean
   sourceContext?: TaskSourceContext | null
+  /** Overrides the repo's issue-source preference for this fetch; forces a distinct cache scope. */
+  issueSourcePreference?: IssueSourcePreference
 }
 
 type RepoScopedFetchOptions = FetchOptions & {
@@ -754,6 +758,31 @@ export function workItemsCacheKey(
     return hostId !== LOCAL_EXECUTION_HOST_ID ? `${hostId}::${owner}` : owner
   }
   return scope ? `${scope}::${owner}` : owner
+}
+
+const FORCED_ORIGIN_WORK_ITEMS_SCOPE = 'forced-origin-issue-source'
+
+function joinWorkItemsCacheScopes(base: string | null | undefined, override: string): string {
+  return base ? `${base}|${override}` : override
+}
+
+/**
+ * Cache key for forced-origin work-item fetches (#25 ghost candidates): the host scope is
+ * preserved and the source override namespaced, so preference-following caches never mix in.
+ */
+export function getForcedOriginWorkItemsCacheKey(
+  state: Pick<AppState, 'repos' | 'settings'>,
+  repoId: string,
+  limit: number,
+  query: string,
+  repoPath: string
+): string {
+  const repo = findRepoForGitHubOwner(state, repoId, repoPath)
+  const scope = joinWorkItemsCacheScopes(
+    repo ? getGitHubFocusedRepoOwnerHostId(state.settings ?? null, repo) : undefined,
+    FORCED_ORIGIN_WORK_ITEMS_SCOPE
+  )
+  return workItemsCacheKey(repoId, limit, query, scope)
 }
 
 function workItemsInflightRequestKey(
@@ -1828,7 +1857,12 @@ function capPrRefreshStates(
 }
 
 function shouldRefreshIssueDecorations(state: AppState): boolean {
-  return (state.worktreeCardProperties ?? []).includes('issue')
+  return (
+    (state.worktreeCardProperties ?? []).includes('issue') ||
+    // Why: stage grouping derives from open-issue facts, so the sidebar needs
+    // fresh issue entries for linked issues to place worktrees correctly (#45).
+    state.groupBy === 'workflow-stage'
+  )
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -2035,7 +2069,10 @@ export type GitHubSlice = {
     repoPath: string,
     limit?: number,
     query?: string,
-    options?: { sourceContext?: TaskSourceContext | null }
+    options?: {
+      sourceContext?: TaskSourceContext | null
+      issueSourcePreference?: IssueSourcePreference
+    }
   ) => void
   patchWorkItem: (
     itemId: string,
@@ -2680,7 +2717,14 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
       options?.sourceContext
     )
     const ownerHostId = getGitHubWorkItemSourceHostId(requestState, repo, options?.sourceContext)
-    const cacheScope = getGitHubWorkItemSourceCacheScope(requestState, repo, options?.sourceContext)
+    // Why a distinct scope: a forced-origin fetch must never read or fill the preference-following cache.
+    const cacheScope =
+      options?.issueSourcePreference !== undefined
+        ? joinWorkItemsCacheScopes(
+            getGitHubWorkItemSourceCacheScope(requestState, repo, options?.sourceContext),
+            FORCED_ORIGIN_WORK_ITEMS_SCOPE
+          )
+        : getGitHubWorkItemSourceCacheScope(requestState, repo, options?.sourceContext)
     const key = workItemsCacheKey(repoId, limit, query, cacheScope)
     const cached = get().workItemsCache[key]
     if (!options?.force && isFresh(cached, WORK_ITEMS_CACHE_TTL)) {
@@ -2716,7 +2760,10 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
         const envelope = await listGitHubWorkItemsForRepo(requestContext, {
           limit,
           query: query || undefined,
-          ...(options?.noCache ? { noCache: true } : {})
+          ...(options?.noCache ? { noCache: true } : {}),
+          ...(options?.issueSourcePreference
+            ? { issueSourcePreference: options.issueSourcePreference }
+            : {})
         })
         // Why: stamp repoId at the fetch boundary so downstream consumers can rely on it — main doesn't know Orca's Repo.id.
         const items: GitHubWorkItem[] = envelope.items.map((item) => ({ ...item, repoId }))
@@ -3038,7 +3085,10 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
       return
     }
     void get()
-      .fetchWorkItems(repoId, repoPath, limit, query, { sourceContext: options?.sourceContext })
+      .fetchWorkItems(repoId, repoPath, limit, query, {
+        sourceContext: options?.sourceContext,
+        issueSourcePreference: options?.issueSourcePreference
+      })
       .catch(() => {})
   },
 
@@ -4519,7 +4569,7 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
     const cardProps = state.worktreeCardProperties ?? []
     const rawCardProps = cardProps as readonly string[]
     const shouldRefreshIssues = shouldRefreshIssueDecorations(state)
-    const isPRStatusGrouping = state.groupBy === 'pr-status'
+    const isPRStatusGrouping = state.groupBy === 'pr-status' || state.groupBy === 'workflow-stage'
     const rightSidebarShowsPR = rightSidebarShowsPullRequestData(state)
     const shouldRefreshPRs =
       isPRStatusGrouping ||
@@ -4824,6 +4874,7 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
     const rawCardProps = cardProps as readonly string[]
     const shouldRefreshPR =
       state.groupBy === 'pr-status' ||
+      state.groupBy === 'workflow-stage' ||
       (state.settings?.experimentalNewWorktreeCardStyle === true
         ? cardProps.includes('status')
         : cardProps.includes('pr') || rawCardProps.includes('ci')) ||

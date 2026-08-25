@@ -5,6 +5,7 @@ import { RepoIconGlyph } from '@/components/repo/repo-icon'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getFeatureBoardStageLabel } from '@/components/feature-board/feature-board-stage-labels'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import type { Repo } from '../../../../shared/repo-types'
@@ -76,7 +77,8 @@ export function WorktreeCardHeader({
     titleRenaming,
     handleOpenRenameErrorDialog,
     isFolder,
-    handleWorkspaceQuickAction
+    handleWorkspaceQuickAction,
+    effectiveStage
   } = card
   const {
     showPinnedRepoIcon,
@@ -260,6 +262,26 @@ export function WorktreeCardHeader({
             </TooltipContent>
           </Tooltip>
         )}
+
+        {effectiveStage ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="outline"
+                className="h-[16px] shrink-0 rounded px-1.5 text-[10px] font-medium leading-none text-muted-foreground border-border/70 bg-muted/30"
+                data-worktree-stage-badge={effectiveStage}
+              >
+                {getFeatureBoardStageLabel(effectiveStage)}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="right" sideOffset={8}>
+              {translate(
+                'auto.components.sidebar.WorktreeCard.stageBadgeTooltip',
+                'Delivery stage'
+              )}
+            </TooltipContent>
+          </Tooltip>
+        ) : null}
 
         {showTitleRowIndicators && titleRowIndicators}
       </div>

@@ -8,6 +8,7 @@ import type { StatusBarUsageMode } from './status-bar-usage-mode'
 import type { PersistedTrustedOrcaHooks } from './orca-yaml-hook-types'
 import type { CustomPet } from './pet-types'
 import type { FeatureBoardColumnOrderEntry } from './feature-board-column-order'
+import type { FeatureBoardGhostDismissals } from './feature-board-ghost-dismissals'
 import type {
   AgentActivityDisplayMode,
   ManualRepoOrderEntry,
@@ -36,7 +37,7 @@ export type PersistedUIState = {
   rightSidebarWidth: number
   markdownTocPanelWidth?: number
   combinedDiffFileTreeWidth?: number
-  groupBy: 'none' | 'workspace-status' | 'repo' | 'pr-status'
+  groupBy: 'none' | 'workspace-status' | 'repo' | 'pr-status' | 'workflow-stage'
   sortBy: 'name' | 'smart' | 'recent' | 'repo' | 'manual'
   /** Project header ordering in `groupBy: 'repo'`, independent of `sortBy`: 'manual' uses persisted order + header drag, 'recent' by latest visible activity. */
   projectOrderBy: ProjectOrderBy
@@ -54,6 +55,8 @@ export type PersistedUIState = {
   manualRepoOrder?: ManualRepoOrderEntry[]
   /** Feature board card order: per-project, per-column ordered worktree ids (spec 21); stale ids filtered at read. */
   featureBoardColumnOrder?: FeatureBoardColumnOrderEntry[]
+  /** Dismissed ghost-card issue numbers per repo (#49); candidates themselves are never stored. */
+  featureBoardGhostDismissals?: FeatureBoardGhostDismissals
   /** Deprecated legacy positive-form setting. Ignored on hydration. */
   showSleepingWorkspaces?: boolean
   /** Deprecated legacy name used by a short-lived build. Ignored on hydration. */

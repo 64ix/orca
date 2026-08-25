@@ -718,6 +718,15 @@ describe('Store', () => {
     expect(store.getUI().groupBy).toBe('workspace-status')
   })
 
+  it('preserves workflow-stage grouping', async () => {
+    writeDataFile({
+      schemaVersion: 1,
+      ui: { groupBy: 'workflow-stage' }
+    })
+    const store = await createStore()
+    expect(store.getUI().groupBy).toBe('workflow-stage')
+  })
+
   it('defaults projectOrderBy to manual when absent, even with recent sortBy', async () => {
     writeDataFile({
       schemaVersion: 1,

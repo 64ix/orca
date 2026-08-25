@@ -320,7 +320,7 @@ import type {
   ProjectHostSetupUpdateResult,
   ProjectUpdateArgs
 } from '../../shared/project-types'
-import type { BaseRefSearchResult, Repo } from '../../shared/repo-types'
+import type { BaseRefSearchResult, IssueSourcePreference, Repo } from '../../shared/repo-types'
 import type { Tab, TabGroupLayoutNode } from '../../shared/tab-types'
 import type { TerminalQuickCommand } from '../../shared/terminal-quick-command-types'
 import type {
@@ -21798,7 +21798,8 @@ export class OrcaRuntimeService {
     limit?: number,
     query?: string,
     page?: number,
-    noCache?: boolean
+    noCache?: boolean,
+    issueSourcePreferenceOverride?: IssueSourcePreference
   ): Promise<ListWorkItemsResult<MainWorkItem>> {
     const repo = await this.resolveRepoSelector(repoSelector)
     return listWorkItems(
@@ -21806,7 +21807,7 @@ export class OrcaRuntimeService {
       limit,
       query,
       page,
-      repo.issueSourcePreference,
+      issueSourcePreferenceOverride ?? repo.issueSourcePreference,
       repo.connectionId ?? null,
       noCache,
       ...this.getLocalGitExecutionOptionArgs(repo)

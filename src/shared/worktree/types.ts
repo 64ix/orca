@@ -135,6 +135,8 @@ export type Worktree = {
   workflowStage?: WorkflowStage | null
   /** Read-side projection of WorktreeMeta.consumedMergedPRNumbers for fact-stage derivation (#22). */
   consumedMergedPRNumbers?: number[]
+  /** When the card last entered the effective `shipped` stage (ms epoch), or was restored. Auto-archive (#26) counts its delay from here. */
+  shippedAt?: number
   diffComments?: DiffComment[]
   mobileDiffReview?: MobileDiffReviewState
   automationProvenance?: AutomationWorkspaceProvenance

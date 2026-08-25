@@ -482,6 +482,19 @@ describe('createUISlice hydratePersistedUI', () => {
     expect(setUI).toHaveBeenCalledWith({ groupBy: 'none', collapsedGroups: [] })
   })
 
+  it('persists workflow-stage grouping with collapsed groups cleared', () => {
+    const setUI = vi.fn(() => Promise.resolve())
+    vi.stubGlobal('window', { api: { ui: { set: setUI } } })
+    const store = createUIStore()
+
+    store.setState({ collapsedGroups: new Set(['workflow-stage:idea']) })
+    store.getState().setGroupBy('workflow-stage')
+
+    expect(store.getState().groupBy).toBe('workflow-stage')
+    expect([...store.getState().collapsedGroups]).toEqual([])
+    expect(setUI).toHaveBeenCalledWith({ groupBy: 'workflow-stage', collapsedGroups: [] })
+  })
+
   it('hydrates persisted per-worktree dotfile visibility', () => {
     const store = createUIStore()
 

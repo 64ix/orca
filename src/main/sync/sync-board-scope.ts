@@ -11,11 +11,11 @@ export const SYNC_TABLE_UI_STATE = 'uiState'
 // and the feature board's per-project/per-column card order (spec #24). Everything else
 // on PersistedUIState (sidebar width, filters, window bounds, dismissed nudges, ...) is
 // per-machine display preference, not board state, and is deliberately left off.
-// Still missing: per-repo dismissed ghost-issue ids, which spec #25 has yet to define.
 export const SYNC_UI_STATE_KEYS = [
   'manualRepoOrder',
   'workspaceStatuses',
-  'featureBoardColumnOrder'
+  'featureBoardColumnOrder',
+  'featureBoardGhostDismissals'
 ] as const
 export type SyncedUiStateKey = (typeof SYNC_UI_STATE_KEYS)[number]
 
@@ -46,6 +46,7 @@ export const SYNCED_WORKTREE_META_FIELDS = [
   'isPinned',
   'sortOrder',
   'manualOrder',
+  'shippedAt',
   'priorWorktreeIds'
 ] as const satisfies readonly (keyof WorktreeMeta)[]
 

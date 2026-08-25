@@ -6,6 +6,7 @@ import {
   getWorkspaceStatusGroupKey
 } from '../../../../../../shared/workspace-statuses'
 import { ALL_GROUP_KEY, getPRLaneKey } from './group-keys'
+import { WORKFLOW_STAGE_SANS_KEY } from './workflow-stage-grouping'
 import type { WorktreeGroupBy } from './row-types'
 
 /** A folder workspace paired with the project group that owns it. The pair is
@@ -60,6 +61,10 @@ export function getFolderWorkspaceLaneKey(
       // never resolve a PR. getPRGroupKey returns this same lane for any
       // worktree without one, so the two stay consistent.
       return getPRLaneKey('in-progress')
+    case 'workflow-stage':
+      // Why sans: folder workspaces run the manual regime, so they never get
+      // an effective stage — same lane as an unstaged git worktree.
+      return WORKFLOW_STAGE_SANS_KEY
     case 'none':
       return ALL_GROUP_KEY
   }

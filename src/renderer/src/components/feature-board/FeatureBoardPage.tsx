@@ -12,15 +12,19 @@ import { FeatureBoardAdoptionDialog } from './FeatureBoardAdoptionDialog'
 import { FeatureBoardColumn } from './FeatureBoardColumn'
 import FeatureBoardSearchField from './FeatureBoardSearchField'
 import { FeatureBoardFilterMenu } from './FeatureBoardFilterMenu'
+import { FeatureBoardDismissedMenu } from './FeatureBoardDismissedMenu'
 import { getFeatureBoardStageLabel } from './feature-board-stage-labels'
 import { useFeatureBoardCards, useFeatureBoardColumns } from './use-feature-board-columns'
 import { useFeatureBoardProjectSelection } from './use-feature-board-project-selection'
+import { useFeatureBoardGhostCandidates } from './use-feature-board-ghost-candidates'
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
 import { TaskDetailPanel } from './task-detail-panel/TaskDetailPanel'
 import { collectTaskDetailPanelVisibleCardIds } from './task-detail-panel/task-detail-panel-selection'
 import { useTaskDetailPanelSelection } from './task-detail-panel/use-task-detail-panel-selection'
+import { FeatureBoardArchiveSink } from './FeatureBoardArchiveSink'
+import { restoredShippedCardMeta } from './shipped-fade'
 import type { FeatureBoardColumnOrderByStage } from './feature-board-view-model'
 
 /**
@@ -40,7 +44,33 @@ export default function FeatureBoardPage(): React.JSX.Element {
   const searchFilters = useFeatureBoardSearchFilters(cards)
   const featureBoardColumnWidth = useAppStore((s) => s.featureBoardColumnWidth)
   const setFeatureBoardColumnWidth = useAppStore((s) => s.setFeatureBoardColumnWidth)
+  const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
+  const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
   const boardRef = useRef<HTMLDivElement>(null)
+
+  // Archived sink (#26): all archived worktrees of the selected project(s).
+  const archivedWorktrees = useMemo(
+    () =>
+      Object.values(worktreesByRepo)
+        .flat()
+        .filter((worktree) => selection.selected.has(worktree.repoId) && worktree.isArchived),
+    [worktreesByRepo, selection.selected]
+  )
+  const [archiveSinkExpanded, setArchiveSinkExpanded] = useState(false)
+  const restoreArchivedCard = useCallback(
+    (worktreeId: string) => {
+      // Why re-stamp shippedAt: restore returns a *shipped* card to the column and re-arms
+      // the fade delay; a non-shipped card must not inherit a stamp that pre-dates its ship.
+      const restored = Object.values(worktreesByRepo)
+        .flat()
+        .find((worktree) => worktree.id === worktreeId)
+      void updateWorktreeMeta(
+        worktreeId,
+        restoredShippedCardMeta(restored?.workflowStage, Date.now())
+      )
+    },
+    [updateWorktreeMeta, worktreesByRepo]
+  )
 
   // Why frozen order lives here, not in the drag hook: unlike a background awaiting-input
   // flip, the drop commit itself must read the *pre*-unfreeze rendered order (see
@@ -56,6 +86,15 @@ export default function FeatureBoardPage(): React.JSX.Element {
     searchFilters.visibleCardIds,
     frozenColumnOrder
   )
+  // Ghost cards (#49): candidates for the selected git repos; refreshed on open + visibility.
+  const ghostRepos = useMemo(
+    () =>
+      selection.groups
+        .filter((group) => selection.selected.has(group.repo.id) && isGitRepoKind(group.repo))
+        .map((group) => group.repo),
+    [selection.groups, selection.selected]
+  )
+  const ghosts = useFeatureBoardGhostCandidates(ghostRepos, selection.selected)
   const columnsRef = useRef(columns)
   useEffect(() => {
     columnsRef.current = columns
@@ -63,13 +102,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
 
   const [adoptionStage, setAdoptionStage] = useState<WorkflowStage | null>(null)
   // Why: adoption creates a git worktree — folder-repo columns get no "+" (spec 24 #48).
-  const adoptionEligibleRepos = useMemo(
-    () =>
-      selection.groups
-        .filter((group) => selection.selected.has(group.repo.id) && isGitRepoKind(group.repo))
-        .map((group) => group.repo),
-    [selection.groups, selection.selected]
-  )
+  const adoptionEligibleRepos = ghostRepos
 
   const { columnWidth, isResizingColumn, onColumnResizeStart, onColumnResizeKeyDown } =
     useWorkspaceKanbanColumnResize(featureBoardColumnWidth, setFeatureBoardColumnWidth)
@@ -155,6 +188,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
           clearFilters={searchFilters.clearFilters}
           activeFilterCount={searchFilters.activeFilterCount}
         />
+        <FeatureBoardDismissedMenu dismissed={ghosts.dismissedGhosts} onRestore={ghosts.restore} />
       </header>
       <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <div
@@ -168,6 +202,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
               key={stage}
               stage={stage}
               cards={columns.get(stage) ?? []}
+              ghosts={ghosts.ghostsByStage.get(stage) ?? []}
               headerAction={
                 adoptionEligibleRepos.length > 0 ? (
                   <ColumnAddButton stage={stage} onClick={() => setAdoptionStage(stage)} />
@@ -180,6 +215,12 @@ export default function FeatureBoardPage(): React.JSX.Element {
               onColumnResizeKeyDown={onColumnResizeKeyDown}
             />
           ))}
+          <FeatureBoardArchiveSink
+            worktrees={archivedWorktrees}
+            expanded={archiveSinkExpanded}
+            onToggle={() => setArchiveSinkExpanded((open) => !open)}
+            onRestore={restoreArchivedCard}
+          />
         </div>
         {selectedCard ? <TaskDetailPanel card={selectedCard} /> : null}
       </div>

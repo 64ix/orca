@@ -2,11 +2,16 @@ import type React from 'react'
 import type { GlobalSettings } from '../../../../shared/global-settings-types'
 import { OpenInMenuSetting } from './OpenInMenuSetting'
 import { SearchableSetting } from './SearchableSetting'
-import { SettingsSubsectionHeader, SettingsSwitchRow } from './SettingsFormControls'
+import { NumberField, SettingsSubsectionHeader, SettingsSwitchRow } from './SettingsFormControls'
 import { WorkspaceDirectorySetting } from './WorkspaceDirectorySetting'
 import { translate } from '@/i18n/i18n'
 import { GlobalWorktreeVisibilitySourcesSetting } from './GlobalWorktreeVisibilitySourcesSetting'
 import { GLOBAL_WORKTREE_VISIBILITY_SETTINGS_TARGET_ID } from '@/lib/settings-navigation-types'
+import {
+  DEFAULT_AUTO_ARCHIVE_DELAY_DAYS,
+  MAX_AUTO_ARCHIVE_DELAY_DAYS,
+  MIN_AUTO_ARCHIVE_DELAY_DAYS
+} from '../../../../shared/constants'
 
 type GeneralWorkspaceSettingsSectionProps = {
   settings: GlobalSettings
@@ -37,6 +42,38 @@ export function GeneralWorkspaceSettingsSection({
       />
 
       <WorkspaceDirectorySetting settings={settings} updateSettings={updateSettings} />
+
+      <SearchableSetting
+        title={translate(
+          'auto.components.settings.GeneralWorkspaceSettingsSection.shippedFadeTitle',
+          'Auto-Archive Shipped Cards'
+        )}
+        description={translate(
+          'auto.components.settings.GeneralWorkspaceSettingsSection.shippedFadeDescription',
+          'Days a shipped card stays on the feature board before it fades into the Archived sink. Restoring a card re-arms the delay.'
+        )}
+        keywords={['archive', 'shipped', 'fade', 'auto-archive', 'board', 'days', 'delay', 'sink']}
+      >
+        <NumberField
+          label={translate(
+            'auto.components.settings.GeneralWorkspaceSettingsSection.shippedFadeDaysLabel',
+            'Days before auto-archive'
+          )}
+          description={translate(
+            'auto.components.settings.GeneralWorkspaceSettingsSection.shippedFadeDaysDescription',
+            'Set to the minimum to archive almost immediately after a card ships.'
+          )}
+          value={settings.autoArchiveDelayDays ?? DEFAULT_AUTO_ARCHIVE_DELAY_DAYS}
+          defaultValue={DEFAULT_AUTO_ARCHIVE_DELAY_DAYS}
+          min={MIN_AUTO_ARCHIVE_DELAY_DAYS}
+          max={MAX_AUTO_ARCHIVE_DELAY_DAYS}
+          suffix={translate(
+            'auto.components.settings.GeneralWorkspaceSettingsSection.daysUnit',
+            'days'
+          )}
+          onChange={(next) => updateSettings({ autoArchiveDelayDays: next })}
+        />
+      </SearchableSetting>
 
       <div
         id={GLOBAL_WORKTREE_VISIBILITY_SETTINGS_TARGET_ID}

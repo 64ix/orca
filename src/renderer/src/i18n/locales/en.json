@@ -5124,7 +5124,8 @@
           "65a9820bd1": "Agent statuses",
           "219ebf1961": "Branch name",
           "folderPathIdentity": "Branch / folder path",
-          "cli": "Orca CLI"
+          "cli": "Orca CLI",
+          "stageGroupBy": "Stage"
         },
         "SshTargetRow": {
           "4677394048": "Connecting…",
@@ -5193,7 +5194,8 @@
           "automationCreated": "Created by automation",
           "branchIdentity": "Branch",
           "branchFolderPathIdentity": "Branch or folder path",
-          "ef18787206": "Queued for deletion"
+          "ef18787206": "Queued for deletion",
+          "stageBadgeTooltip": "Delivery stage"
         },
         "WorktreeCardAgents": {
           "1b0a156717": "Agents"
@@ -5613,7 +5615,8 @@
               "682ed5d551": "Closed",
               "7c2f009786": "In progress",
               "6798dc7c94": "In review",
-              "5076efc3d2": "Done"
+              "5076efc3d2": "Done",
+              "sansStage": "Sans stage"
             }
           }
         },
@@ -6863,7 +6866,12 @@
           "externalWorktrees": "External worktrees",
           "externalWorktreesDescription": "Choose whether worktrees created outside Orca appear by default.",
           "show": "Show",
-          "hide": "Hide"
+          "hide": "Hide",
+          "shippedFadeTitle": "Auto-Archive Shipped Cards",
+          "shippedFadeDescription": "Days a shipped card stays on the feature board before it fades into the Archived sink. Restoring a card re-arms the delay.",
+          "shippedFadeDaysLabel": "Days before auto-archive",
+          "shippedFadeDaysDescription": "Set to the minimum to archive almost immediately after a card ships.",
+          "daysUnit": "days"
         },
         "GhosttyImportModal": {
           "9d3e56ca36": "Apply Changes",
@@ -16375,7 +16383,17 @@
       },
       "card": {
         "awaitingInput": "Awaiting your input",
-        "folderWorkspace": "Folder workspace — moved manually"
+        "folderWorkspace": "Folder workspace — moved manually",
+        "menu": "Card actions",
+        "archive": "Archive"
+      },
+      "archiveCard": {
+        "menu": "Archived card actions",
+        "restore": "Restore to Shipped"
+      },
+      "archiveSink": {
+        "title": "Archived",
+        "empty": "No archived cards"
       },
       "panel": {
         "label": "Task details",
@@ -16473,6 +16491,29 @@
       "drop": {
         "refused": "Could not move this card",
         "updateFailed": "Could not update the stage"
+      },
+      "ghost": {
+        "restore": "Restore ghost card",
+        "dismiss": "Don't show this issue",
+        "badges": {
+          "ready-for-agent": "Ready for agent",
+          "ready-for-human": "Ready for human",
+          "needs-triage": "Needs triage"
+        }
+      },
+      "dismissed": {
+        "label": "Dismissed ghost cards ({{value0}})",
+        "tooltip": "Dismissed ghost cards",
+        "title": "Dismissed ghosts",
+        "restore": "Restore #{{issueNumber}}"
+      }
+    },
+    "sidebar": {
+      "worktreeList": {
+        "stageDrop": {
+          "refused": "Could not set the stage",
+          "updateFailed": "Could not update the stage"
+        }
       }
     }
   },

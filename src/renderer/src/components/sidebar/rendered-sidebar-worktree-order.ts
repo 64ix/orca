@@ -47,7 +47,7 @@ export function computeRenderedSidebarWorktrees(
     state.workspaceHostScope
   )
   const projectGroups = state.projectGroups ?? []
-  const { prCache } = selectWorktreeListReviewCacheInputs(
+  const { prCache, issueCache } = selectWorktreeListReviewCacheInputs(
     state,
     state.groupBy,
     state.worktreeCardProperties
@@ -82,7 +82,8 @@ export function computeRenderedSidebarWorktrees(
     // Why no hostLabelById: it only feeds display-only host context labels, never row order.
     undefined,
     defaultHostId,
-    pinnedDisplayPolicy
+    pinnedDisplayPolicy,
+    issueCache
   )
 
   // Why lazy: with no host filter, addHostSectionRows is a pass-through, so skip building the whole host registry on a keystroke.

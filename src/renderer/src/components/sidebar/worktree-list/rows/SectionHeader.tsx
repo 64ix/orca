@@ -49,6 +49,8 @@ export type SectionHeaderRowContext = {
   highlightedRevealRowKey: string | null
   dragOverStatus: WorkspaceStatus | null
   pinDragOver: boolean
+  /** Lane key of the "By stage" group header currently under a drag (#53), or null. */
+  dragOverStageLaneKey: string | null
   headerDrag: WorktreeSidebarHeaderDrag
   getCachedFolderWorkspacePathStatus: (request: {
     scope: 'project-group'
@@ -64,6 +66,9 @@ export type SectionHeaderRowContext = {
   onWorkspacePinDragOver: (event: React.DragEvent) => void
   onWorkspacePinDragLeave: (event: React.DragEvent) => void
   onWorkspaceStatusDrop: (event: React.DragEvent, status: WorkspaceStatus) => void
+  onWorkflowStageDragOver: (event: React.DragEvent, laneKey: string) => void
+  onWorkflowStageDragLeave: (event: React.DragEvent) => void
+  onWorkflowStageDrop: (event: React.DragEvent, laneKey: string) => void
 }
 
 // The folder-scan project group whose parent path is gone can't create new workspaces.
@@ -134,6 +139,8 @@ export function renderWorktreeSectionHeaderRow(args: {
     ctx.groupBy === 'workspace-status'
       ? getWorkspaceStatusFromGroupKey(row.key, ctx.workspaceStatuses)
       : null
+  // Why: in stage mode the header's own group key IS the stage lane key (#53).
+  const headerWorkflowStageLaneKey = ctx.groupBy === 'workflow-stage' ? row.key : null
   const isPinnedHeader = row.key === PINNED_GROUP_KEY
   const repoHeaderColor = resolveProjectGroupHeaderColor({
     groupBy: ctx.groupBy,
@@ -167,7 +174,11 @@ export function renderWorktreeSectionHeaderRow(args: {
   // Why: repo/project/status/pinned share compact section chrome; flat "All" stays a simple label.
   const showHeaderCollapseAffordance =
     row.count > 0 &&
-    (isRepoHeader || isProjectGroupHeader || headerWorkspaceStatus !== null || isPinnedHeader)
+    (isRepoHeader ||
+      isProjectGroupHeader ||
+      headerWorkspaceStatus !== null ||
+      headerWorkflowStageLaneKey !== null ||
+      isPinnedHeader)
   return (
     <div
       key={vItem.key}
@@ -221,6 +232,8 @@ export function renderWorktreeSectionHeaderRow(args: {
         data-workspace-status-drop-target={headerWorkspaceStatus ? '' : undefined}
         data-workspace-status={headerWorkspaceStatus ?? undefined}
         data-workspace-pin-drop-target={isPinnedHeader ? '' : undefined}
+        data-workflow-stage-drop-target={headerWorkflowStageLaneKey ? '' : undefined}
+        data-workflow-stage-lane={headerWorkflowStageLaneKey ?? undefined}
         className={cn(
           // Why: no row-level grab — only the title surface below shows the hand;
           // actions use cursor-pointer so … / + never look reorderable.
@@ -232,6 +245,9 @@ export function renderWorktreeSectionHeaderRow(args: {
             'bg-accent/80 ring-1 ring-ring/40 shadow-md rounded-md scale-[1.01]',
           headerWorkspaceStatus &&
             ctx.dragOverStatus === headerWorkspaceStatus &&
+            'rounded-md bg-worktree-sidebar-accent ring-1 ring-worktree-sidebar-ring/40',
+          headerWorkflowStageLaneKey &&
+            ctx.dragOverStageLaneKey === headerWorkflowStageLaneKey &&
             'rounded-md bg-worktree-sidebar-accent ring-1 ring-worktree-sidebar-ring/40',
           isPinnedHeader &&
             ctx.pinDragOver &&
@@ -250,19 +266,25 @@ export function renderWorktreeSectionHeaderRow(args: {
             ? ctx.onWorkspacePinDragOver
             : headerWorkspaceStatus
               ? (event) => ctx.onWorkspaceStatusDragOver(event, headerWorkspaceStatus)
-              : undefined
+              : headerWorkflowStageLaneKey
+                ? (event) => ctx.onWorkflowStageDragOver(event, headerWorkflowStageLaneKey)
+                : undefined
         }
         onDragLeave={
           isPinnedHeader
             ? ctx.onWorkspacePinDragLeave
             : headerWorkspaceStatus
               ? ctx.onWorkspaceStatusDragLeave
-              : undefined
+              : headerWorkflowStageLaneKey
+                ? ctx.onWorkflowStageDragLeave
+                : undefined
         }
         onDrop={
           headerWorkspaceStatus
             ? (event) => ctx.onWorkspaceStatusDrop(event, headerWorkspaceStatus)
-            : undefined
+            : headerWorkflowStageLaneKey
+              ? (event) => ctx.onWorkflowStageDrop(event, headerWorkflowStageLaneKey)
+              : undefined
         }
         onPointerDown={
           isDraggableRepoHeader && projectIdForHeader

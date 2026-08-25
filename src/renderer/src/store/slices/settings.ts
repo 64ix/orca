@@ -35,6 +35,11 @@ import {
 import * as ownerHydration from './settings-owner-hydration-publication'
 import { persistVisibilityAwareSettings } from './worktree-visibility-settings-write'
 import { getSettingsFocusedExecutionHostId } from '../../../../shared/execution-host'
+import {
+  DEFAULT_AUTO_ARCHIVE_DELAY_DAYS,
+  MAX_AUTO_ARCHIVE_DELAY_DAYS,
+  MIN_AUTO_ARCHIVE_DELAY_DAYS
+} from '../../../../shared/constants'
 
 export type SettingsSlice = SettingsSearchState & {
   settings: GlobalSettings | null
@@ -128,6 +133,13 @@ function normalizeSettingsUpdates(
     sanitizedUpdates.mobilePairingCustomAddresses = normalizeMobilePairingCustomAddresses(
       updates.mobilePairingCustomAddresses
     )
+  }
+  if ('autoArchiveDelayDays' in updates) {
+    const raw = updates.autoArchiveDelayDays
+    const finite = typeof raw === 'number' && Number.isFinite(raw) ? Math.round(raw) : Number.NaN
+    sanitizedUpdates.autoArchiveDelayDays = Number.isFinite(finite)
+      ? Math.min(MAX_AUTO_ARCHIVE_DELAY_DAYS, Math.max(MIN_AUTO_ARCHIVE_DELAY_DAYS, finite))
+      : DEFAULT_AUTO_ARCHIVE_DELAY_DAYS
   }
   return sanitizedUpdates
 }
