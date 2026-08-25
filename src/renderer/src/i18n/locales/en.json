@@ -16377,6 +16377,21 @@
         "awaitingInput": "Awaiting your input",
         "folderWorkspace": "Folder workspace — moved manually"
       },
+      "panel": {
+        "label": "Task details",
+        "close": "Close details",
+        "vitals": "Vitals",
+        "branch": "Branch",
+        "agentState": "Agent",
+        "diffStats": "Diff",
+        "noActiveAgent": "No active agent",
+        "folderWorkspaceBranch": "Folder workspace — no branch",
+        "oneFileChanged": "1 file changed",
+        "filesChanged": "{{value0}} files changed",
+        "vsBase": "vs {{value0}}",
+        "diffLoading": "Loading…",
+        "diffUnavailable": "Branch compare unavailable"
+      },
       "column": {
         "empty": "No cards",
         "addTooltip": "New feature in {{stage}}",
