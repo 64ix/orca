@@ -16432,6 +16432,12 @@
       "ghost": {
         "restore": "Restore ghost card",
         "dismiss": "Don't show this issue"
+      },
+      "dismissed": {
+        "label": "Dismissed ghost cards ({{value0}})",
+        "tooltip": "Dismissed ghost cards",
+        "title": "Dismissed ghosts",
+        "restore": "Restore #{{issueNumber}}"
       }
     }
   },
