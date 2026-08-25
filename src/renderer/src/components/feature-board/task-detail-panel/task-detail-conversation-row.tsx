@@ -119,7 +119,8 @@ export function TaskDetailConversationRowItem({
       data-conversation-row={row.key}
       className="group/conversation-row flex min-w-0 items-center gap-1.5 rounded-sm py-0.5 pr-0.5 worktree-agent-row-hover"
     >
-      <AgentStateDot state={row.state ?? 'done'} size="sm" />
+      {/* Vault transcripts have no live state — the dot is only truthful for live rows. */}
+      {!isVault ? <AgentStateDot state={row.state ?? 'done'} size="sm" /> : null}
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex shrink-0">
