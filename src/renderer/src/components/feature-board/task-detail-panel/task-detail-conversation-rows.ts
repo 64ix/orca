@@ -70,7 +70,7 @@ export function buildTaskDetailConversationRows(
     paneKey: agent.paneKey
   }))
 
-  const vaultRows: TaskDetailConversationRow[] = []
+  const vaultRows: Extract<TaskDetailConversationRow, { kind: 'vault' }>[] = []
   for (const session of params.vaultSessions) {
     if (params.worktreeIdByVaultSessionId.get(session.id) !== params.worktreeId) {
       continue
