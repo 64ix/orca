@@ -11,6 +11,7 @@ import type {
 } from './project-grouping'
 import type { WorktreeGroupBy } from './row-types'
 import { getGroupKeyForWorktree } from './worktree-group-keys'
+import type { WorkflowStageLineageContext } from './workflow-stage-grouping'
 
 export function getRenderedNaturalAnchorRepoIds({
   groupBy,
@@ -21,7 +22,8 @@ export function getRenderedNaturalAnchorRepoIds({
   workspaceStatuses,
   settings,
   projectGrouping,
-  issueCache
+  issueCache,
+  stageLineage = null
 }: {
   groupBy: WorktreeGroupBy
   worktrees: readonly Worktree[]
@@ -32,6 +34,7 @@ export function getRenderedNaturalAnchorRepoIds({
   settings?: AppState['settings']
   projectGrouping?: ProjectGroupingModel
   issueCache?: Record<string, unknown> | null
+  stageLineage?: WorkflowStageLineageContext | null
 }): Set<string> {
   const renderedRepoIds = new Set<string>()
   if (groupBy === 'none') {
@@ -57,7 +60,8 @@ export function getRenderedNaturalAnchorRepoIds({
       workspaceStatuses,
       settings,
       projectGrouping,
-      issueCache ?? null
+      issueCache ?? null,
+      stageLineage
     )
     if (groupKey && !collapsedGroups.has(groupKey)) {
       renderedRepoIds.add(worktree.repoId)

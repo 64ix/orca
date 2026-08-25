@@ -15,7 +15,10 @@ import type { ProjectGroupingModel } from '../grouping/project-grouping'
 import type { PinnedWorktreeDisplayPolicy, WorktreeGroupBy } from '../grouping/row-types'
 import { getGroupKeysForWorktree } from '../grouping/worktree-group-keys'
 import { isPinnedSectionWorktree } from '../../pinned-section-worktrees'
-import { getWorktreeLineageAncestors } from '../../worktree-lineage-projection'
+import {
+  getCyclicProjectedWorktreeLineageIds,
+  getWorktreeLineageAncestors
+} from '../../worktree-lineage-projection'
 import { getFolderWorkspaceRevealGroupKeys } from './folder-reveal'
 import { getPinnedWorktreeRevealCollapsedGroupKeys } from './reveal-ancestors'
 
@@ -104,6 +107,7 @@ export function expandGroupsForWorktreeReveal(
       hostLineageById[worktree.id] = lineage
     }
   }
+  const hostCyclicLineageIds = getCyclicProjectedWorktreeLineageIds(hostLineageById, hostWorktreeMap)
   for (const parent of getWorktreeLineageAncestors(
     targetWorktree,
     hostLineageById,
@@ -137,7 +141,8 @@ export function expandGroupsForWorktreeReveal(
           args.settings,
           args.projectGroups,
           args.projectGrouping,
-          args.issueCache
+          args.issueCache,
+          { lineageById: hostLineageById, worktreeMap: hostWorktreeMap, cyclicLineageIds: hostCyclicLineageIds }
         )
   for (const groupKey of groupKeys) {
     if (args.collapsedGroups.has(groupKey)) {

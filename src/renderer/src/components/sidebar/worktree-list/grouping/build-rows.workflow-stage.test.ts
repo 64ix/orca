@@ -42,6 +42,39 @@ function stageRows(worktrees: Worktree[], prCache: Record<string, unknown> | nul
   )
 }
 
+/** Builds a valid lineage edge for the row-builders nesting machinery. */
+function makeLineage(child: Worktree, parent: Worktree): WorktreeLineage {
+  return {
+    worktreeId: child.id,
+    worktreeInstanceId: child.instanceId!,
+    parentWorktreeId: parent.id,
+    parentWorktreeInstanceId: parent.instanceId!,
+    origin: 'cli',
+    capture: { source: 'terminal-context', confidence: 'inferred' },
+    createdAt: 1
+  }
+}
+
+function nestedStageRows(
+  worktrees: Worktree[],
+  lineageById: Record<string, WorktreeLineage>
+): ReturnType<typeof buildRows> {
+  return buildRows(
+    'workflow-stage',
+    worktrees,
+    repoMap,
+    null,
+    new Set(),
+    undefined,
+    undefined,
+    undefined,
+    lineageById,
+    new Map(worktrees.map((entry) => [entry.id, entry])),
+    true,
+    SETTINGS
+  )
+}
+
 function headerKeys(rows: ReturnType<typeof buildRows>): string[] {
   return rows.filter((row) => row.type === 'header').map((row) => row.key)
 }
@@ -163,32 +196,8 @@ describe('buildRows workflow-stage grouping', () => {
       instanceId: 'child-instance',
       workflowStage: 'implementing'
     })
-    const lineage: WorktreeLineage = {
-      worktreeId: child.id,
-      worktreeInstanceId: 'child-instance',
-      parentWorktreeId: parent.id,
-      parentWorktreeInstanceId: 'parent-instance',
-      origin: 'cli',
-      capture: { source: 'terminal-context', confidence: 'inferred' },
-      createdAt: 1
-    }
-    const rows = buildRows(
-      'workflow-stage',
-      [child, parent],
-      repoMap,
-      null,
-      new Set(),
-      undefined,
-      undefined,
-      undefined,
-      { [child.id]: lineage },
-      new Map([
-        [parent.id, parent],
-        [child.id, child]
-      ]),
-      true,
-      SETTINGS
-    )
+    const lineage = makeLineage(child, parent)
+    const rows = nestedStageRows([child, parent], { [child.id]: lineage })
 
     expect(rows[0]).toMatchObject({
       type: 'header',
@@ -196,6 +205,88 @@ describe('buildRows workflow-stage grouping', () => {
     })
     expect(rows[1]).toMatchObject({ type: 'item', worktree: { id: 'wt-parent' }, depth: 0 })
     expect(rows[2]).toMatchObject({ type: 'item', worktree: { id: 'wt-child' }, depth: 1 })
+  })
+
+  it('lands an unstaged child in its staged parent lane, with no "Sans stage" header', () => {
+    const parent = staged({
+      id: 'wt-parent',
+      instanceId: 'parent-instance',
+      workflowStage: 'implementing'
+    })
+    const child = staged({ id: 'wt-child', instanceId: 'child-instance' })
+    const lineage = makeLineage(child, parent)
+    const rows = nestedStageRows([child, parent], { [child.id]: lineage })
+
+    expect(headerKeys(rows)).toEqual([`${WORKFLOW_STAGE_LANE_PREFIX}implementing`])
+    expect(rows[1]).toMatchObject({ type: 'item', worktree: { id: 'wt-parent' }, depth: 0 })
+    expect(rows[2]).toMatchObject({ type: 'item', worktree: { id: 'wt-child' }, depth: 1 })
+    // Badge stays own-effective-stage: the child keeps no badge despite its parent's lane.
+    expect(itemStages(rows)).toContainEqual({ id: 'wt-child', stage: null })
+  })
+
+  it('keeps a child in the root lane even when its own declared stage differs', () => {
+    const parent = staged({
+      id: 'wt-parent',
+      instanceId: 'parent-instance',
+      workflowStage: 'shipped'
+    })
+    const child = staged({
+      id: 'wt-child',
+      instanceId: 'child-instance',
+      workflowStage: 'idea'
+    })
+    const lineage = makeLineage(child, parent)
+    const rows = nestedStageRows([child, parent], { [child.id]: lineage })
+
+    expect(headerKeys(rows)).toEqual([`${WORKFLOW_STAGE_LANE_PREFIX}shipped`])
+    expect(rows[1]).toMatchObject({ type: 'item', worktree: { id: 'wt-parent' }, depth: 0 })
+    expect(rows[2]).toMatchObject({ type: 'item', worktree: { id: 'wt-child' }, depth: 1 })
+    // Badge stays own-effective-stage: the child's own declared stage still shows.
+    expect(itemStages(rows)).toContainEqual({ id: 'wt-child', stage: 'idea' })
+  })
+
+  it('buckets a multi-level lineage chain entirely into the root ancestor\'s lane', () => {
+    const grandparent = staged({
+      id: 'wt-grandparent',
+      instanceId: 'grandparent-instance',
+      workflowStage: 'review'
+    })
+    const parent = staged({
+      id: 'wt-parent',
+      instanceId: 'parent-instance'
+    })
+    const child = staged({
+      id: 'wt-child',
+      instanceId: 'child-instance'
+    })
+    const lineageById = {
+      [parent.id]: makeLineage(parent, grandparent),
+      [child.id]: makeLineage(child, parent)
+    }
+    const rows = nestedStageRows([child, parent, grandparent], lineageById)
+
+    expect(headerKeys(rows)).toEqual([`${WORKFLOW_STAGE_LANE_PREFIX}review`])
+    expect(rows[1]).toMatchObject({ type: 'item', worktree: { id: 'wt-grandparent' }, depth: 0 })
+    expect(rows[2]).toMatchObject({ type: 'item', worktree: { id: 'wt-parent' }, depth: 1 })
+    expect(rows[3]).toMatchObject({ type: 'item', worktree: { id: 'wt-child' }, depth: 2 })
+  })
+
+  it('does not hang on cyclic lineage and still produces stable rows', () => {
+    const a = staged({ id: 'wt-a', instanceId: 'a-instance', workflowStage: 'idea' })
+    const b = staged({ id: 'wt-b', instanceId: 'b-instance', workflowStage: 'triage' })
+    // a claims b as parent, b claims a as parent: a 2-node cycle.
+    const lineageById = {
+      [a.id]: makeLineage(a, b),
+      [b.id]: makeLineage(b, a)
+    }
+    const rows = nestedStageRows([a, b], lineageById)
+
+    // Cyclic members are rootless: each keeps its own declared-stage lane.
+    expect(headerKeys(rows).sort()).toEqual(
+      [`${WORKFLOW_STAGE_LANE_PREFIX}idea`, `${WORKFLOW_STAGE_LANE_PREFIX}triage`].sort()
+    )
+    const itemIds = rows.filter((row) => row.type === 'item').map((row) => row.worktree.id)
+    expect(itemIds.sort()).toEqual(['wt-a', 'wt-b'])
   })
 
   it('moves pinned worktrees out of stage groups under the single-location policy', () => {

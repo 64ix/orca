@@ -1,6 +1,7 @@
 import type { Repo } from '../../../../../../shared/repo-types'
 import type { ProjectOrderBy } from '../../../../../../shared/ui-chrome-types'
 import type { WorkspaceStatusDefinition, Worktree } from '../../../../../../shared/worktree/types'
+import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import type { AppState } from '../../../../store/types'
 import {
   getWorkspaceStatus,
@@ -15,10 +16,10 @@ import {
 import { PR_GROUP_META, PR_GROUP_ORDER, getPRGroupKey, getPRLaneKey } from './group-keys'
 import type { PRGroupKey } from './group-keys'
 import {
-  getEffectiveWorkflowStageForWorktree,
-  getWorkflowStageLaneKey,
+  getWorkflowStageLaneKeyForWorktree,
   getWorkflowStageLaneLabel,
-  WORKFLOW_STAGE_LANE_ORDER
+  WORKFLOW_STAGE_LANE_ORDER,
+  type WorkflowStageLineageContext
 } from './workflow-stage-grouping'
 import { addRepoIdToGroup, getProjectGroupingForRepo } from './project-grouping'
 import type {
@@ -70,6 +71,10 @@ export function buildOrderedGroups(args: {
   repoOrder: Map<string, number> | undefined
   projectOrderBy: ProjectOrderBy
   folderWorkspaces?: readonly RenderableFolderWorkspace[]
+  lineageById?: Readonly<Record<string, WorktreeLineage>>
+  worktreeMap?: ReadonlyMap<string, Worktree>
+  nestLineage?: boolean
+  cyclicLineageIds?: ReadonlySet<string>
 }): OrderedGroupEntry[] {
   const {
     groupBy,
@@ -86,8 +91,18 @@ export function buildOrderedGroups(args: {
     pendingByRepo,
     repoOrder,
     projectOrderBy,
-    folderWorkspaces = []
+    folderWorkspaces = [],
+    lineageById,
+    worktreeMap,
+    nestLineage = false,
+    cyclicLineageIds = new Set<string>()
   } = args
+  // Why null when not nesting: an unresolved lineage context must make every
+  // worktree its own root, matching appendWorktreeRows' flat-list behavior.
+  const stageLineage: WorkflowStageLineageContext | null =
+    nestLineage && lineageById && worktreeMap
+      ? { lineageById, worktreeMap, cyclicLineageIds }
+      : null
 
   const grouped = new Map<string, WorktreeGroupEntry>()
   for (const w of naturalWorktrees) {
@@ -105,13 +120,11 @@ export function buildOrderedGroups(args: {
       label =
         workspaceStatuses.find((status) => status.id === workspaceStatus)?.label ?? workspaceStatus
     } else if (groupBy === 'workflow-stage') {
-      const stage = getEffectiveWorkflowStageForWorktree(w, {
-        repoMap,
-        prCache,
-        issueCache,
-        settings
-      })
-      key = getWorkflowStageLaneKey(stage)
+      key = getWorkflowStageLaneKeyForWorktree(
+        w,
+        { repoMap, prCache, issueCache, settings },
+        stageLineage
+      )
       label = getWorkflowStageLaneLabel(key)
     } else {
       const prGroup = getPRGroupKey(w, repoMap, prCache, settings)

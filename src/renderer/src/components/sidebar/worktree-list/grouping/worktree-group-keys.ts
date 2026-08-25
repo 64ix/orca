@@ -6,8 +6,8 @@ import { cloneDefaultWorkspaceStatuses } from '../../../../../../shared/workspac
 import type { AppState } from '../../../../store/types'
 import { ALL_GROUP_KEY, getPRGroupKey, getProjectGroupHeaderKey } from './group-keys'
 import {
-  getEffectiveWorkflowStageForWorktree,
-  getWorkflowStageLaneKey
+  getWorkflowStageLaneKeyForWorktree,
+  type WorkflowStageLineageContext
 } from './workflow-stage-grouping'
 import { buildProjectGroupingIndex, getProjectGroupingForRepo } from './project-grouping'
 import type { ProjectGroupingModel } from './project-grouping'
@@ -21,7 +21,8 @@ export function getGroupKeyForWorktree(
   workspaceStatuses: readonly WorkspaceStatusDefinition[] = cloneDefaultWorkspaceStatuses(),
   settings?: AppState['settings'],
   projectGrouping?: ProjectGroupingModel,
-  issueCache: Record<string, unknown> | null = null
+  issueCache: Record<string, unknown> | null = null,
+  stageLineage: WorkflowStageLineageContext | null = null
 ): string | null {
   if (groupBy === 'none') {
     return ALL_GROUP_KEY
@@ -37,13 +38,10 @@ export function getGroupKeyForWorktree(
     ).key
   }
   if (groupBy === 'workflow-stage') {
-    return getWorkflowStageLaneKey(
-      getEffectiveWorkflowStageForWorktree(worktree, {
-        repoMap,
-        prCache,
-        issueCache,
-        settings
-      })
+    return getWorkflowStageLaneKeyForWorktree(
+      worktree,
+      { repoMap, prCache, issueCache, settings },
+      stageLineage
     )
   }
   return `pr:${getPRGroupKey(worktree, repoMap, prCache, settings)}`
@@ -58,7 +56,8 @@ export function getGroupKeysForWorktree(
   settings?: AppState['settings'],
   projectGroups: readonly ProjectGroup[] = [],
   projectGrouping?: ProjectGroupingModel,
-  issueCache: Record<string, unknown> | null = null
+  issueCache: Record<string, unknown> | null = null,
+  stageLineage: WorkflowStageLineageContext | null = null
 ): string[] {
   const groupKey = getGroupKeyForWorktree(
     groupBy,
@@ -68,7 +67,8 @@ export function getGroupKeysForWorktree(
     workspaceStatuses,
     settings,
     projectGrouping,
-    issueCache
+    issueCache,
+    stageLineage
   )
   if (!groupKey) {
     return []
