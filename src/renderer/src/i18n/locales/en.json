@@ -16390,7 +16390,20 @@
         "filesChanged": "{{value0}} files changed",
         "vsBase": "vs {{value0}}",
         "diffLoading": "Loading…",
-        "diffUnavailable": "Branch compare unavailable"
+        "diffUnavailable": "Branch compare unavailable",
+        "stage": "Stage",
+        "changeStage": "Change",
+        "shippedByMergedPR": "set by merged PR {{value0}}",
+        "shippedByYou": "set by you",
+        "stageChangeRefused": "Could not change the stage",
+        "stageUpdateFailed": "Could not update the stage",
+        "pullRequest": "Pull request",
+        "linkPullRequest": "Link",
+        "unlinkPullRequest": "Unlink",
+        "pullRequestPlaceholder": "#number or URL",
+        "invalidPullRequestLink": "Enter a pull request number or URL",
+        "prAbbrev": "PR",
+        "mrAbbrev": "MR"
       },
       "column": {
         "empty": "No cards",

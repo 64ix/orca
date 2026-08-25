@@ -101,17 +101,15 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
       s.worktreesByRepo[card.worktree.repoId]?.find((w) => w.id === card.worktree.id) ??
       card.worktree
   )
-  const agentStatesByWorktree = useFeatureBoardCardAgentStates([card.worktree.id])
-  const branchCompareSummary = useAppStore(
-    (s) => s.gitBranchCompareSummaryByWorktree[card.worktree.id]
-  )
+  const agentStatesByWorktree = useFeatureBoardCardAgentStates([worktree.id])
+  const branchCompareSummary = useAppStore((s) => s.gitBranchCompareSummaryByWorktree[worktree.id])
 
   const vitals = useMemo(
     () =>
       buildTaskDetailVitals({
         worktree,
         repo,
-        agentStates: agentStatesByWorktree.get(card.worktree.id) ?? EMPTY_AGENT_STATES,
+        agentStates: agentStatesByWorktree.get(worktree.id) ?? EMPTY_AGENT_STATES,
         branchCompareSummary
       }),
     [worktree, repo, agentStatesByWorktree, branchCompareSummary]
@@ -130,7 +128,7 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
     >
       <header className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold">
-          {card.worktree.displayName}
+          {worktree.displayName}
         </h2>
         <Tooltip>
           <TooltipTrigger asChild>

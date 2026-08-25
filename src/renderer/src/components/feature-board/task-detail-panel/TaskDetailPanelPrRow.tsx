@@ -15,19 +15,27 @@ type LinkedReviewSlot = {
   number: number
 }
 
-const LINKED_REVIEW_SLOTS: readonly Omit<LinkedReviewSlot, 'number'>[] = [
-  { metaKey: 'linkedPR', label: 'PR' },
-  { metaKey: 'linkedGitLabMR', label: 'MR' },
-  { metaKey: 'linkedBitbucketPR', label: 'PR' },
-  { metaKey: 'linkedAzureDevOpsPR', label: 'PR' },
-  { metaKey: 'linkedGiteaPR', label: 'PR' }
+type LinkedReviewSlotKey = { metaKey: keyof WorktreeMeta; labelKey: 'prAbbrev' | 'mrAbbrev' }
+
+const LINKED_REVIEW_SLOTS: readonly LinkedReviewSlotKey[] = [
+  { metaKey: 'linkedPR', labelKey: 'prAbbrev' },
+  { metaKey: 'linkedGitLabMR', labelKey: 'mrAbbrev' },
+  { metaKey: 'linkedBitbucketPR', labelKey: 'prAbbrev' },
+  { metaKey: 'linkedAzureDevOpsPR', labelKey: 'prAbbrev' },
+  { metaKey: 'linkedGiteaPR', labelKey: 'prAbbrev' }
 ]
+
+function reviewLabel(labelKey: 'prAbbrev' | 'mrAbbrev'): string {
+  return labelKey === 'prAbbrev'
+    ? translate('components.featureBoard.panel.prAbbrev', 'PR')
+    : translate('components.featureBoard.panel.mrAbbrev', 'MR')
+}
 
 function firstLinkedReviewSlot(worktree: Worktree): LinkedReviewSlot | null {
   for (const slot of LINKED_REVIEW_SLOTS) {
     const number = worktree[slot.metaKey]
     if (typeof number === 'number') {
-      return { ...slot, number }
+      return { metaKey: slot.metaKey, label: reviewLabel(slot.labelKey), number }
     }
   }
   return null
