@@ -5124,7 +5124,8 @@
           "65a9820bd1": "Agent statuses",
           "219ebf1961": "Branch name",
           "folderPathIdentity": "Branch / folder path",
-          "cli": "Orca CLI"
+          "cli": "Orca CLI",
+          "stageGroupBy": "Stage"
         },
         "SshTargetRow": {
           "4677394048": "Connecting…",
@@ -5193,7 +5194,8 @@
           "automationCreated": "Created by automation",
           "branchIdentity": "Branch",
           "branchFolderPathIdentity": "Branch or folder path",
-          "ef18787206": "Queued for deletion"
+          "ef18787206": "Queued for deletion",
+          "stageBadgeTooltip": "Delivery stage"
         },
         "WorktreeCardAgents": {
           "1b0a156717": "Agents"
@@ -5613,7 +5615,8 @@
               "682ed5d551": "Closed",
               "7c2f009786": "In progress",
               "6798dc7c94": "In review",
-              "5076efc3d2": "Done"
+              "5076efc3d2": "Done",
+              "sansStage": "Sans stage"
             }
           }
         },

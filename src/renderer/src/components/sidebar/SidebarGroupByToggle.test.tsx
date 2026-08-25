@@ -51,4 +51,19 @@ describe('SidebarGroupByToggle', () => {
     expect(noneButton).not.toBeUndefined()
     expect(setGroupBy).toHaveBeenCalledWith('none')
   })
+
+  it('offers the workflow-stage mode beside the existing ones and commits it', async () => {
+    const setGroupBy = vi.fn()
+    const container = await renderGroupByToggle({ groupBy: 'repo', setGroupBy })
+    const stageButton = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent === 'Stage'
+    )
+
+    await act(async () => {
+      stageButton?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    })
+
+    expect(stageButton).not.toBeUndefined()
+    expect(setGroupBy).toHaveBeenCalledWith('workflow-stage')
+  })
 })
