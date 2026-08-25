@@ -267,3 +267,7 @@ Windows code signing sponored/provided by [SignPath.io](https://signpath.io), ce
 ## License
 
 Orca is free and open source under the [MIT License](LICENSE).
+
+## Fork notes
+
+This is a fork of [stablyai/orca](https://github.com/stablyai/orca) maintained by @64ix. Issues labeled `ready-for-agent` are picked up automatically by an agent workflow and resolved as pull requests, while CI keeps every branch honest before merge. Upstream functionality is preserved; fork-specific changes stay small and documented here.
