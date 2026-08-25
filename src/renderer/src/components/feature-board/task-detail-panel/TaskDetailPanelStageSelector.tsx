@@ -1,18 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { Check, ChevronDown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/store'
-import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
-import {
-  deriveEffectiveWorkflowStage,
-  resolveWorkflowStageDerivationInputs
-} from '@/components/sidebar/effective-workflow-stage'
 import { getFeatureBoardStageLabel } from '../feature-board-stage-labels'
 import type { FeatureBoardCard } from '../feature-board-card-model'
 import { buildTaskDetailStageSelector } from './task-detail-panel-stage-selector-model'
 import { useTaskDetailPanelStageChange } from './use-task-detail-panel-stage-change'
+import { useWorktreeStageDerivation } from './use-worktree-stage-derivation'
 
 /**
  * Stage section of the task detail panel (#55): shows where the card sits, why it is held
@@ -25,24 +20,20 @@ export function TaskDetailPanelStageSelector({
 }: {
   card: FeatureBoardCard
 }): React.JSX.Element {
-  const repoMap = useRepoMap()
-  const settings = useAppStore((s) => s.settings)
-  const prCache = useAppStore((s) => s.prCache)
-  const issueCache = useAppStore((s) => s.issueCache)
+  const { effectiveStage, workspaceKind, facts } = useWorktreeStageDerivation(card.worktree)
   const [pickerOpen, setPickerOpen] = useState(false)
   const applyStage = useTaskDetailPanelStageChange(card)
 
-  const repo = repoMap.get(card.worktree.repoId)
-  const model = useMemo(() => {
-    const inputs = { repo: repo ?? null, settings, prCache, issueCache }
-    const { workspaceKind, facts } = resolveWorkflowStageDerivationInputs(card.worktree, inputs)
-    return buildTaskDetailStageSelector({
-      workspaceKind,
-      facts,
-      consumedMergedPRNumbers: card.worktree.consumedMergedPRNumbers,
-      currentEffectiveStage: deriveEffectiveWorkflowStage(card.worktree, inputs)
-    })
-  }, [repo, settings, prCache, issueCache, card.worktree])
+  const model = useMemo(
+    () =>
+      buildTaskDetailStageSelector({
+        workspaceKind,
+        facts,
+        consumedMergedPRNumbers: card.worktree.consumedMergedPRNumbers,
+        currentEffectiveStage: effectiveStage
+      }),
+    [workspaceKind, facts, card.worktree, effectiveStage]
+  )
 
   const stageLabel = translate('components.featureBoard.panel.stage', 'Stage')
   const changeLabel = translate('components.featureBoard.panel.changeStage', 'Change')

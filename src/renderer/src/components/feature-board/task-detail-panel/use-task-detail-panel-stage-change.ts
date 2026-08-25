@@ -1,15 +1,11 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/store'
-import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
-import {
-  deriveEffectiveWorkflowStage,
-  resolveWorkflowStageDerivationInputs
-} from '@/components/sidebar/effective-workflow-stage'
 import type { WorkflowStage } from '../../../../../shared/workflow-stages'
 import { decideFeatureBoardCardDrop } from '../feature-board-drop-handler'
 import type { FeatureBoardCard } from '../feature-board-card-model'
+import { useWorktreeStageDerivation } from './use-worktree-stage-derivation'
 
 /**
  * Selector-driven stage change (#55): the same guard delegate and de-ship bookkeeping as
@@ -19,26 +15,20 @@ import type { FeatureBoardCard } from '../feature-board-card-model'
 export function useTaskDetailPanelStageChange(
   card: FeatureBoardCard
 ): (stage: WorkflowStage) => void {
-  const repoMap = useRepoMap()
+  const derivation = useWorktreeStageDerivation(card.worktree)
   return useCallback(
     (stage) => {
-      const repo = repoMap.get(card.worktree.repoId)
-      if (!repo) {
+      if (!derivation.repo) {
         return
       }
       const state = useAppStore.getState()
-      const inputs = {
-        repo,
-        settings: state.settings,
-        prCache: state.prCache,
-        issueCache: state.issueCache
-      }
       const outcome = decideFeatureBoardCardDrop({
         consumedMergedPRNumbers: card.worktree.consumedMergedPRNumbers,
         targetStage: stage,
         callerKind: 'human',
-        ...resolveWorkflowStageDerivationInputs(card.worktree, inputs),
-        currentEffectiveStage: deriveEffectiveWorkflowStage(card.worktree, inputs)
+        workspaceKind: derivation.workspaceKind,
+        facts: derivation.facts,
+        currentEffectiveStage: derivation.effectiveStage
       })
       if (!outcome.allowed) {
         toast.error(
@@ -62,6 +52,6 @@ export function useTaskDetailPanelStageChange(
         }
       })
     },
-    [card.worktree, repoMap]
+    [card.worktree, derivation]
   )
 }
