@@ -6,6 +6,8 @@ import {
   type FeatureBoardCardDropRequest
 } from './feature-board-drop-handler'
 
+const NOW = 1_700_000_000_000
+
 const declaredStage: DerivedWorkflowStage = {
   stage: 'implementing',
   reason: 'declared-stage',
@@ -53,12 +55,20 @@ describe('decideFeatureBoardCardDrop', () => {
     expect(outcome).toEqual({ allowed: false, explanation: SHIPPED_STAGE_STEERING_MESSAGE })
   })
 
-  it('allows a human to drop onto shipped', () => {
+  it('allows a human to drop onto shipped, stamping shippedAt at the drop moment', () => {
     const outcome = decideFeatureBoardCardDrop(
-      request({ targetStage: 'shipped', callerKind: 'human' })
+      request({ targetStage: 'shipped', callerKind: 'human', now: NOW })
     )
     expect(outcome.allowed).toBe(true)
-    expect(outcome.allowed && outcome.metaUpdates.workflowStage).toBe('shipped')
+    expect(outcome.allowed && outcome.metaUpdates).toEqual({
+      workflowStage: 'shipped',
+      shippedAt: NOW
+    })
+  })
+
+  it('does not stamp shippedAt for a non-shipped drop', () => {
+    const outcome = decideFeatureBoardCardDrop(request({ targetStage: 'review', now: NOW }))
+    expect(outcome.allowed && outcome.metaUpdates.shippedAt).toBeUndefined()
   })
 
   it('records the governing merged PR as consumed when a human drops a card off shipped', () => {

@@ -186,4 +186,27 @@ describe('runShippedFadePass (auto-archive applier)', () => {
     const updates = capturedUpdates(shape)
     expect(updates.get('a')?.shippedAt).toBe(NOW - 10 * DAY)
   })
+
+  it('entry-capture via a cached merged PR uses PR updatedAt (not pass now) and does not archive within the delay', () => {
+    const repo = { id: 'repo-1', path: '/repo' }
+    const w = worktree('a', { workflowStage: 'shipped', head: 'abc' })
+    // Merged in the past but still within the auto-archive delay.
+    const mergedUpdatedAt = new Date(NOW - 3 * DAY).toISOString()
+    const shape = makeShape({
+      worktreesByRepo: { 'repo-1': [w] },
+      repos: [repo] as never,
+      prCache: {
+        [`${repo.id}::feature`]: {
+          data: { state: 'merged', headSha: 'abc', updatedAt: mergedUpdatedAt },
+          fetchedAt: NOW
+        }
+      } as never
+    })
+    runShippedFadePass(shape)
+    const updates = capturedUpdates(shape)
+    expect(updates.get('a')?.shippedAt).toBe(NOW - 3 * DAY)
+    expect(updates.get('a')?.shippedAt).not.toBe(NOW)
+    // Entry capture never archives, even on the merged-PR path.
+    expect(updates.get('a')?.isArchived).toBeUndefined()
+  })
 })

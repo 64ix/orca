@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildStageDeclarationMeta,
   DAY_MS,
   isShippedFaded,
   restoredShippedCardMeta,
@@ -61,5 +62,18 @@ describe('resolveShippedEntryTime (entry-time fallback)', () => {
 describe('restoredShippedCardMeta (restore re-arm)', () => {
   it('un-archives and re-stamps the shipped entry time so the fade re-arms', () => {
     expect(restoredShippedCardMeta(NOW)).toEqual({ isArchived: false, shippedAt: NOW })
+  })
+})
+
+describe('buildStageDeclarationMeta (shipping writes the entry stamp)', () => {
+  it('stamps shippedAt when the declared stage is shipped', () => {
+    expect(buildStageDeclarationMeta('shipped', NOW)).toEqual({
+      workflowStage: 'shipped',
+      shippedAt: NOW
+    })
+  })
+
+  it('does not stamp shippedAt for any other stage', () => {
+    expect(buildStageDeclarationMeta('review', NOW)).toEqual({ workflowStage: 'review' })
   })
 })
