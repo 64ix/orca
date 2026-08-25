@@ -123,7 +123,16 @@ function decideDropForWorktree(input: {
   prCache: AppState['prCache']
   issueCache: AppState['issueCache']
 }) {
-  const { worktree, targetStage, worktreeMap, worktreeLineageById, repoMap, settings, prCache, issueCache } = input
+  const {
+    worktree,
+    targetStage,
+    worktreeMap,
+    worktreeLineageById,
+    repoMap,
+    settings,
+    prCache,
+    issueCache
+  } = input
   const repo = repoMap.get(worktree.repoId)
   const stageInputs = { repo, settings, prCache, issueCache }
   const currentEffectiveStage = deriveEffectiveWorkflowStage(worktree, stageInputs)
