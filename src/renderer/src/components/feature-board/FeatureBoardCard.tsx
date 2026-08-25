@@ -114,29 +114,27 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
         isActive={activeWorktreeId === card.worktree.id}
         nativeDragEnabled={false}
       />
-      {onArchiveCard ? (
-        <div className="absolute right-1.5 top-1.5 z-10">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="size-6 bg-background/60 text-muted-foreground"
-                aria-label={translate('components.featureBoard.card.menu', 'Card actions')}
-              >
-                <MoreHorizontal className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onSelect={onArchiveCard}>
-                <Archive className="size-3.5" />
-                {translate('components.featureBoard.card.archive', 'Archive')}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ) : null}
+      <div className="absolute right-1.5 top-1.5 z-10">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="size-6 bg-background/60 text-muted-foreground"
+              aria-label={translate('components.featureBoard.card.menu', 'Card actions')}
+            >
+              <MoreHorizontal className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onSelect={onArchiveCard}>
+              <Archive className="size-3.5" />
+              {translate('components.featureBoard.card.archive', 'Archive')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {branch ? (
         <div className="-mt-1 flex min-w-0 items-center gap-1 px-1.5 pb-1 text-muted-foreground">
           <GitBranch className="size-2.5 shrink-0" />

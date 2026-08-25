@@ -25,6 +25,14 @@ export function isShippedFaded(params: ShippedFadeCheckParams): boolean {
   return now - shippedAt >= delayDays * DAY_MS
 }
 
+export type RestoredShippedCardMeta = { isArchived: false; shippedAt: number }
+
+/** Meta to persist on restore (#26): un-archive and re-stamp shipped entry so
+ *  the fade delay re-arms from now; stage itself is untouched. */
+export function restoredShippedCardMeta(now: number): RestoredShippedCardMeta {
+  return { isArchived: false, shippedAt: now }
+}
+
 export type ResolveShippedEntryTimeParams = {
   /** Persisted entry time when already captured. */
   shippedAt: number | undefined
