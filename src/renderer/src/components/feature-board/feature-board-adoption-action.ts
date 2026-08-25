@@ -2,6 +2,7 @@ import { useAppStore } from '@/store'
 import { launchWorkItemDirect } from '@/lib/launch-work-item-direct'
 import type { LaunchWorkItemDirectArgs } from '@/lib/launch-work-item-direct-types'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
+import { buildStageDeclarationMeta } from './shipped-fade'
 import {
   buildFeatureBoardAdoptionPlan,
   type FeatureBoardAdoptionInput
@@ -13,7 +14,7 @@ export type FeatureBoardAdoptionActionDeps = {
 }
 
 function defaultDeclareStage(worktreeId: string, stage: WorkflowStage): void {
-  void useAppStore.getState().updateWorktreeMeta(worktreeId, { workflowStage: stage })
+  void useAppStore.getState().updateWorktreeMeta(worktreeId, buildStageDeclarationMeta(stage))
 }
 
 const defaultDeps: FeatureBoardAdoptionActionDeps = {

@@ -82,6 +82,8 @@ export type WorktreeMeta = {
   workflowStage?: WorkflowStage | null
   /** Merged PR numbers a human already de-shipped once; consumed merges never re-drive fact stages (#22). */
   consumedMergedPRNumbers?: number[]
+  /** See {@link Worktree.shippedAt}. Persisted to orca-data.json. */
+  shippedAt?: number
   diffComments?: DiffComment[]
   /** Path-derived worktree ids this worktree had before its folder was renamed
    *  on disk (the id embeds the path). Lets the daemon's session GC and registry

@@ -84,6 +84,8 @@ export type GlobalSettings = {
   appFontFamily: string
   editorAutoSave: boolean
   editorAutoSaveDelayMs: number
+  /** Days a shipped card stays on the board before auto-archiving (#26). */
+  autoArchiveDelayDays?: number
   editorMinimapEnabled: boolean
   /** Opt-in code-editor font; empty (the default) keeps following `terminalFontFamily`. */
   editorFontFamily?: string

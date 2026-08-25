@@ -46,6 +46,7 @@ export const SYNCED_WORKTREE_META_FIELDS = [
   'isPinned',
   'sortOrder',
   'manualOrder',
+  'shippedAt',
   'priorWorktreeIds'
 ] as const satisfies readonly (keyof WorktreeMeta)[]
 
