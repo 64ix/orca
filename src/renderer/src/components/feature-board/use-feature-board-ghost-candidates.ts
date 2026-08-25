@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
 import {
@@ -134,43 +134,47 @@ export function useFeatureBoardGhostCandidates(
     return linked
   }, [scopedWorktrees, repoMap])
 
-  const [referencedIssueNumbers, setReferencedIssueNumbers] = useState<ReadonlySet<number>>(
-    () => new Set()
-  )
+  // Why keyed by repoId: issue numbers collide across repos, so refs from repo A's spec
+  // body must not exclude issue #N in repo B.
+  const [referencedNumbersByRepo, setReferencedNumbersByRepo] = useState<
+    ReadonlyMap<string, ReadonlySet<number>>
+  >(() => new Map())
 
   // Why resolve bodies here: exclusion needs the linked spec/task body text, which only the
   // single-issue endpoint carries (`issueCache[].data.description`); `fetchIssue` caches.
   useEffect(() => {
     if (linkedIssues.length === 0) {
-      setReferencedIssueNumbers(new Set())
+      setReferencedNumbersByRepo(new Map())
       return undefined
     }
     let stale = false
     void Promise.all(
       linkedIssues.map(async ({ repoPath, repoId, number }) => {
         try {
-          return await fetchIssue(repoPath, number, { repoId })
+          return { repoId, body: (await fetchIssue(repoPath, number, { repoId }))?.description }
         } catch {
-          return null
+          return { repoId, body: undefined }
         }
       })
-    ).then((issues) => {
+    ).then((resolved) => {
       if (stale) {
         return
       }
-      const numbers = new Set<number>()
-      for (const issue of issues) {
-        for (const number of parseReferencedIssueNumbers(issue?.description ?? '')) {
+      const byRepo = new Map<string, Set<number>>()
+      for (const { repoId, body } of resolved) {
+        const numbers = byRepo.get(repoId) ?? new Set<number>()
+        for (const number of parseReferencedIssueNumbers(body ?? '')) {
           numbers.add(number)
         }
+        byRepo.set(repoId, numbers)
       }
-      setReferencedIssueNumbers(numbers)
+      setReferencedNumbersByRepo(byRepo)
     })
     return () => {
       stale = true
     }
-    // Why linkedIssueKey not linkedIssues: fetchIssue is a stable slice action; resolved
-    // bodies arrive through issueCache, whose identity re-runs this effect.
+    // Why linkedIssues + issueCache: resolved bodies land in issueCache, whose identity
+    // re-runs this effect once fetched.
   }, [fetchIssue, linkedIssues, issueCache])
 
   // Per-repo derivation: issue numbers collide across repos, so linked/dismissed sets are scoped.
@@ -185,7 +189,7 @@ export function useFeatureBoardGhostCandidates(
             w.repoId === repo.id && w.linkedIssue ? [w.linkedIssue] : []
           )
         ),
-        referencedIssueNumbers,
+        referencedIssueNumbers: referencedNumbersByRepo.get(repo.id) ?? new Set(),
         dismissedIssueNumbers: getFeatureBoardDismissedIssueNumbers(
           featureBoardGhostDismissals,
           repo.id
@@ -200,7 +204,7 @@ export function useFeatureBoardGhostCandidates(
     selectedRepos,
     openIssues,
     scopedWorktrees,
-    referencedIssueNumbers,
+    referencedNumbersByRepo,
     featureBoardGhostDismissals
   ])
 
@@ -223,7 +227,8 @@ export function useFeatureBoardGhostCandidates(
     ghostsByStage,
     totalCount: candidates.length,
     dismissedIssueNumbers,
-    dismiss: useCallback(dismissFeatureBoardGhost, [dismissFeatureBoardGhost]),
-    restore: useCallback(restoreFeatureBoardGhost, [restoreFeatureBoardGhost])
+    // Slice actions are stable store references.
+    dismiss: dismissFeatureBoardGhost,
+    restore: restoreFeatureBoardGhost
   }
 }
