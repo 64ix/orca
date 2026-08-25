@@ -7,6 +7,7 @@ import type { UsagePercentageDisplay } from './usage-percentage-display'
 import type { StatusBarUsageMode } from './status-bar-usage-mode'
 import type { PersistedTrustedOrcaHooks } from './orca-yaml-hook-types'
 import type { CustomPet } from './pet-types'
+import type { FeatureBoardColumnOrderEntry } from './feature-board-column-order'
 import type {
   AgentActivityDisplayMode,
   ManualRepoOrderEntry,
@@ -51,6 +52,8 @@ export type PersistedUIState = {
   workspaceHostOrder?: WorkspaceHostOrder
   /** Desktop-owned all-host repo order; host-qualified identities keep a manual cross-host interleaving while each host owns its local permutation. */
   manualRepoOrder?: ManualRepoOrderEntry[]
+  /** Feature board card order: per-project, per-column ordered worktree ids (spec 21); stale ids filtered at read. */
+  featureBoardColumnOrder?: FeatureBoardColumnOrderEntry[]
   /** Deprecated legacy positive-form setting. Ignored on hydration. */
   showSleepingWorkspaces?: boolean
   /** Deprecated legacy name used by a short-lived build. Ignored on hydration. */
@@ -80,6 +83,8 @@ export type PersistedUIState = {
   workspaceStatuses?: WorkspaceStatusDefinition[]
   workspaceBoardOpacity?: number
   workspaceBoardColumnWidth?: number
+  /** Feature board column width (#47) — persisted independently of the classic drawer's. */
+  featureBoardColumnWidth?: number
   syncTaskStatusFromWorkspaceBoard?: boolean
   /** One-shot migration flag for a short-lived build that persisted default statuses in reverse order; once stamped, ordering is never re-inferred from IDs/labels. */
   _workspaceStatusesDefaultOrderMigrated?: boolean

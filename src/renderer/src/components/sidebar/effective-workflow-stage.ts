@@ -5,6 +5,7 @@ import { isFolderRepo } from '../../../../shared/repo-kind'
 import {
   deriveWorkflowStage,
   type DerivedWorkflowStage,
+  type WorkflowDerivationWorkspaceKind,
   type WorkflowTaskTreeFacts,
   type WorkflowWorktreeFacts
 } from '../../../../shared/stage-derivation/stage-derivation'
@@ -33,6 +34,31 @@ export type EffectiveWorkflowStageInputs = StageFactCaches & {
   factSource?: GitHubStageFactSource | null
 }
 
+export type WorkflowStageDerivationFactsInput = {
+  workspaceKind: WorkflowDerivationWorkspaceKind
+  facts: WorkflowTaskTreeFacts | null
+}
+
+/**
+ * The governing-fact inputs for one workspace row, independent of any particular declared
+ * stage — exported so a caller re-deriving what a *different* declaration would resolve to
+ * (the feature board's drop handler, #47) can reuse the exact same fact lookup instead of
+ * duplicating it.
+ */
+export function resolveWorkflowStageDerivationInputs(
+  worktree: Worktree,
+  inputs: EffectiveWorkflowStageInputs
+): WorkflowStageDerivationFactsInput {
+  const workspaceKind = isFolderWorkspaceRow(worktree, inputs.repo) ? 'folder' : 'git-worktree'
+  return {
+    workspaceKind,
+    facts:
+      workspaceKind === 'folder'
+        ? null
+        : ({ self: rowFactsFor(worktree, inputs) } satisfies WorkflowTaskTreeFacts)
+  }
+}
+
 /**
  * Effective stage for one workspace row: the declared stage unless GitHub facts
  * govern. Pure computation over client-side caches — never persisted (#38).
@@ -42,14 +68,11 @@ export function deriveEffectiveWorkflowStage(
   worktree: Worktree,
   inputs: EffectiveWorkflowStageInputs
 ): DerivedWorkflowStage {
-  const workspaceKind = isFolderWorkspaceRow(worktree, inputs.repo) ? 'folder' : 'git-worktree'
+  const { workspaceKind, facts } = resolveWorkflowStageDerivationInputs(worktree, inputs)
   return deriveWorkflowStage({
     workspaceKind,
     declaredStage: worktree.workflowStage,
-    facts:
-      workspaceKind === 'folder'
-        ? null
-        : ({ self: rowFactsFor(worktree, inputs) } satisfies WorkflowTaskTreeFacts),
+    facts,
     consumedMergeIds: consumedMergeIdsFromNumbers(worktree.consumedMergedPRNumbers)
   })
 }
@@ -81,8 +104,12 @@ function isFolderWorkspaceRow(worktree: Worktree, repo: Repo | null | undefined)
  * repos all land in the same renderer cache under their own key prefix.
  * A merged entry whose head does not match this worktree is a stale fact from a
  * reused branch and carries no signal until its divergence clear lands.
+ *
+ * Exported so other card-level consumers (the feature board's PR-state filter,
+ * #50) can read the same effective PR without re-deriving the merged-staleness
+ * rule themselves.
  */
-function knownPullRequestFor(
+export function knownPullRequestFor(
   worktree: Worktree,
   { repo, settings, prCache }: EffectiveWorkflowStageInputs
 ): PRInfo | null {
