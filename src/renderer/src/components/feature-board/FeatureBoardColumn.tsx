@@ -9,10 +9,16 @@ import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { FeatureBoardCard } from './FeatureBoardCard'
 import { FeatureBoardColumnHeader } from './FeatureBoardColumnHeader'
 import type { FeatureBoardCard as FeatureBoardCardModel } from './feature-board-card-model'
+import type { FeatureBoardGhostEntry } from './use-feature-board-ghost-candidates'
+import { FeatureBoardGhostCard } from './FeatureBoardGhostCard'
+
+const EMPTY_GHOSTS: readonly FeatureBoardGhostEntry[] = []
 
 export type FeatureBoardColumnProps = {
   stage: WorkflowStage
   cards: readonly FeatureBoardCardModel[]
+  /** Ghost cards (#49): quick-grab candidates rendered after real cards. */
+  ghosts?: readonly FeatureBoardGhostEntry[]
   /** Extension point for #48 — forwarded to `FeatureBoardColumnHeader`. */
   headerAction?: React.ReactNode
   /**
@@ -32,6 +38,7 @@ export type FeatureBoardColumnProps = {
 export function FeatureBoardColumn({
   stage,
   cards,
+  ghosts,
   headerAction,
   columnWidth = 280,
   isResizingColumn = false,
@@ -39,6 +46,8 @@ export function FeatureBoardColumn({
   onColumnResizeStart,
   onColumnResizeKeyDown
 }: FeatureBoardColumnProps): React.JSX.Element {
+  const columnGhosts = ghosts ?? EMPTY_GHOSTS
+
   return (
     <div
       className={cn(
@@ -48,14 +57,29 @@ export function FeatureBoardColumn({
       style={{ width: `${columnWidth}px` }}
       data-feature-board-column={stage}
     >
-      <FeatureBoardColumnHeader stage={stage} count={cards.length} headerAction={headerAction} />
+      <FeatureBoardColumnHeader
+        stage={stage}
+        count={cards.length + columnGhosts.length}
+        headerAction={headerAction}
+      />
       <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
-        {cards.length === 0 ? (
+        {cards.length === 0 && columnGhosts.length === 0 ? (
           <div className="px-1 py-6 text-center text-[12px] text-muted-foreground/70">
             {translate('components.featureBoard.column.empty', 'No cards')}
           </div>
         ) : (
-          cards.map((card) => <FeatureBoardCard key={card.id} card={card} />)
+          <>
+            {cards.map((card) => (
+              <FeatureBoardCard key={card.id} card={card} />
+            ))}
+            {columnGhosts.map(({ repoId, candidate }) => (
+              <FeatureBoardGhostCard
+                key={`ghost-${repoId}-${candidate.issue.number}`}
+                candidate={candidate}
+                repoId={repoId}
+              />
+            ))}
+          </>
         )}
       </div>
       {onColumnResizeStart && onColumnResizeKeyDown ? (

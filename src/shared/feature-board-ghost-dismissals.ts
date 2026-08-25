@@ -9,9 +9,7 @@ function isFinitePositiveInt(value: unknown): value is number {
 }
 
 /** Drops malformed repo keys and non-positive/duplicate issue numbers from persisted state. */
-export function normalizeFeatureBoardGhostDismissals(
-  value: unknown
-): FeatureBoardGhostDismissals {
+export function normalizeFeatureBoardGhostDismissals(value: unknown): FeatureBoardGhostDismissals {
   if (typeof value !== 'object' || value === null) {
     return {}
   }
@@ -27,7 +25,7 @@ export function normalizeFeatureBoardGhostDismissals(
       }
     }
     if (cleaned.length > 0) {
-      result[repoId] = cleaned
+      result[repoId] = cleaned.sort((a, b) => a - b)
     }
   }
   return result
