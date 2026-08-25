@@ -16428,6 +16428,10 @@
       "drop": {
         "refused": "Could not move this card",
         "updateFailed": "Could not update the stage"
+      },
+      "ghost": {
+        "restore": "Restore ghost card",
+        "dismiss": "Don't show this issue"
       }
     }
   },
