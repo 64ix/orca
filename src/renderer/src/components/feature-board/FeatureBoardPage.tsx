@@ -19,6 +19,7 @@ import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
 import { FeatureBoardArchiveSink } from './FeatureBoardArchiveSink'
+import { restoredShippedCardMeta } from './shipped-fade'
 import type { FeatureBoardColumnOrderByStage } from './feature-board-view-model'
 
 /**
@@ -54,7 +55,7 @@ export default function FeatureBoardPage(): React.JSX.Element {
   const restoreArchivedCard = useCallback(
     (worktreeId: string) => {
       // Why re-stamp shippedAt: restore returns the card to `shipped` and re-arms the fade delay.
-      void updateWorktreeMeta(worktreeId, { isArchived: false, shippedAt: Date.now() })
+      void updateWorktreeMeta(worktreeId, restoredShippedCardMeta(Date.now()))
     },
     [updateWorktreeMeta]
   )

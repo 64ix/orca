@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runShippedFadePass } from './use-shipped-fade-archive'
+import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import { DEFAULT_AUTO_ARCHIVE_DELAY_DAYS } from '../../../shared/constants'
 import { DAY_MS } from '@/components/feature-board/shipped-fade'
 import type { Worktree } from '../../../shared/worktree/types'
@@ -48,6 +49,10 @@ function capturedUpdates(shape: Shape): Map<string, Record<string, unknown>> {
     string,
     Record<string, unknown>
   >
+}
+
+function shapeSettings(): Shape['settings'] {
+  return { autoArchiveDelayDays: DEFAULT_AUTO_ARCHIVE_DELAY_DAYS } as never
 }
 
 beforeEach(() => {
@@ -162,7 +167,16 @@ describe('runShippedFadePass (auto-archive applier)', () => {
       worktreesByRepo: { 'repo-1': [w] },
       repos: [repo] as never,
       prCache: {
-        [`${repo.id}::feature`]: {
+        // Same key derivation as mergedPrObservedAtFor in production.
+        [getGitHubPRCacheKey(
+          repo.path,
+          repo.id,
+          'feature',
+          shapeSettings(),
+          undefined,
+          undefined,
+          true
+        )]: {
           data: { state: 'merged', headSha: 'abc', updatedAt: mergedUpdatedAt },
           fetchedAt: NOW
         }
