@@ -132,6 +132,13 @@ describe('runShippedFadePass (auto-archive applier)', () => {
     expect(shape.updateWorktreesMeta).not.toHaveBeenCalled()
   })
 
+  it('skips folder workspaces (no persisted shippedAt, batch applier is git-only)', () => {
+    const folder = worktree('folder::/wt/foo', { workflowStage: 'shipped' })
+    const shape = makeShape({ worktreesByRepo: { 'repo-1': [folder] } })
+    runShippedFadePass(shape)
+    expect(shape.updateWorktreesMeta).not.toHaveBeenCalled()
+  })
+
   it('honours the configured delay rather than the default', () => {
     // Default is 14 days; 5 days must not archive with a 7-day config.
     const w = worktree('a', {
@@ -141,7 +148,7 @@ describe('runShippedFadePass (auto-archive applier)', () => {
     })
     const shape = makeShape({
       worktreesByRepo: { 'repo-1': [w] },
-      settings: { autoArchiveDelayDays: 7 }
+      settings: { autoArchiveDelayDays: 7 } as never
     })
     runShippedFadePass(shape)
     expect(shape.updateWorktreesMeta).not.toHaveBeenCalled()
@@ -153,13 +160,13 @@ describe('runShippedFadePass (auto-archive applier)', () => {
     const mergedUpdatedAt = new Date(NOW - 10 * DAY).toISOString()
     const shape = makeShape({
       worktreesByRepo: { 'repo-1': [w] },
-      repos: [repo],
+      repos: [repo] as never,
       prCache: {
         [`${repo.id}::feature`]: {
           data: { state: 'merged', headSha: 'abc', updatedAt: mergedUpdatedAt },
           fetchedAt: NOW
         }
-      }
+      } as never
     })
     runShippedFadePass(shape)
     const updates = capturedUpdates(shape)

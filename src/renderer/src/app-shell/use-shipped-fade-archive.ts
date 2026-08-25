@@ -5,6 +5,7 @@ import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import { isCachedMergedBranchPRCurrentForWorktree } from '@/components/sidebar/worktree-card-pr-display'
 import { deriveEffectiveWorkflowStage } from '@/components/sidebar/effective-workflow-stage'
 import { normalizeWorkflowStage } from '../../../shared/workflow-stages'
+import { parseWorkspaceKey } from '../../../shared/workspace-scope'
 import { DEFAULT_AUTO_ARCHIVE_DELAY_DAYS } from '../../../shared/constants'
 import type { AppState } from '@/store/types'
 import type { Worktree } from '../../../shared/worktree/types'
@@ -63,6 +64,12 @@ export function runShippedFadePass(state: AppStateShape): void {
 
   for (const worktree of Object.values(state.worktreesByRepo).flat()) {
     if (worktree.isArchived) {
+      continue
+    }
+    // Why: folder workspaces have no persisted shippedAt (FolderWorkspace omits
+    // it), and the batch meta applier is git-worktree-only — skip them so a
+    // shipped folder never persists a stray meta entry or blocks the pass.
+    if (parseWorkspaceKey(worktree.id)?.type === 'folder') {
       continue
     }
     const derived = deriveEffectiveWorkflowStage(worktree, {
