@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 import type { SkillCatalogInstallRun } from '../../shared/skill-catalog'
+import type { TuiAgent } from '../../shared/tui-agent'
 import { WINDOWS_BATCH_UNSAFE_CHARACTERS_LABEL } from '../../shared/windows-batch-spawn'
 import {
   CATALOG_INSTALL_CANCEL_RELEASE_TIMEOUT_MS,
@@ -16,7 +17,7 @@ class FakeChild extends EventEmitter {
 
 function makeRunner(
   overrides: {
-    detectAgentKeys?: () => Promise<readonly string[]>
+    detectAgentKeys?: () => Promise<readonly TuiAgent[]>
     rescanMissingNames?: (names: string[]) => Promise<string[]>
     resolveCommand?: (name: string) => string
     killTree?: (pid: number, killRoot: () => void) => Promise<void>
@@ -187,8 +188,9 @@ describe('SkillCatalogInstallRunner', () => {
     runner.cancel()
 
     expect(killTree).toHaveBeenCalledWith(1234, expect.any(Function))
-    expect(runner.getState().state).toBe('running')
-    expect(runner.getState().state === 'running' && runner.getState().stopping).toBe(true)
+    const stopping = runner.getState()
+    expect(stopping.state).toBe('running')
+    expect(stopping.state === 'running' && stopping.stopping).toBe(true)
 
     await new Promise((resolve) => setTimeout(resolve, 30))
     expect(runner.getState().state).toBe('idle')

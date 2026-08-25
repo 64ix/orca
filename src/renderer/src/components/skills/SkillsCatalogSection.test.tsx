@@ -6,6 +6,7 @@ import { fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SkillCatalogInstallRun } from '../../../../shared/skill-catalog'
 import type { SkillFreshnessInventory, SkillUpdateRun } from '../../../../shared/skill-freshness'
+import type { SkillRemoveOperation } from '../../../../shared/skill-sharing-contract'
 import type { DiscoveredSkill } from '../../../../shared/skills'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { SkillsCatalogSection } from './SkillsCatalogSection'
@@ -66,10 +67,18 @@ const skillsApi = {
     pushInstallRun = callback
     return () => {}
   }),
-  removeInstall: vi.fn(async () => ({
-    status: 'ok' as const,
-    value: { status: 'removed' as const }
-  })),
+  removeInstall: vi.fn(
+    async (): Promise<SkillRemoveOperation> => ({
+      status: 'ok',
+      value: {
+        operationId: 'op-1',
+        status: 'removed',
+        name: 'orca-cli',
+        packageDigest: 'a'.repeat(64),
+        placements: []
+      }
+    })
+  ),
   startUpdateRun: vi.fn(async () => ({ started: true as const })),
   getUpdateRun: vi.fn(async (): Promise<SkillUpdateRun> => ({ state: 'idle' })),
   onUpdateRun: vi.fn(() => () => {})
@@ -168,6 +177,19 @@ function uninstallMenuItem(): HTMLElement {
   return menuItem
 }
 
+function removeResult(status: 'removed' | 'conflict'): SkillRemoveOperation {
+  return {
+    status: 'ok',
+    value: {
+      operationId: 'op-1',
+      status,
+      name: 'orca-cli',
+      packageDigest: 'a'.repeat(64),
+      placements: []
+    }
+  }
+}
+
 beforeEach(() => {
   mocks.inventory = null
   mocks.loading = false
@@ -185,10 +207,7 @@ beforeEach(() => {
   skillsApi.startUpdateRun.mockClear()
   skillsApi.getUpdateRun.mockClear()
   skillsApi.onUpdateRun.mockClear()
-  skillsApi.removeInstall.mockResolvedValue({
-    status: 'ok',
-    value: { status: 'removed' }
-  })
+  skillsApi.removeInstall.mockResolvedValue(removeResult('removed'))
   skillsApi.startCatalogInstall.mockResolvedValue({ started: true })
   skillsApi.startUpdateRun.mockResolvedValue({ started: true })
   skillsApi.catalog.mockResolvedValue({
@@ -388,10 +407,7 @@ describe('SkillsCatalogSection', () => {
   })
 
   it('reports a removal that conflicts with local changes', async () => {
-    skillsApi.removeInstall.mockResolvedValue({
-      status: 'ok',
-      value: { status: 'conflict' }
-    })
+    skillsApi.removeInstall.mockResolvedValue(removeResult('conflict'))
     await renderSection({ discoveredSkills: [discovered('orca-cli')] })
     await flush()
 
