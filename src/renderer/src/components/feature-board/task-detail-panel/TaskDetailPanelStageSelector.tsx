@@ -1,6 +1,12 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import { Check, ChevronDown, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu'
 import { translate } from '@/i18n/i18n'
 import { cn } from '@/lib/utils'
 import { getFeatureBoardStageLabel } from '../feature-board-stage-labels'
@@ -21,7 +27,6 @@ export function TaskDetailPanelStageSelector({
   card: FeatureBoardCard
 }): React.JSX.Element {
   const { effectiveStage, workspaceKind, facts } = useWorktreeStageDerivation(card.worktree)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const applyStage = useTaskDetailPanelStageChange(card)
 
   const model = useMemo(
@@ -45,16 +50,43 @@ export function TaskDetailPanelStageSelector({
         <h3 className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
           {stageLabel}
         </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 rounded-full px-2 text-[11px]"
-          onClick={() => setPickerOpen((open) => !open)}
-          aria-expanded={pickerOpen}
-        >
-          {changeLabel}
-          <ChevronDown className={cn('size-3 transition-transform', pickerOpen && 'rotate-180')} />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-6 rounded-full px-2 text-[11px]">
+              {changeLabel}
+              <ChevronDown className="size-3 transition-transform data-[state=open]:rotate-180" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" aria-label={stageLabel} className="min-w-48">
+            {model.options.map((option) => (
+              <DropdownMenuItem
+                key={option.stage}
+                disabled={!option.allowed}
+                onSelect={() => applyStage(option.stage)}
+                className={cn(
+                  'flex-col items-stretch gap-0.5 py-1.5',
+                  option.stage === model.currentStage && 'bg-muted/60 font-medium'
+                )}
+              >
+                <span className="flex items-center gap-1.5">
+                  {!option.allowed ? (
+                    <Lock className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                  {option.stage === model.currentStage ? (
+                    <Check className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  ) : null}
+                </span>
+                {/* Locked stages keep their guard explanation inline — the whole point of this picker (#55). */}
+                {!option.allowed ? (
+                  <span className="text-[11px] leading-snug font-normal text-muted-foreground">
+                    {option.lockReason}
+                  </span>
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="rounded-md border border-border bg-muted/40 px-2 py-1.5">
         <span className="text-[12px] font-medium">{currentLabel}</span>
@@ -78,46 +110,6 @@ export function TaskDetailPanelStageSelector({
           {model.currentExplanation}
         </p>
       </div>
-      {pickerOpen ? (
-        <ul className="flex flex-col gap-0.5" role="listbox" aria-label={stageLabel}>
-          {model.options.map((option) => (
-            <li key={option.stage}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={option.stage === model.currentStage}
-                disabled={!option.allowed}
-                onClick={() => {
-                  setPickerOpen(false)
-                  applyStage(option.stage)
-                }}
-                title={option.lockReason ?? option.explanation}
-                className={cn(
-                  'flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-[12px]',
-                  option.allowed && 'hover:bg-muted',
-                  option.stage === model.currentStage && 'bg-muted/60 font-medium',
-                  !option.allowed && 'cursor-not-allowed opacity-60'
-                )}
-              >
-                <span className="flex items-center gap-1.5">
-                  {!option.allowed ? (
-                    <Lock className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  ) : null}
-                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  {option.stage === model.currentStage ? (
-                    <Check className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  ) : null}
-                </span>
-                {!option.allowed ? (
-                  <span className="text-[11px] leading-snug text-muted-foreground">
-                    {option.lockReason}
-                  </span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
     </section>
   )
 }

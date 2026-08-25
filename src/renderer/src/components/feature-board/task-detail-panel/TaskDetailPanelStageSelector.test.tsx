@@ -49,8 +49,12 @@ describe('TaskDetailPanelStageSelector', () => {
     useAppStore.setState({ repos: [repo], updateWorktreeMeta })
 
     render(<TaskDetailPanelStageSelector card={cardFor(worktree)} />)
-    fireEvent.click(screen.getByRole('button', { name: /Change/ }))
-    fireEvent.click(screen.getByRole('option', { name: /Review/ }))
+    // Why: Radix dropdown triggers open on pointerdown, not click.
+    fireEvent.pointerDown(screen.getByRole('button', { name: /Change/ }), {
+      button: 0,
+      ctrlKey: false
+    })
+    fireEvent.click(screen.getByRole('menuitem', { name: /Review/ }))
 
     expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { workflowStage: 'review' })
   })
@@ -87,9 +91,13 @@ describe('TaskDetailPanelStageSelector', () => {
 
     expect(screen.getByText('Open pull request #7 keeps the stage at Review.')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /Change/ }))
-    const implementingOption = screen.getByRole('option', { name: /Implementing/ })
-    expect(implementingOption).toHaveProperty('disabled', true)
+    // Why: Radix dropdown triggers open on pointerdown, not click.
+    fireEvent.pointerDown(screen.getByRole('button', { name: /Change/ }), {
+      button: 0,
+      ctrlKey: false
+    })
+    const implementingOption = screen.getByRole('menuitem', { name: /Implementing/ })
+    expect(implementingOption.getAttribute('data-disabled')).not.toBeNull()
     expect(
       screen.getAllByText('Open pull request #7 keeps the stage at Review.').length
     ).toBeGreaterThan(1)
