@@ -7,11 +7,16 @@ import type { WorktreeMeta } from '../../shared/worktree/meta-types'
 export const SYNC_TABLE_WORKTREE_META = 'worktreeMeta'
 export const SYNC_TABLE_UI_STATE = 'uiState'
 
-// Board-shared UI state: cross-repo ordering and the board's status/column
-// definitions. Everything else on PersistedUIState (sidebar width, filters, window
-// bounds, dismissed nudges, ...) is per-machine display preference, not board state,
-// and is deliberately left off this list — see the ticket's scope-arbitration note.
-export const SYNC_UI_STATE_KEYS = ['manualRepoOrder', 'workspaceStatuses'] as const
+// Board-shared UI state: cross-repo ordering, the board's status/column definitions,
+// and the feature board's per-project/per-column card order (spec #24). Everything else
+// on PersistedUIState (sidebar width, filters, window bounds, dismissed nudges, ...) is
+// per-machine display preference, not board state, and is deliberately left off.
+// Still missing: per-repo dismissed ghost-issue ids, which spec #25 has yet to define.
+export const SYNC_UI_STATE_KEYS = [
+  'manualRepoOrder',
+  'workspaceStatuses',
+  'featureBoardColumnOrder'
+] as const
 export type SyncedUiStateKey = (typeof SYNC_UI_STATE_KEYS)[number]
 
 export function isSyncedUiStateKey(key: string): key is SyncedUiStateKey {

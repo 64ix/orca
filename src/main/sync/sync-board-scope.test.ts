@@ -8,6 +8,17 @@ describe('isSyncedUiStateKey — the board sync allowlist', () => {
     }
   })
 
+  it('syncs the feature board card order the spec named as a sync unit (#24)', () => {
+    // Named in spec #29 as "per-project column order" but only defined once spec #24
+    // landed featureBoardColumnOrder — a board key, not a display preference.
+    expect(isSyncedUiStateKey('featureBoardColumnOrder')).toBe(true)
+  })
+
+  it('leaves the feature board width machine-local', () => {
+    // Spec #24 added this alongside the card order; it is a per-machine layout choice.
+    expect(isSyncedUiStateKey('featureBoardColumnWidth')).toBe(false)
+  })
+
   it('rejects machine-local presentation preferences that live on PersistedUIState', () => {
     // These are legitimate PersistedUIState keys — proving the allowlist, not their
     // existence, is what keeps per-machine display prefs from ever reaching the relay.
