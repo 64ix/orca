@@ -16380,7 +16380,9 @@
       },
       "card": {
         "awaitingInput": "Awaiting your input",
-        "folderWorkspace": "Folder workspace — moved manually"
+        "folderWorkspace": "Folder workspace — moved manually",
+        "menu": "Card actions",
+        "archive": "Archive"
       },
       "archiveCard": {
         "menu": "Archived card actions",
