@@ -7,13 +7,7 @@ import type { ExecutionHostId } from '../../../../../../shared/execution-host'
 
 import type { WorkflowStage } from '../../../../../../shared/workflow-stages'
 
-export type WorktreeGroupBy =
-  | 'none'
-  | 'workspace-status'
-  | 'repo'
-  | 'pr-status'
-  | 'workflow-stage'
-  | 'workflow-stage'
+export type WorktreeGroupBy = 'none' | 'workspace-status' | 'repo' | 'pr-status' | 'workflow-stage'
 export type PinnedWorktreeDisplayPolicy = 'single-location' | 'duplicate-in-groups'
 
 export function getPinnedWorktreeDisplayPolicy(
