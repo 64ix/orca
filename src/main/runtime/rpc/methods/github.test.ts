@@ -54,7 +54,36 @@ describe('github RPC methods', () => {
       })
     )
 
-    expect(runtime.listRepoWorkItems).toHaveBeenCalledWith('repo-1', 10, 'is:pr', undefined, true)
+    expect(runtime.listRepoWorkItems).toHaveBeenCalledWith(
+      'repo-1',
+      10,
+      'is:pr',
+      undefined,
+      true,
+      undefined
+    )
+    expect(response).toMatchObject({ ok: true, result: { items: [] } })
+  })
+
+  it('threads a per-request issue-source override to the runtime server', async () => {
+    const runtime = {
+      getRuntimeId: () => 'test-runtime',
+      listRepoWorkItems: vi.fn().mockResolvedValue({ items: [] })
+    } as unknown as OrcaRuntimeService
+    const dispatcher = new RpcDispatcher({ runtime, methods: GITHUB_METHODS })
+
+    const response = await dispatcher.dispatch(
+      makeRequest('github.listWorkItems', { repo: 'repo-1', issueSourcePreference: 'origin' })
+    )
+
+    expect(runtime.listRepoWorkItems).toHaveBeenCalledWith(
+      'repo-1',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'origin'
+    )
     expect(response).toMatchObject({ ok: true, result: { items: [] } })
   })
 

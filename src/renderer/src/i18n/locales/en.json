@@ -16431,7 +16431,12 @@
       },
       "ghost": {
         "restore": "Restore ghost card",
-        "dismiss": "Don't show this issue"
+        "dismiss": "Don't show this issue",
+        "badges": {
+          "ready-for-agent": "Ready for agent",
+          "ready-for-human": "Ready for human",
+          "needs-triage": "Needs triage"
+        }
       },
       "dismissed": {
         "label": "Dismissed ghost cards ({{value0}})",

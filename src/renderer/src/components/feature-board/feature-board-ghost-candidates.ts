@@ -14,25 +14,18 @@ export type GhostCandidateIssue = {
 
 export type GhostCandidateBadge = 'ready-for-agent' | 'ready-for-human' | 'needs-triage'
 
-const CAPTURE_BADGE_LABELS: readonly GhostCandidateBadge[] = [
+const CAPTURE_BADGES: readonly GhostCandidateBadge[] = [
   'ready-for-agent',
   'ready-for-human',
   'needs-triage'
 ]
 
 export function getGhostCandidateBadges(labels: readonly string[]): GhostCandidateBadge[] {
-  return CAPTURE_BADGE_LABELS.filter((badge) => labels.includes(badge))
+  return CAPTURE_BADGES.filter((badge) => labels.includes(badge))
 }
-
-/**
- * Orphan `[Spec]` issues land in the spec column; everything else is an idea candidate.
- * Distinct from exclusion — an orphan spec is still a grabbable ghost, just staged differently.
- */
-export type GhostCandidateKind = 'idea-candidate' | 'orphan-spec'
 
 export type GhostCandidate<T extends GhostCandidateIssue> = {
   issue: T
-  kind: GhostCandidateKind
   /** Column the ghost renders into once grabbed (`[Spec]` → spec, else idea). */
   targetStage: Extract<WorkflowStage, 'idea' | 'spec'>
   /** Capture/triage labels surfaced for display only — they gate nothing. */
@@ -71,8 +64,8 @@ export type BuildGhostCandidatesParams<T extends GhostCandidateIssue> = {
   /** Issue numbers already attached to a non-archived worktree of this repo. */
   linkedIssueNumbers: ReadonlySet<number>
   /**
-   * Issue numbers referenced (`#N`) from any linked spec/task body — covered work
-   * must not resurface as a ghost. Pre-parsed via `parseReferencedIssueNumbers`.
+   * Issue numbers referenced (`#N`) from a linked `[Spec]` body — covered work must not
+   * resurface as a ghost. Pre-parsed via `parseReferencedIssueNumbers`.
    */
   referencedIssueNumbers: ReadonlySet<number>
   /** Persisted per-repo dismissals — the only stored part of the pipeline. */
@@ -115,7 +108,6 @@ export function buildFeatureBoardGhostCandidates<T extends GhostCandidateIssue>(
     const orphanSpec = isOrphanSpecIssue(issue.title)
     candidates.push({
       issue,
-      kind: orphanSpec ? 'orphan-spec' : 'idea-candidate',
       targetStage: orphanSpec ? 'spec' : 'idea',
       badges: getGhostCandidateBadges(issue.labels)
     })

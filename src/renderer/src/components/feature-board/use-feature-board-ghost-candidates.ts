@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
+import { getForcedOriginWorkItemsCacheKey } from '@/store/slices/github'
 import {
   buildFeatureBoardGhostCandidates,
+  isOrphanSpecIssue,
   parseReferencedIssueNumbers,
   type GhostCandidate
 } from './feature-board-ghost-candidates'
 import { getFeatureBoardDismissedIssueNumbers } from '../../../../shared/feature-board-ghost-dismissals'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
+import { PER_REPO_FETCH_LIMIT } from '../../../../shared/work-items'
 import type { Repo } from '../../../../shared/repo-types'
 import { isGitRepoKind } from '../../../../shared/repo-kind'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
@@ -51,10 +54,12 @@ function groupGhostCandidatesByStage(
 
 /**
  * Ghost-card candidates (#49): open base-remote issues of the selected git repos, derived at
- * runtime through `buildFeatureBoardGhostCandidates` over the existing work-items SWR cache,
- * refreshed on board mount + window visibility change via `prefetchWorkItems` (fresh-cache
- * skip means no poller). Candidates are never stored; only per-repo dismissals persist.
- * Referenced-issue exclusion parses `#N` refs from cached bodies of worktree-linked issues.
+ * runtime through `buildFeatureBoardGhostCandidates`, refreshed on board mount + window
+ * visibility change via `prefetchWorkItems` (fresh-cache skip means no poller). Fetches pin
+ * `'origin'` (#25): an upstream-preferring fork must never leak upstream issues into ghosts,
+ * so only forced-origin cache entries are consumed. Candidates are never stored; only
+ * per-repo dismissals persist. Referenced-issue exclusion parses `#N` refs from cached
+ * bodies of worktree-linked `[Spec]` issues.
  */
 export function useFeatureBoardGhostCandidates(
   repos: readonly Repo[],
@@ -63,6 +68,7 @@ export function useFeatureBoardGhostCandidates(
   const workItemsCache = useAppStore((s) => s.workItemsCache)
   const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
   const issueCache = useAppStore((s) => s.issueCache)
+  const settings = useAppStore((s) => s.settings)
   const featureBoardGhostDismissals = useAppStore((s) => s.featureBoardGhostDismissals)
   const restoreFeatureBoardGhost = useAppStore((s) => s.restoreFeatureBoardGhost)
   const prefetchWorkItems = useAppStore((s) => s.prefetchWorkItems)
@@ -83,6 +89,7 @@ export function useFeatureBoardGhostCandidates(
   const repoKey = useMemo(() => selectedRepos.map((repo) => repo.id).join('\n'), [selectedRepos])
 
   // Refresh on board open + visibility change; prefetchWorkItems skips when its cache is fresh.
+  // Origin is pinned (#25): the board reads the fork's base remote only.
   useEffect(() => {
     if (repoKey === '') {
       return undefined
@@ -92,7 +99,9 @@ export function useFeatureBoardGhostCandidates(
       for (const repoId of repoKey.split('\n')) {
         const repo = repoMap.get(repoId)
         if (repo && isGitRepoKind(repo)) {
-          state.prefetchWorkItems(repo.id, repo.path)
+          state.prefetchWorkItems(repo.id, repo.path, PER_REPO_FETCH_LIMIT, '', {
+            issueSourcePreference: 'origin'
+          })
         }
       }
     }
@@ -106,29 +115,42 @@ export function useFeatureBoardGhostCandidates(
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
   }, [prefetchWorkItems, repoKey, repoMap])
 
+  // Only forced-origin entries are consumed: whatever the preference-following cache holds
+  // (e.g. upstream issues for a fork) must never become a ghost candidate.
   const openIssues = useMemo(() => {
-    const selectedIds = new Set(selectedRepos.map((repo) => repo.id))
-    const byId = new Map<string, GitHubWorkItem>()
-    for (const entry of Object.values(workItemsCache)) {
-      // Partial-failure entries keep the good side; null means nothing fetched yet.
-      for (const item of entry.data ?? []) {
-        if (
-          item.type === 'issue' &&
-          item.state === 'open' &&
-          selectedIds.has(item.repoId) &&
-          !byId.has(item.id)
-        ) {
-          byId.set(item.id, item)
+    const issues: GitHubWorkItem[] = []
+    for (const repo of selectedRepos) {
+      const key = getForcedOriginWorkItemsCacheKey(
+        { repos, settings },
+        repo.id,
+        PER_REPO_FETCH_LIMIT,
+        '',
+        repo.path
+      )
+      for (const item of workItemsCache[key]?.data ?? []) {
+        if (item.type === 'issue' && item.state === 'open') {
+          issues.push(item)
         }
       }
     }
-    return [...byId.values()]
-  }, [workItemsCache, selectedRepos])
+    return issues
+    // Why `repos` not `selectedRepos`: the key builder resolves against the full repo list.
+  }, [workItemsCache, selectedRepos, repos, settings])
 
   const linkedIssues = useMemo(() => {
+    // Why [Spec] bodies only: specs cross-reference their covered tickets; a plain linked
+    // bug mentioning "#12" must not hide #12 from the board.
+    const titleByRepoNumber = new Map<string, string>()
+    for (const item of openIssues) {
+      titleByRepoNumber.set(`${item.repoId}\n${item.number}`, item.title)
+    }
     const linked: { repoPath: string; repoId: string; number: number }[] = []
     for (const worktree of scopedWorktrees) {
       if (!worktree.linkedIssue) {
+        continue
+      }
+      const title = titleByRepoNumber.get(`${worktree.repoId}\n${worktree.linkedIssue}`)
+      if (title === undefined || !isOrphanSpecIssue(title)) {
         continue
       }
       const repo = repoMap.get(worktree.repoId)
@@ -138,7 +160,7 @@ export function useFeatureBoardGhostCandidates(
       linked.push({ repoPath: repo.path, repoId: worktree.repoId, number: worktree.linkedIssue })
     }
     return linked
-  }, [scopedWorktrees, repoMap])
+  }, [scopedWorktrees, repoMap, openIssues])
 
   // Why keyed by repoId: issue numbers collide across repos, so refs from repo A's spec
   // body must not exclude issue #N in repo B.
@@ -146,7 +168,7 @@ export function useFeatureBoardGhostCandidates(
     ReadonlyMap<string, ReadonlySet<number>>
   >(() => new Map())
 
-  // Why resolve bodies here: exclusion needs the linked spec/task body text, which only the
+  // Why resolve bodies here: exclusion needs the linked [Spec] body text, which only the
   // single-issue endpoint carries (`issueCache[].data.description`); `fetchIssue` caches.
   useEffect(() => {
     if (linkedIssues.length === 0) {

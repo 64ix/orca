@@ -9,7 +9,14 @@ import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
 import { runFeatureBoardGhostGrab } from './feature-board-ghost-grab-action'
 import type { GhostCandidate, GhostCandidateBadge } from './feature-board-ghost-candidates'
 
-const BADGE_LABELS: Record<GhostCandidateBadge, string> = {
+// Why static keys: translate() lookups stay lintable; fallbacks mirror en.json.
+const BADGE_LABEL_KEYS: Record<GhostCandidateBadge, string> = {
+  'ready-for-agent': 'components.featureBoard.ghost.badges.ready-for-agent',
+  'ready-for-human': 'components.featureBoard.ghost.badges.ready-for-human',
+  'needs-triage': 'components.featureBoard.ghost.badges.needs-triage'
+}
+
+const BADGE_LABEL_FALLBACKS: Record<GhostCandidateBadge, string> = {
   'ready-for-agent': 'Ready for agent',
   'ready-for-human': 'Ready for human',
   'needs-triage': 'Needs triage'
@@ -75,7 +82,7 @@ export function FeatureBoardGhostCard({
         <div className="mt-1.5 flex flex-wrap gap-1">
           {candidate.badges.map((badge) => (
             <Badge key={badge} variant="outline" className="px-1.5 py-0 text-[10px]">
-              {BADGE_LABELS[badge]}
+              {translate(BADGE_LABEL_KEYS[badge], BADGE_LABEL_FALLBACKS[badge])}
             </Badge>
           ))}
         </div>

@@ -39,9 +39,7 @@ describe('buildFeatureBoardGhostCandidates', () => {
   it('returns every open base-remote issue as an idea candidate by default', () => {
     const candidates = build({ openIssues: [issue({ number: 1 }), issue({ number: 2 })] })
     expect(candidates.map((c) => c.issue.number)).toEqual([1, 2])
-    expect(candidates.every((c) => c.kind === 'idea-candidate' && c.targetStage === 'idea')).toBe(
-      true
-    )
+    expect(candidates.every((c) => c.targetStage === 'idea')).toBe(true)
   })
 
   it('excludes issues linked to a worktree', () => {
@@ -52,7 +50,7 @@ describe('buildFeatureBoardGhostCandidates', () => {
     expect(candidates.map((c) => c.issue.number)).toEqual([1])
   })
 
-  it('excludes issues referenced from a linked spec/task body', () => {
+  it('excludes issues referenced from a linked [Spec] body', () => {
     const candidates = build({
       openIssues: [issue({ number: 1 }), issue({ number: 2 }), issue({ number: 3 })],
       referencedIssueNumbers: new Set([2, 3])
@@ -79,15 +77,21 @@ describe('buildFeatureBoardGhostCandidates', () => {
   })
 
   it('applies every exclusion rule together', () => {
-    const all = [1, 2, 3, 4, 5].map((number) => issue({ number }))
+    const all = [
+      issue({ number: 1 }),
+      issue({ number: 2 }),
+      issue({ number: 3 }),
+      issue({ number: 4 }),
+      issue({ number: 5, labels: ['wayfinder:map'] })
+    ]
     const candidates = build({
       openIssues: all,
       linkedIssueNumbers: new Set([1]),
       referencedIssueNumbers: new Set([2]),
       dismissedIssueNumbers: new Set([3])
     })
-    // 4 stays as idea; 5 is a wayfinder artifact added below via override shape — covered above.
-    expect(candidates.map((c) => c.issue.number)).toEqual([4, 5])
+    // Only 4 survives: linked, referenced, dismissed, and artifact are all excluded.
+    expect(candidates.map((c) => c.issue.number)).toEqual([4])
   })
 
   it('scopes strictly to the given repoId — no upstream/other-repo consumption', () => {
@@ -115,7 +119,6 @@ describe('buildFeatureBoardGhostCandidates', () => {
         openIssues: [issue({ number: 7, title: '[Spec] Ghost derivation' })]
       })
       expect(candidates[0]).toMatchObject({
-        kind: 'orphan-spec',
         targetStage: 'spec',
         badges: []
       })
@@ -123,17 +126,17 @@ describe('buildFeatureBoardGhostCandidates', () => {
 
     it('treats plain ideas as idea candidates targeting the idea column', () => {
       const candidates = build({ openIssues: [issue()] })
-      expect(candidates[0]).toMatchObject({ kind: 'idea-candidate', targetStage: 'idea' })
+      expect(candidates[0]).toMatchObject({ targetStage: 'idea' })
     })
 
     it('[Spec] matching is case-insensitive and tolerant of leading whitespace', () => {
-      expect(build({ openIssues: [issue({ title: '  [spec] lowercase' })] })[0].kind).toBe(
-        'orphan-spec'
+      expect(build({ openIssues: [issue({ title: '  [spec] lowercase' })] })[0].targetStage).toBe(
+        'spec'
       )
       // A mention mid-title is not a spec artifact.
-      expect(build({ openIssues: [issue({ title: 'Discussing [Spec] format' })] })[0].kind).toBe(
-        'idea-candidate'
-      )
+      expect(
+        build({ openIssues: [issue({ title: 'Discussing [Spec] format' })] })[0].targetStage
+      ).toBe('idea')
     })
   })
 
@@ -144,7 +147,7 @@ describe('buildFeatureBoardGhostCandidates', () => {
         const candidates = build({ openIssues: [issue({ labels: [label] })] })
         expect(candidates).toHaveLength(1)
         expect(candidates[0].badges).toEqual([label])
-        expect(candidates[0].kind).toBe('idea-candidate')
+        expect(candidates[0].targetStage).toBe('idea')
       }
     )
 

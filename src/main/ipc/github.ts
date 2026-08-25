@@ -17,7 +17,7 @@ import type {
   GitHubIssueUpdate,
   GitHubPullRequestStateUpdate
 } from '../../shared/issue-mutation-types'
-import type { Repo } from '../../shared/repo-types'
+import type { IssueSourcePreference, Repo } from '../../shared/repo-types'
 import { getRepoExecutionHostId } from '../../shared/execution-host'
 import type { TaskSourceContext } from '../../shared/task-source-context'
 import type { Store } from '../persistence'
@@ -439,6 +439,7 @@ export function registerGitHubHandlers(store: Store, stats: StatsCollector): voi
         query?: string
         page?: number
         noCache?: boolean
+        issueSourcePreference?: IssueSourcePreference
       }
     ) => {
       const repo = assertRegisteredRepo(args, store)
@@ -447,7 +448,8 @@ export function registerGitHubHandlers(store: Store, stats: StatsCollector): voi
         args.limit,
         args.query,
         args.page,
-        repo.issueSourcePreference,
+        // Per-request override wins (#25): the board pins origin regardless of repo preference.
+        args.issueSourcePreference ?? repo.issueSourcePreference,
         repoConnectionId(repo),
         args.noCache,
         ...localGitOptionArgs(store, repo)

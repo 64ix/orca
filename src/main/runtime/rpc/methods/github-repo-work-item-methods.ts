@@ -7,7 +7,9 @@ const WorkItemsList = RepoSelector.extend({
   limit: OptionalFiniteNumber,
   query: OptionalString,
   page: z.number().int().positive().optional(),
-  noCache: z.boolean().optional()
+  noCache: z.boolean().optional(),
+  // Optional (#25): new field on an existing method — old hosts drop it and keep preference-following behavior.
+  issueSourcePreference: z.enum(['upstream', 'origin', 'auto']).optional()
 })
 
 const IssuesList = RepoSelector.extend({
@@ -64,7 +66,8 @@ export const GITHUB_REPO_WORK_ITEM_METHODS: RpcMethod[] = [
         params.limit,
         params.query,
         params.page,
-        params.noCache
+        params.noCache,
+        params.issueSourcePreference
       )
   }),
   defineMethod({

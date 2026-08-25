@@ -1076,6 +1076,19 @@ export type UISlice = {
   setBrowserKagiSessionLink: (link: string | null) => void
 }
 
+// One persistence path for both ghost-dismissal directions.
+function persistFeatureBoardGhostDismissals(
+  current: FeatureBoardGhostDismissals,
+  set: (partial: Partial<UISlice>) => void,
+  repoId: string,
+  issueNumber: number,
+  dismissed: boolean
+): void {
+  const next = setFeatureBoardGhostDismissal(current, repoId, issueNumber, dismissed)
+  window.api.ui.set({ featureBoardGhostDismissals: next }).catch(console.error)
+  set({ featureBoardGhostDismissals: next })
+}
+
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
   sidebarOpen: true,
   sidebarWidth: 280,
@@ -1624,26 +1637,22 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     set({ featureBoardColumnOrder: next })
   },
   featureBoardGhostDismissals: {},
-  dismissFeatureBoardGhost: (repoId, issueNumber) => {
-    const next = setFeatureBoardGhostDismissal(
+  dismissFeatureBoardGhost: (repoId, issueNumber) =>
+    persistFeatureBoardGhostDismissals(
       get().featureBoardGhostDismissals,
+      set,
       repoId,
       issueNumber,
       true
-    )
-    window.api.ui.set({ featureBoardGhostDismissals: next }).catch(console.error)
-    set({ featureBoardGhostDismissals: next })
-  },
-  restoreFeatureBoardGhost: (repoId, issueNumber) => {
-    const next = setFeatureBoardGhostDismissal(
+    ),
+  restoreFeatureBoardGhost: (repoId, issueNumber) =>
+    persistFeatureBoardGhostDismissals(
       get().featureBoardGhostDismissals,
+      set,
       repoId,
       issueNumber,
       false
-    )
-    window.api.ui.set({ featureBoardGhostDismissals: next }).catch(console.error)
-    set({ featureBoardGhostDismissals: next })
-  },
+    ),
   setNewWorkspaceDraft: (draft) => set({ newWorkspaceDraft: draft }),
   clearNewWorkspaceDraft: () => set({ newWorkspaceDraft: null }),
   openSettingsPage: () => {
