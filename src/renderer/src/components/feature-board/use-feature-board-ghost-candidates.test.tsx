@@ -50,7 +50,10 @@ describe('useFeatureBoardGhostCandidates', () => {
       fetchIssue: (async () => null) as never,
       prefetchWorkItems: (async () => {}) as never
     })
-    const { result } = renderHook(() => useFeatureBoardGhostCandidates([repo], new Set([repo.id])))
+    // Stable refs: a fresh array/Set per render would churn the hook's derived memos.
+    const repos = [repo]
+    const scopedRepoIds = new Set([repo.id])
+    const { result } = renderHook(() => useFeatureBoardGhostCandidates(repos, scopedRepoIds))
     const ghosts = [...result.current.ghostsByStage.values()].flat()
     expect(ghosts.map((g) => g.candidate.issue.number)).toEqual([2])
   })
@@ -70,7 +73,9 @@ describe('useFeatureBoardGhostCandidates', () => {
       fetchIssue: (async () => null) as never,
       prefetchWorkItems: (async () => {}) as never
     })
-    const { result } = renderHook(() => useFeatureBoardGhostCandidates([repo], new Set([repo.id])))
+    const repos = [repo]
+    const scopedRepoIds = new Set([repo.id])
+    const { result } = renderHook(() => useFeatureBoardGhostCandidates(repos, scopedRepoIds))
     const ghosts = [...result.current.ghostsByStage.values()].flat()
     // Archived worktree's link does not exclude — both issues resurface as ghosts.
     expect(ghosts.map((g) => g.candidate.issue.number)).toEqual([1, 2])
