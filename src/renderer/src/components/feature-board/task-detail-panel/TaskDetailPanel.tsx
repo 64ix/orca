@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 import { useFeatureBoardCardAgentStates } from '../use-feature-board-card-agent-states'
 import type { FeatureBoardCard } from '../feature-board-card-model'
 import { buildTaskDetailVitals } from './task-detail-panel-view-model'
+import { TaskDetailConversationsSection } from './task-detail-conversations-section'
 
 export const TASK_DETAIL_PANEL_WIDTH_PX = 300
 
@@ -86,8 +87,8 @@ function DiffStatsValue({
 /**
  * Board-attached detail panel (#52): fixed-width inspector opened by clicking a card.
  * Renders the vitals (branch, agent state, diff stats) from existing worktree + branch
- * compare data. The conversation rows (#54), stage selector, and PR row (#55) are later
- * tickets — this shell only carries the vitals section they will join.
+ * compare data, and the conversations section (#54). The stage selector and PR row (#55)
+ * are a later ticket — this shell only carries the sections they will join.
  */
 export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX.Element {
   const closeCardDetail = useAppStore((s) => s.closeBoardCardDetail)
@@ -193,6 +194,7 @@ export function TaskDetailPanel({ card }: { card: FeatureBoardCard }): React.JSX
             </span>
           )}
         </VitalsRow>
+        <TaskDetailConversationsSection card={card} />
       </div>
     </aside>
   )

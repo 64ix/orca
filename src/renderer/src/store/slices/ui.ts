@@ -805,6 +805,9 @@ export type UISlice = {
   boardCardDetailId: string | null
   openBoardCardDetail: (cardId: string) => void
   closeBoardCardDetail: () => void
+  /** Task detail panel (#54): renamed AI Vault transcripts, keyed by session id. Ephemeral — transcripts have no on-disk rename surface. */
+  vaultConversationTitleOverrides: Record<string, string>
+  setVaultConversationTitleOverride: (sessionId: string, title: string | null) => void
   /** Feature board card order: per-project, per-column ordered worktree ids (spec 21). */
   featureBoardColumnOrder: FeatureBoardColumnOrderEntry[]
   setFeatureBoardColumnOrder: (
@@ -1612,6 +1615,17 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
   boardCardDetailId: null,
   openBoardCardDetail: (cardId) => set({ boardCardDetailId: cardId }),
   closeBoardCardDetail: () => set({ boardCardDetailId: null }),
+  vaultConversationTitleOverrides: {},
+  setVaultConversationTitleOverride: (sessionId, title) =>
+    set((state) => {
+      const next = { ...state.vaultConversationTitleOverrides }
+      if (title === null) {
+        delete next[sessionId]
+      } else {
+        next[sessionId] = title
+      }
+      return { vaultConversationTitleOverrides: next }
+    }),
   featureBoardColumnOrder: [],
   setFeatureBoardColumnOrder: (projectKey, stage, worktreeIds) => {
     const next = setFeatureBoardColumnOrderEntry(
