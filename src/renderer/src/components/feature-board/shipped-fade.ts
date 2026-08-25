@@ -2,7 +2,23 @@
  *  has elapsed since it entered `shipped`. Deliberately free of I/O and clocks —
  *  callers pass `now` so boundary math is deterministic and unit-testable. */
 
+import type { WorktreeMeta } from '../../../../shared/worktree/meta-types'
+import type { WorkflowStage } from '../../../../shared/workflow-stages'
+
 export const DAY_MS = 24 * 60 * 60 * 1000
+
+/** Meta write for declaring a stage: shipping also stamps the fade entry time so
+ *  the delay runs from the moment the card entered `shipped`, not first observation. */
+export function buildStageDeclarationMeta(
+  stage: WorkflowStage | null,
+  now: number = Date.now()
+): Partial<WorktreeMeta> {
+  const meta: Partial<WorktreeMeta> = { workflowStage: stage }
+  if (stage === 'shipped') {
+    meta.shippedAt = now
+  }
+  return meta
+}
 
 export type ShippedFadeCheckParams = {
   /** When the card last entered effective `shipped` (ms epoch). Absent = never observed shipped. */

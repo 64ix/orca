@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { DAY_MS, isShippedFaded, resolveShippedEntryTime } from './shipped-fade'
+import {
+  buildStageDeclarationMeta,
+  DAY_MS,
+  isShippedFaded,
+  resolveShippedEntryTime
+} from './shipped-fade'
 
 const NOW = 1_700_000_000_000
 
@@ -50,5 +55,18 @@ describe('resolveShippedEntryTime (entry-time fallback)', () => {
     expect(
       resolveShippedEntryTime({ shippedAt: undefined, mergedPrObservedAt: undefined, now: NOW })
     ).toBe(NOW)
+  })
+})
+
+describe('buildStageDeclarationMeta (shipping writes the entry stamp)', () => {
+  it('stamps shippedAt when the declared stage is shipped', () => {
+    expect(buildStageDeclarationMeta('shipped', NOW)).toEqual({
+      workflowStage: 'shipped',
+      shippedAt: NOW
+    })
+  })
+
+  it('does not stamp shippedAt for any other stage', () => {
+    expect(buildStageDeclarationMeta('review', NOW)).toEqual({ workflowStage: 'review' })
   })
 })
