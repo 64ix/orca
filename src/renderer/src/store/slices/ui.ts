@@ -806,6 +806,13 @@ export type UISlice = {
   closeMobilePage: () => void
   openBoardPage: () => void
   closeBoardPage: () => void
+  /** Board-attached detail panel selection (#52): the worktree id of the card the panel inspects. Ephemeral — never persisted, cleared when the card leaves the board. */
+  boardCardDetailId: string | null
+  openBoardCardDetail: (cardId: string) => void
+  closeBoardCardDetail: () => void
+  /** Task detail panel (#54): renamed AI Vault transcripts, keyed by session id. Ephemeral — transcripts have no on-disk rename surface. */
+  vaultConversationTitleOverrides: Record<string, string>
+  setVaultConversationTitleOverride: (sessionId: string, title: string | null) => void
   /** Feature board card order: per-project, per-column ordered worktree ids (spec 21). */
   featureBoardColumnOrder: FeatureBoardColumnOrderEntry[]
   setFeatureBoardColumnOrder: (
@@ -1623,8 +1630,24 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     })),
   closeBoardPage: () =>
     set((state) => ({
-      activeView: state.previousViewBeforeBoard
+      activeView: state.previousViewBeforeBoard,
+      // Why: the panel is board-attached (#52) — leaving the board must not leave a selection pointing at a card that is no longer visible.
+      boardCardDetailId: null
     })),
+  boardCardDetailId: null,
+  openBoardCardDetail: (cardId) => set({ boardCardDetailId: cardId }),
+  closeBoardCardDetail: () => set({ boardCardDetailId: null }),
+  vaultConversationTitleOverrides: {},
+  setVaultConversationTitleOverride: (sessionId, title) =>
+    set((state) => {
+      const next = { ...state.vaultConversationTitleOverrides }
+      if (title === null) {
+        delete next[sessionId]
+      } else {
+        next[sessionId] = title
+      }
+      return { vaultConversationTitleOverrides: next }
+    }),
   featureBoardColumnOrder: [],
   setFeatureBoardColumnOrder: (projectKey, stage, worktreeIds) => {
     const next = setFeatureBoardColumnOrderEntry(

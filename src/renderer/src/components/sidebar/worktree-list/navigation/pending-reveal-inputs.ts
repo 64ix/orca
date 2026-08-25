@@ -107,7 +107,10 @@ export function expandGroupsForWorktreeReveal(
       hostLineageById[worktree.id] = lineage
     }
   }
-  const hostCyclicLineageIds = getCyclicProjectedWorktreeLineageIds(hostLineageById, hostWorktreeMap)
+  const hostCyclicLineageIds = getCyclicProjectedWorktreeLineageIds(
+    hostLineageById,
+    hostWorktreeMap
+  )
   for (const parent of getWorktreeLineageAncestors(
     targetWorktree,
     hostLineageById,
@@ -142,7 +145,11 @@ export function expandGroupsForWorktreeReveal(
           args.projectGroups,
           args.projectGrouping,
           args.issueCache,
-          { lineageById: hostLineageById, worktreeMap: hostWorktreeMap, cyclicLineageIds: hostCyclicLineageIds }
+          {
+            lineageById: hostLineageById,
+            worktreeMap: hostWorktreeMap,
+            cyclicLineageIds: hostCyclicLineageIds
+          }
         )
   for (const groupKey of groupKeys) {
     if (args.collapsedGroups.has(groupKey)) {

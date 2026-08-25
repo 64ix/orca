@@ -90,7 +90,11 @@ describe('useWorkflowStageRowDrag', () => {
     const { result } = renderStageDrag({ worktrees: [worktree] })
     result.current.handleWorkflowStageDrop(dragEventFor(['a']), 'workflow-stage:shipped')
 
-    expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { workflowStage: 'shipped' })
+    // Shipping stamps shippedAt (#26 fade entry time) alongside the declared stage.
+    expect(updateWorktreeMeta).toHaveBeenCalledWith(
+      'a',
+      expect.objectContaining({ workflowStage: 'shipped', shippedAt: expect.any(Number) })
+    )
     expect(toastErrorMock).not.toHaveBeenCalled()
   })
 

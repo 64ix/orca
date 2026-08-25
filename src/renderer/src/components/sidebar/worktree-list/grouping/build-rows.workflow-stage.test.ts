@@ -245,7 +245,7 @@ describe('buildRows workflow-stage grouping', () => {
     expect(itemStages(rows)).toContainEqual({ id: 'wt-child', stage: 'idea' })
   })
 
-  it('buckets a multi-level lineage chain entirely into the root ancestor\'s lane', () => {
+  it("buckets a multi-level lineage chain entirely into the root ancestor's lane", () => {
     const grandparent = staged({
       id: 'wt-grandparent',
       instanceId: 'grandparent-instance',

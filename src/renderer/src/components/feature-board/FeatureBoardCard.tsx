@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { Archive, Folder } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import WorktreeCard from '@/components/sidebar/WorktreeCard'
+import { shouldIgnoreWorkspaceKanbanCardPointerDown } from '@/components/sidebar/workspace-kanban-card-pointer-drag-start'
 import { getLineageNestedRowGeometry } from '@/components/sidebar/worktree-list/rows/indentation'
 import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
@@ -52,9 +53,12 @@ function FeatureBoardCardChild({ worktree }: { worktree: Worktree }): React.JSX.
 export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): React.JSX.Element {
   const repoMap = useRepoMap()
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
+  const boardCardDetailId = useAppStore((s) => s.boardCardDetailId)
+  const openBoardCardDetail = useAppStore((s) => s.openBoardCardDetail)
   const updateWorktreeMeta = useAppStore((s) => s.updateWorktreeMeta)
   const repo = repoMap.get(card.worktree.repoId)
   const isFolder = repo ? isFolderRepo(repo) : false
+  const isSelected = boardCardDetailId === card.id
   // Why a standalone row, not a WorktreeCard prop: the card's own branch row is gated behind
   // the user's sidebar `worktreeCardProperties` preference, but the board always needs it (#44).
   const branch = !isFolder ? branchName(card.worktree.branch) : ''
@@ -64,11 +68,33 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
     void updateWorktreeMeta(card.worktree.id, { isArchived: true })
   }
 
+  // Why capture phase + stopPropagation: the inner WorktreeCard would otherwise navigate to
+  // the worktree on click (its own onClick), leaving the board. Interactive descendants
+  // (hover quick actions, chips) keep their clicks via the same ignore predicate drag uses.
+  const handleCardClickCapture = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (shouldIgnoreWorkspaceKanbanCardPointerDown(event.target, event.currentTarget)) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      openBoardCardDetail(card.id)
+    },
+    [card.id, openBoardCardDetail]
+  )
+
   return (
     <div
-      className={cn('relative rounded-lg', card.isAwaitingInput && 'ring-1 ring-amber-500/60')}
+      className={cn(
+        'relative rounded-lg',
+        card.isAwaitingInput && 'ring-1 ring-amber-500/60',
+        isSelected && 'ring-1 ring-primary/50'
+      )}
       data-feature-board-card-id={card.id}
       data-feature-board-awaiting-input={card.isAwaitingInput ? 'true' : 'false'}
+      data-feature-board-card-selected={isSelected ? 'true' : 'false'}
+      aria-selected={isSelected}
+      onClickCapture={handleCardClickCapture}
     >
       {card.isAwaitingInput ? (
         <Tooltip>
