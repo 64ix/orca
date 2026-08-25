@@ -5,7 +5,15 @@ import type { Repo } from '../../../../../../shared/repo-types'
 import type { DetectedWorktree, Worktree } from '../../../../../../shared/worktree/types'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host'
 
-export type WorktreeGroupBy = 'none' | 'workspace-status' | 'repo' | 'pr-status'
+import type { WorkflowStage } from '../../../../../../shared/workflow-stages'
+
+export type WorktreeGroupBy =
+  | 'none'
+  | 'workspace-status'
+  | 'repo'
+  | 'pr-status'
+  | 'workflow-stage'
+  | 'workflow-stage'
 export type PinnedWorktreeDisplayPolicy = 'single-location' | 'duplicate-in-groups'
 
 export function getPinnedWorktreeDisplayPolicy(
@@ -44,6 +52,8 @@ export type WorktreeRow = {
   lineageGroupKey?: string
   lineageCollapsed?: boolean
   hostContextLabel?: string
+  /** Effective stage (declared unless GitHub facts govern) for the row badge (#45). */
+  effectiveStage?: WorkflowStage
 }
 
 export type ImportedWorktreesCardCandidate = {

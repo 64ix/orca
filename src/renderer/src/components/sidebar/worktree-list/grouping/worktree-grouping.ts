@@ -14,6 +14,12 @@ import {
 } from './folder-workspace-lanes'
 import { PR_GROUP_META, PR_GROUP_ORDER, getPRGroupKey, getPRLaneKey } from './group-keys'
 import type { PRGroupKey } from './group-keys'
+import {
+  getEffectiveWorkflowStageForWorktree,
+  getWorkflowStageLaneKey,
+  getWorkflowStageLaneLabel,
+  WORKFLOW_STAGE_LANE_ORDER
+} from './workflow-stage-grouping'
 import { addRepoIdToGroup, getProjectGroupingForRepo } from './project-grouping'
 import type {
   OrderedGroupEntry,
@@ -41,6 +47,9 @@ function getLaneLabelForKey(
   if (groupBy === 'pr-status') {
     return PR_GROUP_META[key.replace(/^pr:/, '') as PRGroupKey].label
   }
+  if (groupBy === 'workflow-stage') {
+    return getWorkflowStageLaneLabel(key)
+  }
   return key
 }
 
@@ -50,6 +59,7 @@ export function buildOrderedGroups(args: {
   naturalWorktrees: readonly Worktree[]
   repoMap: Map<string, Repo>
   prCache: Record<string, unknown> | null
+  issueCache: Record<string, unknown> | null
   settings: AppState['settings'] | undefined
   workspaceStatuses: readonly WorkspaceStatusDefinition[]
   projectIndex: ProjectGroupingIndex | null
@@ -66,6 +76,7 @@ export function buildOrderedGroups(args: {
     naturalWorktrees,
     repoMap,
     prCache,
+    issueCache,
     settings,
     workspaceStatuses,
     projectIndex,
@@ -93,6 +104,15 @@ export function buildOrderedGroups(args: {
       key = getWorkspaceStatusGroupKey(workspaceStatus)
       label =
         workspaceStatuses.find((status) => status.id === workspaceStatus)?.label ?? workspaceStatus
+    } else if (groupBy === 'workflow-stage') {
+      const stage = getEffectiveWorkflowStageForWorktree(w, {
+        repoMap,
+        prCache,
+        issueCache,
+        settings
+      })
+      key = getWorkflowStageLaneKey(stage)
+      label = getWorkflowStageLaneLabel(key)
     } else {
       const prGroup = getPRGroupKey(w, repoMap, prCache, settings)
       key = getPRLaneKey(prGroup)
@@ -218,6 +238,16 @@ export function buildOrderedGroups(args: {
     // all-lanes drag target; keep the sidebar compact by omitting empty lanes.
     for (const status of workspaceStatuses) {
       const key = getWorkspaceStatusGroupKey(status.id)
+      const group = grouped.get(key)
+      if (group) {
+        orderedGroups.push([key, group])
+      }
+    }
+  } else if (groupBy === 'workflow-stage') {
+    // Why: the stage pipeline is fixed, so iterate it in canonical order with
+    // "Sans stage" first; like the other lane modes, empty lanes stay hidden
+    // to keep the sidebar compact.
+    for (const key of WORKFLOW_STAGE_LANE_ORDER) {
       const group = grouped.get(key)
       if (group) {
         orderedGroups.push([key, group])

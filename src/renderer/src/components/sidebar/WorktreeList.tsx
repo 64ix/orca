@@ -88,7 +88,7 @@ const WorktreeList = React.memo(function WorktreeList({
   const folderWorkspaces = useAppStore((s) => s.folderWorkspaces)
   const settings = useAppStore((s) => s.settings)
   const cardProps = useAppStore((s) => s.worktreeCardProperties)
-  const { prCache, hostedReviewCache } = useAppStore(
+  const { prCache, issueCache, hostedReviewCache } = useAppStore(
     useShallow((s) => selectWorktreeListReviewCacheInputs(s, groupBy, cardProps))
   )
   const pinnedDisplayPolicy = getPinnedWorktreeDisplayPolicy(settings)
@@ -124,6 +124,7 @@ const WorktreeList = React.memo(function WorktreeList({
     worktreeMap,
     worktreeLineageById,
     prCache,
+    issueCache,
     workspaceStatuses,
     settings,
     projectGroups,
@@ -156,6 +157,7 @@ const WorktreeList = React.memo(function WorktreeList({
     worktreeMap,
     worktreeLineageById,
     prCache,
+    issueCache,
     settings,
     workspaceStatuses,
     effectiveCollapsedGroups,
@@ -324,6 +326,7 @@ const WorktreeList = React.memo(function WorktreeList({
         onReorderHostSections={rowModel.handleReorderHostSections}
         onHostDragActiveChange={rowModel.setHostDragActive}
         prCache={prCache}
+        issueCache={issueCache}
         hostedReviewCache={hostedReviewCache}
         workspaceStatuses={workspaceStatuses}
         projectGrouping={projectGrouping}

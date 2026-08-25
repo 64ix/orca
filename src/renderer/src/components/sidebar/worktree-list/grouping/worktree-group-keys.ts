@@ -5,6 +5,10 @@ import { getWorkspaceStatus, getWorkspaceStatusGroupKey } from '../../workspace-
 import { cloneDefaultWorkspaceStatuses } from '../../../../../../shared/workspace-statuses'
 import type { AppState } from '../../../../store/types'
 import { ALL_GROUP_KEY, getPRGroupKey, getProjectGroupHeaderKey } from './group-keys'
+import {
+  getEffectiveWorkflowStageForWorktree,
+  getWorkflowStageLaneKey
+} from './workflow-stage-grouping'
 import { buildProjectGroupingIndex, getProjectGroupingForRepo } from './project-grouping'
 import type { ProjectGroupingModel } from './project-grouping'
 import type { WorktreeGroupBy } from './row-types'
@@ -16,7 +20,8 @@ export function getGroupKeyForWorktree(
   prCache: Record<string, unknown> | null,
   workspaceStatuses: readonly WorkspaceStatusDefinition[] = cloneDefaultWorkspaceStatuses(),
   settings?: AppState['settings'],
-  projectGrouping?: ProjectGroupingModel
+  projectGrouping?: ProjectGroupingModel,
+  issueCache: Record<string, unknown> | null = null
 ): string | null {
   if (groupBy === 'none') {
     return ALL_GROUP_KEY
@@ -31,6 +36,16 @@ export function getGroupKeyForWorktree(
       buildProjectGroupingIndex(projectGrouping)
     ).key
   }
+  if (groupBy === 'workflow-stage') {
+    return getWorkflowStageLaneKey(
+      getEffectiveWorkflowStageForWorktree(worktree, {
+        repoMap,
+        prCache,
+        issueCache,
+        settings
+      })
+    )
+  }
   return `pr:${getPRGroupKey(worktree, repoMap, prCache, settings)}`
 }
 
@@ -42,7 +57,8 @@ export function getGroupKeysForWorktree(
   workspaceStatuses: readonly WorkspaceStatusDefinition[] = cloneDefaultWorkspaceStatuses(),
   settings?: AppState['settings'],
   projectGroups: readonly ProjectGroup[] = [],
-  projectGrouping?: ProjectGroupingModel
+  projectGrouping?: ProjectGroupingModel,
+  issueCache: Record<string, unknown> | null = null
 ): string[] {
   const groupKey = getGroupKeyForWorktree(
     groupBy,
@@ -51,7 +67,8 @@ export function getGroupKeysForWorktree(
     prCache,
     workspaceStatuses,
     settings,
-    projectGrouping
+    projectGrouping,
+    issueCache
   )
   if (!groupKey) {
     return []

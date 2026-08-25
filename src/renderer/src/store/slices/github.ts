@@ -1828,7 +1828,12 @@ function capPrRefreshStates(
 }
 
 function shouldRefreshIssueDecorations(state: AppState): boolean {
-  return (state.worktreeCardProperties ?? []).includes('issue')
+  return (
+    (state.worktreeCardProperties ?? []).includes('issue') ||
+    // Why: stage grouping derives from open-issue facts, so the sidebar needs
+    // fresh issue entries for linked issues to place worktrees correctly (#45).
+    state.groupBy === 'workflow-stage'
+  )
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -4519,7 +4524,7 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
     const cardProps = state.worktreeCardProperties ?? []
     const rawCardProps = cardProps as readonly string[]
     const shouldRefreshIssues = shouldRefreshIssueDecorations(state)
-    const isPRStatusGrouping = state.groupBy === 'pr-status'
+    const isPRStatusGrouping = state.groupBy === 'pr-status' || state.groupBy === 'workflow-stage'
     const rightSidebarShowsPR = rightSidebarShowsPullRequestData(state)
     const shouldRefreshPRs =
       isPRStatusGrouping ||
@@ -4824,6 +4829,7 @@ export const createGitHubSlice: StateCreator<AppState, [], [], GitHubSlice> = (s
     const rawCardProps = cardProps as readonly string[]
     const shouldRefreshPR =
       state.groupBy === 'pr-status' ||
+      state.groupBy === 'workflow-stage' ||
       (state.settings?.experimentalNewWorktreeCardStyle === true
         ? cardProps.includes('status')
         : cardProps.includes('pr') || rawCardProps.includes('ci')) ||

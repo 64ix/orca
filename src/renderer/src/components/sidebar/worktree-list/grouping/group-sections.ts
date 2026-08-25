@@ -1,6 +1,7 @@
 import type { Repo } from '../../../../../../shared/repo-types'
 import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import type { WorkspaceStatusDefinition, Worktree } from '../../../../../../shared/worktree/types'
+import type { WorkflowStage } from '../../../../../../shared/workflow-stages'
 import type { ExecutionHostId } from '../../../../../../shared/execution-host'
 import {
   getWorkspaceStatusFromGroupKey,
@@ -8,6 +9,7 @@ import {
 } from '../../workspace-status'
 import { PROJECT_GROUP_META, PR_GROUP_META } from './group-keys'
 import type { PRGroupKey } from './group-keys'
+import { getWorkflowStageLaneLabel } from './workflow-stage-grouping'
 import type { NoticeHostContext } from './host-labels'
 import {
   getLaneHostWorktreeCounts,
@@ -50,6 +52,7 @@ export type SectionAppendContext = {
   worktreeMap: Map<string, Worktree>
   nestLineage: boolean
   cyclicLineageIds: ReadonlySet<string>
+  effectiveStages?: ReadonlyMap<string, WorkflowStage>
 }
 
 export function appendOrderedGroups(
@@ -73,7 +76,8 @@ export function appendOrderedGroups(
     lineageById,
     worktreeMap,
     nestLineage,
-    cyclicLineageIds
+    cyclicLineageIds,
+    effectiveStages
   } = ctx
   for (const [key, group] of groupsToAppend) {
     const isCollapsed = collapsedGroups.has(key)
@@ -121,31 +125,54 @@ export function appendOrderedGroups(
                 worktreeIds: group.items.map((worktree) => worktree.id)
               }
             })()
-          : (() => {
-              const prGroup = key.replace(/^pr:/, '') as PRGroupKey
-              const meta = PR_GROUP_META[prGroup]
-              return {
-                type: 'header' as const,
-                key,
-                label: meta.label,
-                count: group.items.length + folderPairs.length,
-                tone: meta.tone,
-                icon: meta.icon,
-                hostWorktreeCounts: getLaneHostWorktreeCounts(
-                  group.items,
-                  folderPairs,
-                  repoMap,
-                  defaultHostId
-                ),
-                hostWorktreeIds: getLaneHostWorktreeIds(
-                  group.items,
-                  folderPairs,
-                  repoMap,
-                  defaultHostId
-                ),
-                worktreeIds: group.items.map((worktree) => worktree.id)
-              }
-            })()
+          : groupBy === 'workflow-stage'
+            ? (() => {
+                return {
+                  type: 'header' as const,
+                  key,
+                  label: getWorkflowStageLaneLabel(key),
+                  count: group.items.length + folderPairs.length,
+                  tone: 'text-foreground',
+                  hostWorktreeCounts: getLaneHostWorktreeCounts(
+                    group.items,
+                    folderPairs,
+                    repoMap,
+                    defaultHostId
+                  ),
+                  hostWorktreeIds: getLaneHostWorktreeIds(
+                    group.items,
+                    folderPairs,
+                    repoMap,
+                    defaultHostId
+                  ),
+                  worktreeIds: group.items.map((worktree) => worktree.id)
+                }
+              })()
+            : (() => {
+                const prGroup = key.replace(/^pr:/, '') as PRGroupKey
+                const meta = PR_GROUP_META[prGroup]
+                return {
+                  type: 'header' as const,
+                  key,
+                  label: meta.label,
+                  count: group.items.length + folderPairs.length,
+                  tone: meta.tone,
+                  icon: meta.icon,
+                  hostWorktreeCounts: getLaneHostWorktreeCounts(
+                    group.items,
+                    folderPairs,
+                    repoMap,
+                    defaultHostId
+                  ),
+                  hostWorktreeIds: getLaneHostWorktreeIds(
+                    group.items,
+                    folderPairs,
+                    repoMap,
+                    defaultHostId
+                  ),
+                  worktreeIds: group.items.map((worktree) => worktree.id)
+                }
+              })()
 
     result.push(header)
     if (!isCollapsed) {
@@ -208,7 +235,8 @@ export function appendOrderedGroups(
         sectionKey: key,
         hostContextLabelByRepoId,
         hostContextLabelByWorktreeIdentity,
-        cyclicLineageIds
+        cyclicLineageIds,
+        effectiveStages
       })
       for (const pair of folderPairs) {
         result.push(buildFolderWorkspaceRow(pair, projectGroupDepth))

@@ -157,6 +157,7 @@ export const VirtualizedWorktreeViewport = React.memo(function VirtualizedWorktr
     pinnedDisplayPolicy,
     defaultHostId: props.defaultHostId,
     prCache: props.prCache,
+    issueCache: props.issueCache,
     workspaceStatuses,
     settings,
     projectGroups,

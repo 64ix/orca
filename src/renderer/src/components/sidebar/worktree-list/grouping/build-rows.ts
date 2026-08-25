@@ -4,6 +4,7 @@ import type { Repo } from '../../../../../../shared/repo-types'
 import type { ProjectOrderBy } from '../../../../../../shared/ui-chrome-types'
 import type { WorktreeLineage } from '../../../../../../shared/worktree/lineage-types'
 import type { WorkspaceStatusDefinition, Worktree } from '../../../../../../shared/worktree/types'
+import type { WorkflowStage } from '../../../../../../shared/workflow-stages'
 import { cloneDefaultWorkspaceStatuses } from '../../../../../../shared/workspace-statuses'
 import type { AppState } from '../../../../store/types'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../../../shared/execution-host'
@@ -42,6 +43,7 @@ import type {
   Row,
   WorktreeGroupBy
 } from './row-types'
+import { getEffectiveWorkflowStageForWorktree } from './workflow-stage-grouping'
 import { getRenderedNaturalAnchorRepoIds, withRepoSectionDisplayLabels } from './section-order'
 import { buildOrderedGroups } from './worktree-grouping'
 
@@ -70,10 +72,27 @@ export function buildRows(
   folderWorkspaces: readonly FolderWorkspace[] = [],
   hostLabelById?: ReadonlyMap<string, string>,
   defaultHostId: ExecutionHostId = LOCAL_EXECUTION_HOST_ID,
-  pinnedDisplayPolicy: PinnedWorktreeDisplayPolicy = getPinnedWorktreeDisplayPolicy(settings)
+  pinnedDisplayPolicy: PinnedWorktreeDisplayPolicy = getPinnedWorktreeDisplayPolicy(settings),
+  issueCache: Record<string, unknown> | null = null
 ): Row[] {
   const result: Row[] = []
   const projectIndex = buildProjectGroupingIndex(projectGrouping)
+  // Why computed for every mode: the stage badge renders on rows in every
+  // grouping (including none), so membership derivation cannot live inside the
+  // stage-mode branch. The map is also the single source buildOrderedGroups'
+  // stage bucketing reads per worktree.
+  const effectiveStages = new Map<string, WorkflowStage>()
+  for (const worktree of worktrees) {
+    const stage = getEffectiveWorkflowStageForWorktree(worktree, {
+      repoMap,
+      prCache,
+      issueCache,
+      settings
+    })
+    if (stage) {
+      effectiveStages.set(worktree.id, stage)
+    }
+  }
   // Membership is decided once, above the groupBy switch: every mode renders the
   // same set of folder workspaces and only chooses where they land (#15362).
   const renderableFolderWorkspaces = getRenderableFolderWorkspaces(folderWorkspaces, projectGroups)
@@ -130,7 +149,8 @@ export function buildRows(
     collapsedGroups,
     workspaceStatuses,
     settings,
-    projectGrouping
+    projectGrouping,
+    issueCache
   })
   emitPinnedGroup(
     pinnedSectionWorktrees,
@@ -145,7 +165,8 @@ export function buildRows(
     worktreeMap,
     nestLineage,
     cyclicLineageIds,
-    noticeHostContextLabelByRepoId
+    noticeHostContextLabelByRepoId,
+    effectiveStages
   )
   if (groupBy === 'none') {
     // Why folder workspaces gate this too: an account with only folder
@@ -179,7 +200,8 @@ export function buildRows(
           groupDepth: 0,
           sectionKey: ALL_GROUP_KEY,
           hostContextLabelByWorktreeIdentity: mixedWorktreeHostContextLabels,
-          cyclicLineageIds
+          cyclicLineageIds,
+          effectiveStages
         })
         for (const pair of [...renderableFolderWorkspaces].sort((left, right) =>
           compareFolderWorkspacesForDisplay(left.folderWorkspace, right.folderWorkspace)
@@ -196,6 +218,7 @@ export function buildRows(
     naturalWorktrees,
     repoMap,
     prCache,
+    issueCache,
     settings,
     workspaceStatuses,
     projectIndex,
@@ -225,7 +248,8 @@ export function buildRows(
     lineageById,
     worktreeMap,
     nestLineage,
-    cyclicLineageIds
+    cyclicLineageIds,
+    effectiveStages
   }
 
   if (groupBy !== 'repo' || projectGroups.length === 0) {
