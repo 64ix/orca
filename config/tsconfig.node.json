@@ -8,6 +8,7 @@
     "../src/preload/**/*",
     "../src/shared/**/*",
     "../src/relay/**/*",
+    "../src/sync-relay/**/*",
     "../src/types/**/*"
   ],
   "compilerOptions": {

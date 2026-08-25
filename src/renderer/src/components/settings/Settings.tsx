@@ -53,6 +53,7 @@ import { GitProviderApiBudgetPane } from './GitProviderApiBudgetPane'
 import { NotificationsPane } from './NotificationsPane'
 import { VoicePane } from './VoicePane'
 import { SshPane } from './SshPane'
+import { SyncDevicesPane } from './SyncDevicesPane'
 import { ExperimentalPane } from './ExperimentalPane'
 import { PluginsSettingsSection } from './PluginsSettingsSection'
 import { AgentsPane } from './AgentsPane'
@@ -1763,6 +1764,25 @@ function Settings(): React.JSX.Element {
                   >
                     {isSectionMounted('ssh') ? (
                       <SshPane addTargetIntentSignal={sshHostAddIntentSignal} />
+                    ) : null}
+                  </SettingsSection>
+                ) : null}
+
+                {showDesktopOnlySettings ? (
+                  <SettingsSection
+                    id="sync-devices"
+                    title={translate(
+                      'auto.components.settings.Settings.a1b2c3d4e5',
+                      'Sync Devices'
+                    )}
+                    description={translate(
+                      'auto.components.settings.Settings.b2c3d4e5f6',
+                      'Pair machines for self-hosted multi-device sync.'
+                    )}
+                    searchEntries={getSectionSearchEntries('sync-devices')}
+                  >
+                    {isSectionMounted('sync-devices') ? (
+                      <SyncDevicesPane settings={settings} updateSettings={updateSettings} />
                     ) : null}
                   </SettingsSection>
                 ) : null}

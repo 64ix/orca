@@ -954,7 +954,9 @@
         "automationsDescription": "Schedule agent work and choose whether Automations appears in the sidebar.",
         "shareSkillsTitle": "Share Skills",
         "shareSkillsDescription": "Share your skills with an unlisted link. Anyone who has it can install them.",
-        "floatingWorkspaceWebDescription": "Global terminal and markdown tabs."
+        "floatingWorkspaceWebDescription": "Global terminal and markdown tabs.",
+        "a1b2c3d4e5": "Sync Devices",
+        "b2c3d4e5f6": "Pair machines for self-hosted multi-device sync."
       },
       "useAppMenuPaste": {
         "pasteTooLarge": "Paste is too large."
@@ -7877,7 +7879,9 @@
           "devDescription": "Dev-only tools for exercising UI states.",
           "linearTitle": "Linear",
           "linearDescription": "How Linear works in Orca, setup checklist, agent skill, and example prompts.",
-          "tasksDescription": "Connect providers, install the Linear skill, and choose what appears in Tasks."
+          "tasksDescription": "Connect providers, install the Linear skill, and choose what appears in Tasks.",
+          "a1b2c3d4e5": "Sync Devices",
+          "b2c3d4e5f6": "Pair machines for self-hosted multi-device sync."
         },
         "SettingsFormControls": {
           "42a4d15a30": "No matching fonts.",
@@ -11306,6 +11310,74 @@
         },
         "shortcutDefinitionCatalog": {
           "missionControlConflict": "Blocked by Mission Control. Remap here or change it in System Settings."
+        },
+        "SyncDeviceInviteDialog": {
+          "4e5f6a7b8c": "Failed to create invite",
+          "5f6a7b8c9d": "Copied",
+          "6a7b8c9d0e": "Failed to copy",
+          "7b8c9d0e1f": "Invite a device",
+          "8c9d0e1f2a": "Scan the QR code (or paste the link) on the other machine, then type the pairing code shown below — both are required to complete pairing.",
+          "9d0e1f2a3b": "Device name",
+          "0e1f2a3b4c": "e.g. Work desktop",
+          "1f2a3b4c5d": "Create invite",
+          "2a3b4c5d6e": "Pairing QR code",
+          "3b4c5d6e7f": "Generating QR…",
+          "4c5d6e7f8a": "Pairing link",
+          "5d6e7f8a9b": "Copy",
+          "6e7f8a9b0c": "Pairing code (type this into the other machine)",
+          "7f8a9b0c1d": "Done"
+        },
+        "SyncDeviceJoinDialog": {
+          "8a9b0c1d2e": "That pairing link looks invalid or incomplete.",
+          "9b0c1d2e3f": "That pairing code looks invalid — check for typos.",
+          "0c1d2e3f4a": "Could not reach the sync relay.",
+          "1d2e3f4a5b": "The link and code did not match — pairing needs both.",
+          "2e3f4a5b6c": "Device paired",
+          "3f4a5b6c7d": "Join with a code",
+          "4a5b6c7d8e": "Paste the pairing link from the inviting machine, then type in the pairing code shown alongside its QR code.",
+          "5b6c7d8e9f": "Pairing link",
+          "6c7d8e9f0a": "Pairing code",
+          "7d8e9f0a1b": "This device’s name (optional)",
+          "8e9f0a1b2c": "Join",
+          "9f0a1b2c3d": "orca://pair?code=...",
+          "0a1b2c3d4e": "ABCD-EFGH-..."
+        },
+        "SyncDeviceRow": {
+          "9f1a2b3c4d": "This device",
+          "0a1b2c3d4e": "Revoked",
+          "1b2c3d4e5f": "Paired",
+          "2c3d4e5f6a": "Last seen",
+          "3d4e5f6a7b": "Revoke device"
+        },
+        "SyncDevicesPane": {
+          "9a0b1c2d3e": "Could not start a fleet on that relay",
+          "0b1c2d3e4f": "Device revoked",
+          "1c2d3e4f5a": "Failed to revoke device",
+          "2d3e4f5a6b": "Loading…",
+          "3e4f5a6b7c": "This machine is not connected to a sync relay yet.",
+          "4f5a6b7c8d": "Sync relay URL",
+          "5a6b7c8d9e": "Start a new fleet",
+          "6b7c8d9e0f": "Already have a pairing invite from another machine?",
+          "7c8d9e0f1a": "Join with a code",
+          "8d9e0f1a2b": "Relay",
+          "9e0f1a2b3c": "Invite a device",
+          "0f1a2b3c4d": "Failed to load the device list.",
+          "1a2b3c4d5e": "No devices paired yet.",
+          "2b3c4d5e6f": "Revoking a device cuts its access immediately.",
+          "3c4d5e6f7a": "https://your-relay.example.workers.dev",
+          "3d4e5f6a7b": "Sync board state",
+          "4e5f6a7b8c": "Keep workflow stage, links, order, and pins in sync with this fleet. Pausing keeps devices paired.",
+          "4a5b6c7d8e": "Can’t revoke the only active device — pair another device first."
+        },
+        "sync": {
+          "search": {
+            "a1b2c3d4e5": "Sync Devices",
+            "b2c3d4e5f6": "Pair machines for self-hosted multi-device sync.",
+            "b3c4d5e6f7": "Invite a Device",
+            "c4d5e6f7a2": "Pair another machine with a QR code and a pairing code.",
+            "b4c5d6e7f8": "Revoke a Device",
+            "c5d6e7f8a3": "Cut off a paired device immediately."
+          }
         }
       },
       "right": {
