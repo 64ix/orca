@@ -309,6 +309,7 @@ export default function HostedReviewActions({
       <MergedReviewActions
         isDeletingWorktree={isDeletingWorktree}
         onDeleteWorktree={handleDeleteWorktree}
+        removesProject={worktree.isMainWorktree}
       />
     )
   }

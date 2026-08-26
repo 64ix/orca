@@ -54,10 +54,13 @@ export function ClosedReviewActions({
 
 export function MergedReviewActions({
   isDeletingWorktree,
-  onDeleteWorktree
+  onDeleteWorktree,
+  removesProject = false
 }: {
   isDeletingWorktree: boolean
   onDeleteWorktree: () => void
+  /** Why: the primary checkout routes to project removal, so the label must name that effect. */
+  removesProject?: boolean
 }): React.JSX.Element {
   return (
     <Button
@@ -69,6 +72,14 @@ export function MergedReviewActions({
       className="cursor-pointer border-destructive/30 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50"
       onClick={onDeleteWorktree}
       disabled={isDeletingWorktree}
+      title={
+        removesProject
+          ? translate(
+              'auto.components.right.sidebar.HostedReviewStateActions.c7e3bd83df',
+              'Primary checkout — it cannot be deleted as an individual workspace, so removal covers the whole project.'
+            )
+          : undefined
+      }
     >
       {isDeletingWorktree ? (
         <LoaderCircle className="size-3.5 animate-spin" />
@@ -77,10 +88,15 @@ export function MergedReviewActions({
       )}
       {isDeletingWorktree
         ? translate('auto.components.right.sidebar.HostedReviewActions.eefd50457e', 'Deleting...')
-        : translate(
-            'auto.components.right.sidebar.HostedReviewActions.e4aca40024',
-            'Delete Workspace'
-          )}
+        : removesProject
+          ? translate(
+              'auto.components.right.sidebar.HostedReviewStateActions.65e2fb6a24',
+              'Remove Project from Orca…'
+            )
+          : translate(
+              'auto.components.right.sidebar.HostedReviewActions.e4aca40024',
+              'Delete Workspace'
+            )}
     </Button>
   )
 }

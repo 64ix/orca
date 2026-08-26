@@ -573,6 +573,7 @@ describe('delete worktree flow', () => {
     expect(mocks.state.openModal).toHaveBeenCalledWith('confirm-remove-folder', {
       repoId: 'repo-1',
       displayName: 'orca',
+      removalReason: 'primary-checkout',
       hostId: 'local'
     })
   })
@@ -598,6 +599,7 @@ describe('delete worktree flow', () => {
     expect(mocks.state.openModal).toHaveBeenCalledWith('confirm-remove-folder', {
       repoId: 'repo-1',
       displayName: 'provisioned orca',
+      removalReason: 'primary-checkout',
       hostId: 'ssh:runtime-ssh-one'
     })
   })

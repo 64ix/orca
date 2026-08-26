@@ -59,6 +59,7 @@ export function runWorktreeDelete(worktreeId: string, options: WorktreeDeleteOpt
     state.openModal('confirm-remove-folder', {
       repoId: target.repoId,
       displayName: repo?.displayName ?? target.displayName,
+      removalReason: 'primary-checkout',
       ...(hostId ? { hostId } : {})
     })
     return
