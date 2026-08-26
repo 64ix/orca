@@ -1,7 +1,6 @@
 import { useId, useRef } from 'react'
 import { ClipboardCopy, FolderOpen, Info, MoreHorizontal, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -188,11 +187,6 @@ export function SkillRow({
               <span className="min-w-0 truncate text-sm font-medium" data-skill-name>
                 {skill.name}
               </span>
-              {!skill.installed ? (
-                <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
-                  {translate('auto.components.skills.SkillsPage.35b9a724a0', 'Available')}
-                </Badge>
-              ) : null}
               {showReason ? (
                 <Tooltip>
                   <TooltipTrigger asChild>

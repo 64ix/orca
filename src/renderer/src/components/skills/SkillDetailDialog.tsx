@@ -1,6 +1,5 @@
 import { ClipboardCopy, FolderOpen, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -90,11 +89,6 @@ export function SkillDetailDialog({
         <DialogHeader className="space-y-1 border-b border-border py-4 pr-10 pl-5">
           <div className="flex min-w-0 items-center gap-2">
             <DialogTitle className="min-w-0 break-words text-base">{skill.name}</DialogTitle>
-            {!skill.installed ? (
-              <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
-                {translate('auto.components.skills.SkillsPage.35b9a724a0', 'Available')}
-              </Badge>
-            ) : null}
           </div>
           <DialogDescription className="text-xs">
             {sourceKindLabel(skill.sourceKind)}

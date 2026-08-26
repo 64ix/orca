@@ -31,10 +31,21 @@ import type {
   SkillUpdateRun,
   SkillUpdateStartResult
 } from '../../shared/skill-freshness'
+import type {
+  SkillBundleCatalog,
+  SkillCatalogInstallRun,
+  SkillCatalogInstallStartResult
+} from '../../shared/skill-catalog'
 
 export type SkillsApi = {
   discover: (target?: SkillDiscoveryTarget) => Promise<SkillDiscoveryResult>
   freshnessInventory: () => Promise<SkillFreshnessInventory>
+  catalog: () => Promise<SkillBundleCatalog>
+  startCatalogInstall: (names: string[]) => Promise<SkillCatalogInstallStartResult>
+  cancelCatalogInstall: () => Promise<void>
+  acknowledgeCatalogInstall: () => Promise<void>
+  getCatalogInstall: () => Promise<SkillCatalogInstallRun>
+  onCatalogInstallRun: (callback: (run: SkillCatalogInstallRun) => void) => () => void
   startUpdateRun: (names: string[]) => Promise<SkillUpdateStartResult>
   cancelUpdateRun: () => Promise<void>
   acknowledgeUpdateRun: () => Promise<void>

@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
 import { discoverSkillsForRuntimeTarget } from '@/runtime/runtime-skills-client'
 import { useActiveSkillDiscoveryRuntimeTarget } from '@/hooks/use-active-skill-discovery-runtime-target'
+import { useActiveProjectSkillRuntime } from '@/hooks/useActiveProjectSkillRuntime'
 import { useMountedRef } from '@/hooks/useMountedRef'
 import type { DiscoveredSkill, SkillDiscoveryResult } from '../../../../shared/skills'
 import { SkillsList } from './SkillsList'
@@ -25,6 +26,7 @@ import { useSkillDiscoveryHostLabel } from './use-skill-discovery-host-label'
 import { countSkillsBySource, filterSkills, type SkillsFilterState } from './skills-filter'
 import { skillAgentByRootPath, skillAgentOptions } from './skill-agent-filter'
 import { SkillSharedLinksView } from './SkillSharedLinksView'
+import { SkillsCatalogSection } from './SkillsCatalogSection'
 import { useOwnedSkillShares } from './use-owned-skill-shares'
 import type { SkillsPageView } from './skills-page-view'
 import { translate } from '@/i18n/i18n'
@@ -50,8 +52,13 @@ export default function SkillsPage(): React.JSX.Element {
   const pendingSkillsSharedView = useAppStore((s) => s.pendingSkillsSharedView)
   const clearPendingSkillsSharedView = useAppStore((s) => s.clearPendingSkillsSharedView)
   const runtimeTarget = useActiveSkillDiscoveryRuntimeTarget()
+  const activeSkillRuntime = useActiveProjectSkillRuntime()
   const hostLabel = useSkillDiscoveryHostLabel(runtimeTarget)
   const [result, setResult] = useState<SkillDiscoveryResult | null>(null)
+  // Why: the generation the current `result` was produced by. Compared against
+  // scanGenerationRef.current so a stale snapshot can never be mistaken for proof
+  // about whatever target is scanning right now — see resultIsCurrent below.
+  const [resultGeneration, setResultGeneration] = useState(0)
   const [loading, setLoading] = useState(true)
   const [scanError, setScanError] = useState<string | null>(null)
   const [shareSkills, setShareSkills] = useState<DiscoveredSkill[]>([])
@@ -83,6 +90,7 @@ export default function SkillsPage(): React.JSX.Element {
       const local = runtimeTarget.kind === 'local'
       if (isCurrentScan()) {
         setResult(nextResult)
+        setResultGeneration(scanGeneration)
         setScanError(null)
         setSelectedSkillIds((current) =>
           retainedShareableSkillSelection(current, nextResult.skills, local)
@@ -207,6 +215,11 @@ export default function SkillsPage(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [closeSkillsPage, exitSelection, exitSharedLinks, selectingShare, view])
 
+  // Why: proof of installability requires a result from the scan that is current
+  // right now — not merely a non-null one. A rescan bumps scanGenerationRef before
+  // this render, so a result left over from an earlier target or an earlier click
+  // of Refresh reads as unknown until its own scan lands.
+  const installabilityKnown = result !== null && resultGeneration === scanGenerationRef.current
   const skills = result?.skills ?? EMPTY_SKILLS
   const local = runtimeTarget?.kind === 'local'
   const agentByRootPath = useMemo(() => skillAgentByRootPath(result), [result])
@@ -312,6 +325,16 @@ export default function SkillsPage(): React.JSX.Element {
                   onInstallFromLink={openInstallDialog}
                 />
               )}
+              {/* Why: install/uninstall/update run on the executing host, so the
+                  catalog only renders when that host is this machine. Remote
+                  runtimes keep the existing remote-share notice instead. */}
+              {activeSkillRuntime.canUseLocalSkillFreshness ? (
+                <SkillsCatalogSection
+                  discoveredSkills={skills}
+                  installabilityKnown={installabilityKnown}
+                  query={filters.query}
+                />
+              ) : null}
             </>
           )}
         </div>

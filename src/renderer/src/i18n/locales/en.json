@@ -4633,6 +4633,37 @@
           "supportingFilesDescription": "Includes readable reference files beyond the main instructions.",
           "runnableFilesDescription": "Includes scripts that an agent may run with your access.",
           "binaryFilesDescription": "Includes opaque assets and an executable binary."
+        },
+        "SkillCatalogRow": {
+          "installed": "Installed",
+          "version": "v{{value0}}",
+          "install": "Install",
+          "update": "Update",
+          "removePrompt": "Remove {{value0}}?",
+          "confirmRemove": "Remove",
+          "cancelRemove": "Cancel",
+          "manageAria": "Manage {{value0}}",
+          "uninstall": "Uninstall",
+          "unverifiedTooltip": "Scanning skills first — install is enabled once installability is known."
+        },
+        "SkillCatalogSection": {
+          "loadFailed": "Could not load the Orca skills catalog.",
+          "removeFailed": "Could not remove {{value0}}.",
+          "removeConflict": "{{value0}} was not removed because it was changed on disk.",
+          "title": "Orca skills ({{value0}})",
+          "checking": "Checking installed versions…",
+          "checkFailed": "Could not check installed versions.",
+          "installingOne": "Installing {{value0}}…",
+          "installingMany": "Installing {{value0}} skills…",
+          "installedOne": "Installed {{value0}}.",
+          "installedMany": "Installed {{value0}} skills.",
+          "dismiss": "Dismiss",
+          "listAria": "Orca skills catalog"
+        },
+        "SkillCatalogInstallStore": {
+          "alreadyRunning": "Already installing skills — wait for it to finish, then try again.",
+          "invalidNames": "Could not start the install: invalid skill name.",
+          "unsafeCommandPath": "Could not start the install: the install command could not run safely from this location."
         }
       },
       "sidebar": {
