@@ -63,6 +63,7 @@ import {
   useWorkspaceLineageMenuActions
 } from './workspace-lineage-menu-actions'
 import { WorkspaceSleepMenuItems } from './WorkspaceSleepMenuItems'
+import { WorktreeFeatureBoardStageMenu } from './WorktreeFeatureBoardStageMenu'
 import { isEventTargetInsideCurrentTarget } from './worktree-card-dom-events'
 import { translate } from '@/i18n/i18n'
 import { unnestWorktrees } from './worktree-unnest'
@@ -913,6 +914,11 @@ const WorktreeContextMenu = React.memo(function WorktreeContextMenu({
                       'Mark Unread'
                     )}
               </DropdownMenuItem>
+              <WorktreeFeatureBoardStageMenu
+                worktree={worktree}
+                disabled={isDeleting}
+                hasParentLink={hasParentLink}
+              />
               {repo ? (
                 <>
                   <DropdownMenuSeparator />

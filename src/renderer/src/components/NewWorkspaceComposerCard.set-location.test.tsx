@@ -166,6 +166,8 @@ function renderCard(
         onCreate={() => {}}
         note=""
         onNoteChange={() => {}}
+        workflowStage="idea"
+        onWorkflowStageChange={() => {}}
         setupConfig={null}
         requiresExplicitSetupChoice={false}
         setupDecision={null}
