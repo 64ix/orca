@@ -5980,9 +5980,6 @@
           "projectOnly": "Added in this project only.",
           "useGlobalFor": "Use global for {{value0}}",
           "useGlobal": "Use global"
-        },
-        "SidebarUsageGauge": {
-          "eff13eff75": "Feature usage"
         }
       },
       "shared": {
