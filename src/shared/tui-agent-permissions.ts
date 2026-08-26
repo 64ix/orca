@@ -31,8 +31,16 @@ export const YOLO_TUI_AGENT_ARGS: Partial<Record<TuiAgent, string>> = {
   trae: '--yolo'
 }
 
+export const OPENCODE_YOLO_CONFIG_CONTENT = JSON.stringify({ permission: 'allow' })
+
 export const YOLO_TUI_AGENT_ENV: Partial<Record<TuiAgent, Record<string, string>>> = {
-  goose: { GOOSE_MODE: 'auto' }
+  goose: { GOOSE_MODE: 'auto' },
+  // Why: opencode models permissions in its JSON config, not a CLI bypass flag;
+  // OPENCODE_CONFIG_CONTENT is opencode's own inline-config env var (highest
+  // precedence short of a managed/system config) and works unmodified on
+  // local, WSL, and SSH-remote launches since it rides the same agentEnv path
+  // as GOOSE_MODE above.
+  opencode: { OPENCODE_CONFIG_CONTENT: OPENCODE_YOLO_CONFIG_CONTENT }
 }
 
 const PERMISSION_AGENT_IDS = Object.keys(TUI_AGENT_CONFIG).filter(
