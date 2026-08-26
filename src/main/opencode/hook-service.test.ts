@@ -510,3 +510,101 @@ describe('OpenCodeHookService overlay mode (user OPENCODE_CONFIG_DIR set)', () =
     expect(existsSync(join(overlayDir, 'node_modules', 'opencode-runtime', 'index.js'))).toBe(true)
   })
 })
+
+describe('OpenCodeHookService MCP injection', () => {
+  const mcpConfig = { endpoint: 'http://127.0.0.1:54999', token: 'secret-launch-token' }
+  let userDataDir: string
+  let userConfigDir: string
+
+  beforeAll(() => {
+    userDataDir = mkdtempSync(join(tmpdir(), 'orca-opencode-mcp-userdata-'))
+    getPathMock.mockImplementation((name: string) => {
+      if (name === 'userData') {
+        return userDataDir
+      }
+      throw new Error(`unexpected getPath(${name})`)
+    })
+  })
+
+  afterAll(() => {
+    rmSync(userDataDir, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    userConfigDir = mkdtempSync(join(tmpdir(), 'orca-opencode-mcp-userconfig-'))
+    writeFileSync(
+      join(userConfigDir, 'opencode.json'),
+      JSON.stringify({ userTheme: 'solarized', mcp: { other: { type: 'local' } } })
+    )
+  })
+
+  afterEach(() => {
+    rmSync(userConfigDir, { recursive: true, force: true })
+    rmSync(join(userDataDir, 'opencode-config-overlays'), { recursive: true, force: true })
+  })
+
+  it('writes the mcp.orca block as a real file, preserving the rest of the user config', () => {
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-1', userConfigDir, mcpConfig)
+
+    const configPath = join(env.OPENCODE_CONFIG_DIR!, 'opencode.json')
+    expect(lstatSync(configPath).isSymbolicLink()).toBe(false)
+    const merged = JSON.parse(readFileSync(configPath, 'utf8'))
+    expect(merged.userTheme).toBe('solarized')
+    expect(merged.mcp.other).toEqual({ type: 'local' })
+    expect(merged.mcp.orca).toEqual({
+      type: 'remote',
+      url: mcpConfig.endpoint,
+      headers: { Authorization: `Bearer ${mcpConfig.token}` },
+      enabled: true
+    })
+    // The user's real file must never be touched.
+    expect(readFileSync(join(userConfigDir, 'opencode.json'), 'utf8')).not.toContain('orca')
+  })
+
+  it('two concurrent PTYs with mcp injection get isolated overlays, not the shared/source-keyed one', () => {
+    const service = new OpenCodeHookService()
+    const tokenA = { endpoint: 'http://127.0.0.1:1', token: 'token-a' }
+    const tokenB = { endpoint: 'http://127.0.0.1:2', token: 'token-b' }
+
+    const envA = service.buildPtyEnv('pty-a', userConfigDir, tokenA)
+    const envB = service.buildPtyEnv('pty-b', userConfigDir, tokenB)
+
+    expect(envA.OPENCODE_CONFIG_DIR).not.toBe(envB.OPENCODE_CONFIG_DIR)
+    const configA = JSON.parse(readFileSync(join(envA.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8'))
+    const configB = JSON.parse(readFileSync(join(envB.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8'))
+    expect(configA.mcp.orca.headers.Authorization).toBe('Bearer token-a')
+    expect(configB.mcp.orca.headers.Authorization).toBe('Bearer token-b')
+  })
+
+  it('writes a minimal config carrying just the mcp block when there is no existing user config', () => {
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-fresh', undefined, mcpConfig)
+
+    const configPath = join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc')
+    const written = JSON.parse(readFileSync(configPath, 'utf8'))
+    expect(written.mcp.orca.url).toBe(mcpConfig.endpoint)
+  })
+
+  it('installs the Orca status plugin into the same launch-scoped overlay', () => {
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-2', userConfigDir, mcpConfig)
+
+    expect(
+      existsSync(join(env.OPENCODE_CONFIG_DIR!, 'plugins', 'orca-opencode-status.js'))
+    ).toBe(true)
+  })
+
+  it('tolerates JSONC comments in the user config when merging', () => {
+    writeFileSync(
+      join(userConfigDir, 'opencode.jsonc'),
+      '{\n  // a comment\n  "userTheme": "dark", // trailing\n}\n'
+    )
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-jsonc', userConfigDir, mcpConfig)
+
+    const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
+    expect(merged.userTheme).toBe('dark')
+    expect(merged.mcp.orca.url).toBe(mcpConfig.endpoint)
+  })
+})

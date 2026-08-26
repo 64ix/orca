@@ -345,6 +345,166 @@ describe('workspace-scoped sessions', () => {
   })
 })
 
+describe('per-launch tokens', () => {
+  it('binds a session to the workspace the token was minted for, ignoring params.workspace', async () => {
+    const { server, runtime } = await startServer()
+    const launchToken = server.mintLaunchToken('id:wt-a')
+
+    const res = await post(server.endpoint(), launchToken, {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      // Why: a launch token names its workspace server-side; this must be ignored.
+      params: { workspace: 'id:wt-attacker' }
+    })
+    const sessionId = JSON.parse(res.body).result.sessionId
+
+    const callRes = await post(
+      server.endpoint(),
+      launchToken,
+      {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: { name: 'declare_stage', arguments: { stage: 'implementing' } }
+      },
+      { 'mcp-session-id': sessionId }
+    )
+
+    expect(callRes.status).toBe(200)
+    expect(runtime.updateManagedWorktreeMeta).toHaveBeenCalledWith(
+      'id:wt-a',
+      expect.objectContaining({ workflowStage: 'implementing' })
+    )
+    expect(runtime.updateManagedWorktreeMeta).not.toHaveBeenCalledWith(
+      'id:wt-attacker',
+      expect.anything()
+    )
+  })
+
+  it('initialize with no params.workspace still binds via the launch token', async () => {
+    const { server, runtime } = await startServer()
+    const launchToken = server.mintLaunchToken('folder:fw-b')
+
+    const sessionId = await initializeWithoutParams(server, launchToken)
+    const res = await post(
+      server.endpoint(),
+      launchToken,
+      {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'read_board', arguments: {} }
+      },
+      { 'mcp-session-id': sessionId }
+    )
+
+    expect(res.status).toBe(200)
+    expect(runtime.getWorktreePs).toHaveBeenCalled()
+  })
+
+  it('two launch tokens for different workspaces never cross wires', async () => {
+    const { server, runtime } = await startServer()
+    const tokenA = server.mintLaunchToken('id:wt-a')
+    const tokenB = server.mintLaunchToken('folder:fw-b')
+
+    const sessionA = await initializeWithoutParams(server, tokenA)
+    const sessionB = await initializeWithoutParams(server, tokenB)
+
+    await post(
+      server.endpoint(),
+      tokenA,
+      {
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: { name: 'declare_stage', arguments: { stage: 'spec' } }
+      },
+      { 'mcp-session-id': sessionA }
+    )
+    await post(
+      server.endpoint(),
+      tokenB,
+      {
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'tools/call',
+        params: { name: 'declare_stage', arguments: { stage: 'review' } }
+      },
+      { 'mcp-session-id': sessionB }
+    )
+
+    expect(runtime.updateManagedWorktreeMeta).toHaveBeenCalledWith(
+      'id:wt-a',
+      expect.objectContaining({ workflowStage: 'spec' })
+    )
+    expect(runtime.updateFolderWorkspace).toHaveBeenCalledWith(
+      'fw-b',
+      expect.objectContaining({ workflowStage: 'review' })
+    )
+  })
+
+  it('rebindLaunchToken repoints an already-minted token before any agent uses it', async () => {
+    const { server, runtime } = await startServer()
+    const token = server.mintLaunchToken('pending:placeholder-123')
+
+    server.rebindLaunchToken(token, 'id:wt-real')
+
+    const sessionId = await initializeWithoutParams(server, token)
+    await post(
+      server.endpoint(),
+      token,
+      {
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: { name: 'declare_stage', arguments: { stage: 'triage' } }
+      },
+      { 'mcp-session-id': sessionId }
+    )
+
+    expect(runtime.updateManagedWorktreeMeta).toHaveBeenCalledWith(
+      'id:wt-real',
+      expect.objectContaining({ workflowStage: 'triage' })
+    )
+  })
+
+  it('the app-instance token still supports the manual params.workspace selector', async () => {
+    const { server, runtime } = await startServer()
+    const token = server.getBearerToken()
+
+    const sessionId = await initialize(server, token, 'id:wt-manual')
+    await post(
+      server.endpoint(),
+      token,
+      {
+        jsonrpc: '2.0',
+        id: 7,
+        method: 'tools/call',
+        params: { name: 'declare_stage', arguments: { stage: 'exploring' } }
+      },
+      { 'mcp-session-id': sessionId }
+    )
+
+    expect(runtime.updateManagedWorktreeMeta).toHaveBeenCalledWith(
+      'id:wt-manual',
+      expect.objectContaining({ workflowStage: 'exploring' })
+    )
+  })
+
+  it('rejects a token that was never minted', async () => {
+    const { server } = await startServer()
+
+    const res = await post(server.endpoint(), 'never-minted-token', {
+      jsonrpc: '2.0',
+      id: 8,
+      method: 'tools/list'
+    })
+
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('endpoint discovery metadata', () => {
   it('publishes endpoint+token after start and clears its own file on stop', async () => {
     const userDataPath = makeTempDir()
@@ -382,6 +542,20 @@ async function initialize(
     id: Math.floor(Math.random() * 1e9),
     method: 'initialize',
     params: { workspace }
+  })
+  const sessionId = JSON.parse(res.body).result.sessionId
+  if (typeof sessionId !== 'string') {
+    throw new Error('initialize returned no sessionId')
+  }
+  return sessionId
+}
+
+async function initializeWithoutParams(server: OrcaMcpServer, token: string): Promise<string> {
+  const res = await post(server.endpoint(), token, {
+    jsonrpc: '2.0',
+    id: Math.floor(Math.random() * 1e9),
+    method: 'initialize',
+    params: {}
   })
   const sessionId = JSON.parse(res.body).result.sessionId
   if (typeof sessionId !== 'string') {

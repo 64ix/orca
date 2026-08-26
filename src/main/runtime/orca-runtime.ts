@@ -564,6 +564,22 @@ import {
 } from '../../shared/tui-agent-launch-defaults'
 import { resolveLocalWindowsAgentStartupShell } from '../../shared/windows-terminal-shell'
 import {
+  buildShellCommandFromArgv,
+  resolveStartupShell,
+  type AgentStartupShell
+} from '../../shared/tui-agent-startup-shell'
+import {
+  MCP_INJECTABLE_TUI_AGENTS,
+  buildOrcaMcpLaunchInjection
+} from '../mcp/tui-agent-mcp-injection'
+
+/** Narrow view of OrcaMcpServer this module needs — avoids importing its class (main/index.ts wires the real instance in lazily, see getMcpServer). */
+type OrcaMcpServerLaunchApi = {
+  mintLaunchToken(workspaceSelector: string): string
+  rebindLaunchToken(token: string, workspaceSelector: string): void
+  endpoint(): string
+}
+import {
   getTuiAgentLaunchCommand,
   isTuiAgent,
   TUI_AGENT_CONFIG
@@ -3601,6 +3617,7 @@ export class OrcaRuntimeService {
   private optimisticReconcileTokens = new Map<string, string>()
   private removeManagedWorktreeInFlight = new Map<string, RuntimeWorktreeRemovalInFlight>()
   private preservedBranchCleanupByScope = new Map<string, PreservedBranchCleanupTarget>()
+  private readonly getMcpServerFn: (() => OrcaMcpServerLaunchApi | null) | null
   private readonly getLocalProviderFn: (() => IPtyProvider) | null
   private readonly getSshProviderFn: ((connectionId: string) => IPtyProvider | undefined) | null
   private readonly onPtyStopped: ((ptyId: string) => void) | null
@@ -3680,6 +3697,9 @@ export class OrcaRuntimeService {
     store: RuntimeStore | null = null,
     stats?: StatsCollector,
     deps?: {
+      // Why: the MCP server is constructed after this service (main/index.ts wiring
+      // order), so injection must resolve it lazily, same as getLocalProvider below.
+      getMcpServer?: () => OrcaMcpServerLaunchApi | null
       getLocalProvider?: () => IPtyProvider
       getSshProvider?: (connectionId: string) => IPtyProvider | undefined
       onPtyStopped?: (ptyId: string) => void
@@ -3759,6 +3779,7 @@ export class OrcaRuntimeService {
     // the pre-daemon `LocalPtyProvider` and miss the routed adapter. Resolve
     // lazily via thunk so teardown always sees the currently-installed
     // provider (design §4.3 wire-up).
+    this.getMcpServerFn = deps?.getMcpServer ?? null
     this.getLocalProviderFn = deps?.getLocalProvider ?? null
     this.getSshProviderFn = deps?.getSshProvider ?? null
     this.onPtyStopped = deps?.onPtyStopped ?? null
@@ -21727,6 +21748,118 @@ export class OrcaRuntimeService {
     return isWslUncPath(scope.path) ? 'linux' : process.platform
   }
 
+  /**
+   * Two independent layers, mirroring canUseLocalSkillFreshness's own gate
+   * (`kind === 'local' && runtime !== 'wsl'`): SSH is out because the MCP
+   * server binds the *client's* loopback, unreachable from a remote agent's
+   * 127.0.0.1 (deferred to a relay follow-up, see agent-hook-server.ts's
+   * pattern). WSL has the identical unreachable-loopback problem — the same
+   * file's wslHookRelayManager exists to solve it for agent-status hooks, and
+   * no equivalent has been built for MCP in this change — so it is excluded too.
+   */
+  private canInjectLocalOrcaMcp(args: {
+    repo: Repo | null
+    path: string
+    connectionId: string | null | undefined
+  }): boolean {
+    if (args.connectionId) {
+      return false
+    }
+    if (args.repo) {
+      if (repoIsRemote(args.repo)) {
+        return false
+      }
+      if (!args.repo.connectionId) {
+        const projectRuntime = resolveLocalProjectRuntimeForRepo(this.requireStore(), args.repo)
+        if (projectRuntime?.status === 'resolved' && projectRuntime.runtime.kind === 'wsl') {
+          return false
+        }
+        if (
+          projectRuntime?.status === 'repair-required' &&
+          projectRuntime.repair.preferredRuntime.kind === 'wsl'
+        ) {
+          return false
+        }
+      }
+      return true
+    }
+    return !isWslUncPath(args.path)
+  }
+
+  /** Best-effort: any minting/write failure must never block an agent launch. */
+  private buildOrcaMcpLaunchExtras(args: {
+    agent: TuiAgent
+    eligible: boolean
+    workspaceSelector: string
+    platform: NodeJS.Platform
+    shell?: AgentStartupShell
+  }): { envAppend: Record<string, string>; argsAppend: string; mintedToken: string | null } {
+    const empty = { envAppend: {}, argsAppend: '', mintedToken: null }
+    if (!args.eligible || !MCP_INJECTABLE_TUI_AGENTS.includes(args.agent)) {
+      return empty
+    }
+    const mcpServer = this.getMcpServerFn?.()
+    if (!mcpServer) {
+      return empty
+    }
+    try {
+      const token = mcpServer.mintLaunchToken(args.workspaceSelector)
+      const endpoint = mcpServer.endpoint()
+      if (args.agent === 'opencode') {
+        // Why: opencode's carrier is OpenCodeHookService's OPENCODE_CONFIG_DIR
+        // overlay, not env/argv — these vars are internal plumbing pty.ts
+        // consumes and strips before the opencode process ever sees them.
+        return {
+          envAppend: { ORCA_MCP_OPENCODE_ENDPOINT: endpoint, ORCA_MCP_OPENCODE_TOKEN: token },
+          argsAppend: '',
+          mintedToken: token
+        }
+      }
+      const injection = buildOrcaMcpLaunchInjection(args.agent, {
+        endpoint,
+        token,
+        userDataPath: app.getPath('userData')
+      })
+      if (!injection) {
+        return { envAppend: {}, argsAppend: '', mintedToken: token }
+      }
+      const shell = resolveStartupShell(args.platform, args.shell)
+      return {
+        envAppend: injection.env,
+        argsAppend: injection.extraArgv.length
+          ? buildShellCommandFromArgv(injection.extraArgv, shell)
+          : '',
+        mintedToken: token
+      }
+    } catch {
+      return empty
+    }
+  }
+
+  /** Folds MCP env/argv into an already-resolved agentArgs/agentEnv pair. */
+  private applyOrcaMcpInjection(args: {
+    agent: TuiAgent
+    agentArgs: string | null
+    agentEnv: Record<string, string>
+    eligible: boolean
+    workspaceSelector: string
+    platform: NodeJS.Platform
+    shell?: AgentStartupShell
+  }): { agentArgs: string; agentEnv: Record<string, string>; mcpLaunchToken: string | null } {
+    const extras = this.buildOrcaMcpLaunchExtras({
+      agent: args.agent,
+      eligible: args.eligible,
+      workspaceSelector: args.workspaceSelector,
+      platform: args.platform,
+      shell: args.shell
+    })
+    return {
+      agentArgs: [args.agentArgs ?? '', extras.argsAppend].filter(Boolean).join(' '),
+      agentEnv: { ...args.agentEnv, ...extras.envAppend },
+      mcpLaunchToken: extras.mintedToken
+    }
+  }
+
   async getRepoSlug(repoSelector: string): Promise<GitHubOwnerRepo | null> {
     const repo = await this.resolveRepoSelector(repoSelector)
     const options = this.getHostedReviewExecutionOptions(repo)
@@ -23647,6 +23780,8 @@ export class OrcaRuntimeService {
     agent: TuiAgent
     startup: WorktreeStartupLaunch
     draftPaste?: WorktreeStartupDraftPaste
+    /** Bound to a placeholder selector — rebind once the new worktree's real id is known. */
+    mcpLaunchToken?: string
   } | null> {
     if (!this.store) {
       return null
@@ -23692,12 +23827,24 @@ export class OrcaRuntimeService {
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
     })
+    // Why: no worktree exists yet at this point in worktree.create — mint against a
+    // placeholder and rebind once the real `id:<worktreeId>` is known (see createWorktree).
+    const pendingMcpSelector = `pending:${randomUUID()}`
+    const draftMcpInjected = this.applyOrcaMcpInjection({
+      agent,
+      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
+      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      eligible: this.canInjectLocalOrcaMcp({ repo, path: repo.path, connectionId: repo.connectionId }),
+      workspaceSelector: pendingMcpSelector,
+      platform: agentLaunchPlatform,
+      shell: queuedShell
+    })
     const draftLaunchPlan = buildAgentDraftLaunchPlan({
       agent,
       draft: content,
       cmdOverrides: settings.agentCmdOverrides ?? {},
-      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
-      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      agentArgs: draftMcpInjected.agentArgs,
+      agentEnv: draftMcpInjected.agentEnv,
       platform: agentLaunchPlatform,
       shell: queuedShell,
       isRemote
@@ -23712,7 +23859,8 @@ export class OrcaRuntimeService {
             ? { startupCommandDelivery: draftLaunchPlan.startupCommandDelivery }
             : {}),
           ...(draftLaunchPlan.env ? { env: draftLaunchPlan.env } : {})
-        }
+        },
+        ...(draftMcpInjected.mcpLaunchToken ? { mcpLaunchToken: draftMcpInjected.mcpLaunchToken } : {})
       }
     }
 
@@ -23720,8 +23868,8 @@ export class OrcaRuntimeService {
       agent,
       prompt: '',
       cmdOverrides: settings.agentCmdOverrides ?? {},
-      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
-      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      agentArgs: draftMcpInjected.agentArgs,
+      agentEnv: draftMcpInjected.agentEnv,
       platform: agentLaunchPlatform,
       shell: queuedShell,
       isRemote,
@@ -23740,7 +23888,8 @@ export class OrcaRuntimeService {
           : {}),
         ...(startupPlan.env ? { env: startupPlan.env } : {})
       },
-      draftPaste: { agent, content }
+      draftPaste: { agent, content },
+      ...(draftMcpInjected.mcpLaunchToken ? { mcpLaunchToken: draftMcpInjected.mcpLaunchToken } : {})
     }
   }
 
@@ -23748,8 +23897,17 @@ export class OrcaRuntimeService {
     repo: Repo,
     agent: TuiAgent,
     prompt: string | undefined,
-    launchPreferences?: AgentLaunchPreferences
-  ): { agent: TuiAgent; startup: WorktreeStartupLaunch; followup?: WorktreeStartupFollowup } {
+    launchPreferences?: AgentLaunchPreferences,
+    /** Already-known worktree selector (e.g. `id:<worktreeId>`) — omit when
+     *  called before the worktree exists; the caller then rebinds the
+     *  returned `mcpLaunchToken` once it does (see createWorktree). */
+    knownWorkspaceSelector?: string
+  ): {
+    agent: TuiAgent
+    startup: WorktreeStartupLaunch
+    followup?: WorktreeStartupFollowup
+    mcpLaunchToken?: string
+  } {
     if (!this.store) {
       throw new Error('runtime_unavailable')
     }
@@ -23767,12 +23925,21 @@ export class OrcaRuntimeService {
       terminalWindowsShell: settings.terminalWindowsShell
     })
     const sessionOptions = this.toAgentSessionOptions(launchPreferences)
+    const agentMcpInjected = this.applyOrcaMcpInjection({
+      agent,
+      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
+      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      eligible: this.canInjectLocalOrcaMcp({ repo, path: repo.path, connectionId: repo.connectionId }),
+      workspaceSelector: knownWorkspaceSelector ?? `pending:${randomUUID()}`,
+      platform: agentLaunchPlatform,
+      shell: queuedShell
+    })
     const startupPlan = buildAgentStartupPlan({
       agent,
       prompt: prompt ?? '',
       cmdOverrides: settings.agentCmdOverrides ?? {},
-      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
-      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      agentArgs: agentMcpInjected.agentArgs,
+      agentEnv: agentMcpInjected.agentEnv,
       sessionOptions,
       sessionOptionsOverrideAgentArgs: Boolean(sessionOptions),
       platform: agentLaunchPlatform,
@@ -23785,6 +23952,7 @@ export class OrcaRuntimeService {
     }
     return {
       agent,
+      ...(agentMcpInjected.mcpLaunchToken ? { mcpLaunchToken: agentMcpInjected.mcpLaunchToken } : {}),
       startup: {
         command: startupPlan.launchCommand,
         launchConfig: startupPlan.launchConfig,
@@ -24272,11 +24440,18 @@ export class OrcaRuntimeService {
         draftStartup?.agent ??
         (requestedAgentEnabled ? requestedAgent : undefined))
     const effectiveDraftPaste = args.startupDraftPaste ?? draftStartup?.draftPaste
+    // Why: buildStartupForAgent/buildStartupForDraft mint against a placeholder
+    // selector — no worktree exists yet — so rebind to the real one below, as
+    // soon as it does, well before any launched agent can reach the MCP server.
+    const effectiveMcpLaunchToken = agentStartup?.mcpLaunchToken ?? draftStartup?.mcpLaunchToken
     if (isFolderRepo(repo)) {
       const now = Date.now()
       const settings = createSettings
       const instanceId = randomUUID()
       const worktreeId = getRuntimeFolderWorkspaceInstanceId(repo, instanceId)
+      if (effectiveMcpLaunchToken) {
+        this.getMcpServerFn?.()?.rebindLaunchToken(effectiveMcpLaunchToken, `folder:${worktreeId}`)
+      }
       const meta = this.store.setWorktreeMeta(worktreeId, {
         instanceId,
         ...getProjectHostSetupWorktreeMeta(this.store.getProjectHostSetups?.() ?? [], repo),
@@ -24968,6 +25143,9 @@ export class OrcaRuntimeService {
     const worktree = {
       ...mergeWorktree(repo.id, created, meta),
       hostId: meta.hostId ?? getRepoExecutionHostId(repo)
+    }
+    if (effectiveMcpLaunchToken) {
+      this.getMcpServerFn?.()?.rebindLaunchToken(effectiveMcpLaunchToken, `id:${worktree.id}`)
     }
     const {
       lineage,
@@ -27596,12 +27774,27 @@ export class OrcaRuntimeService {
     }
 
     const sessionOptions = this.toAgentSessionOptions(opts.launchPreferences)
+    const mcpInjected = this.applyOrcaMcpInjection({
+      agent,
+      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
+      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      eligible: this.canInjectLocalOrcaMcp({
+        repo: workspace.repo,
+        path: workspace.path,
+        connectionId: workspace.connectionId
+      }),
+      workspaceSelector: workspace.folderWorkspace
+        ? `folder:${workspace.folderWorkspace.id}`
+        : `id:${workspace.id}`,
+      platform,
+      shell: queuedShell
+    })
     const startupPlan = buildAgentStartupPlan({
       agent,
       prompt: '',
       cmdOverrides: settings.agentCmdOverrides ?? {},
-      agentArgs: resolveTuiAgentLaunchArgs(agent, settings.agentDefaultArgs),
-      agentEnv: resolveTuiAgentLaunchEnv(agent, settings.agentDefaultEnv),
+      agentArgs: mcpInjected.agentArgs,
+      agentEnv: mcpInjected.agentEnv,
       sessionOptions,
       sessionOptionsOverrideAgentArgs: Boolean(sessionOptions),
       platform,
@@ -27738,15 +27931,30 @@ export class OrcaRuntimeService {
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
     })
-    const startup = buildAgentResumeStartupPlan({
+    const resumeMcpInjected = this.applyOrcaMcpInjection({
       agent: request.agent,
-      providerSession: identity.providerSession,
-      cmdOverrides: settings.agentCmdOverrides ?? {},
       agentArgs:
         request.agentArgs !== undefined
           ? request.agentArgs
           : resolveTuiAgentLaunchArgs(request.agent, settings.agentDefaultArgs),
       agentEnv: resolveTuiAgentLaunchEnv(request.agent, settings.agentDefaultEnv),
+      eligible: this.canInjectLocalOrcaMcp({
+        repo: workspace.repo,
+        path: workspace.path,
+        connectionId: workspace.connectionId
+      }),
+      workspaceSelector: workspace.folderWorkspace
+        ? `folder:${workspace.folderWorkspace.id}`
+        : `id:${workspace.id}`,
+      platform,
+      shell
+    })
+    const startup = buildAgentResumeStartupPlan({
+      agent: request.agent,
+      providerSession: identity.providerSession,
+      cmdOverrides: settings.agentCmdOverrides ?? {},
+      agentArgs: resumeMcpInjected.agentArgs,
+      agentEnv: resumeMcpInjected.agentEnv,
       ompResumeFilePath: request.ompResumeFilePath,
       sessionOptions: this.toAgentSessionOptions(request.launchPreferences),
       platform,
@@ -27902,14 +28110,29 @@ export class OrcaRuntimeService {
         isRemote,
         terminalWindowsShell: settings.terminalWindowsShell
       })
-      const startupArgs = {
+      const createMcpInjected = this.applyOrcaMcpInjection({
         agent: request.agent,
-        cmdOverrides: settings.agentCmdOverrides ?? {},
         agentArgs:
           request.agentArgs !== undefined
             ? request.agentArgs
             : resolveTuiAgentLaunchArgs(request.agent, settings.agentDefaultArgs),
         agentEnv: resolveTuiAgentLaunchEnv(request.agent, settings.agentDefaultEnv),
+        eligible: this.canInjectLocalOrcaMcp({
+          repo: workspace.repo,
+          path: workspace.path,
+          connectionId: workspace.connectionId
+        }),
+        workspaceSelector: workspace.folderWorkspace
+          ? `folder:${workspace.folderWorkspace.id}`
+          : `id:${workspace.id}`,
+        platform,
+        shell
+      })
+      const startupArgs = {
+        agent: request.agent,
+        cmdOverrides: settings.agentCmdOverrides ?? {},
+        agentArgs: createMcpInjected.agentArgs,
+        agentEnv: createMcpInjected.agentEnv,
         sessionOptions: this.toAgentSessionOptions(request.launchPreferences),
         platform,
         shell,
@@ -28572,7 +28795,13 @@ export class OrcaRuntimeService {
     if (!repo) {
       throw new Error('Repository for the selected workspace is no longer available.')
     }
-    const startup = this.buildStartupForAgent(repo, opts.agent, opts.prompt)
+    const startup = this.buildStartupForAgent(
+      repo,
+      opts.agent,
+      opts.prompt,
+      undefined,
+      `id:${worktree.id}`
+    )
     if (repo.connectionId) {
       await this.markRemoteWorkspaceTrustedForAgent(opts.agent, repo.connectionId, worktree.path)
     } else {
@@ -28949,12 +29178,27 @@ export class OrcaRuntimeService {
       isRemote,
       terminalWindowsShell: settings.terminalWindowsShell
     })
+    const mobileMcpInjected = this.applyOrcaMcpInjection({
+      agent: opts.agent,
+      agentArgs: resolveTuiAgentLaunchArgs(opts.agent, settings.agentDefaultArgs),
+      agentEnv: resolveTuiAgentLaunchEnv(opts.agent, settings.agentDefaultEnv),
+      eligible: this.canInjectLocalOrcaMcp({
+        repo: workspace.repo,
+        path: workspace.path,
+        connectionId: workspace.connectionId
+      }),
+      workspaceSelector: workspace.folderWorkspace
+        ? `folder:${workspace.folderWorkspace.id}`
+        : `id:${workspace.id}`,
+      platform,
+      shell: queuedShell
+    })
     const startupPlan = buildAgentStartupPlan({
       agent: opts.agent,
       prompt: opts.agentPrompt ?? '',
       cmdOverrides: settings.agentCmdOverrides ?? {},
-      agentArgs: resolveTuiAgentLaunchArgs(opts.agent, settings.agentDefaultArgs),
-      agentEnv: resolveTuiAgentLaunchEnv(opts.agent, settings.agentDefaultEnv),
+      agentArgs: mobileMcpInjected.agentArgs,
+      agentEnv: mobileMcpInjected.agentEnv,
       platform,
       shell: queuedShell,
       isRemote,

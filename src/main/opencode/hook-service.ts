@@ -19,6 +19,33 @@ const OPENCODE_LEGACY_HOOKS_DIR = 'opencode-hooks'
 const OPENCODE_OVERLAY_DIR = 'opencode-config-overlays'
 const OPENCODE_SHARED_CONFIG_DIR = 'shared'
 const OPENCODE_OVERLAY_MANIFEST_FILE = '.orca-opencode-overlay-manifest.json'
+const OPENCODE_CONFIG_FILE_NAMES = ['opencode.jsonc', 'opencode.json'] as const
+
+export type OpenCodeMcpInjectionConfig = { endpoint: string; token: string }
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Reads the user's opencode config for merging; tolerates JSONC comments, fails open to `{}`. */
+function readOpenCodeConfigTolerant(path: string): Record<string, unknown> {
+  try {
+    const raw = readFileSync(path, 'utf-8')
+    try {
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      // Why: opencode.jsonc allows // and /* */ comments that JSON.parse rejects;
+      // strip them defensively — this only affects our transient overlay copy.
+      const stripped = raw
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1')
+        .replace(/,(\s*[}\]])/g, '$1')
+      return JSON.parse(stripped) as Record<string, unknown>
+    }
+  } catch {
+    return {}
+  }
+}
 
 type OpenCodeOverlayManifest = {
   topLevelEntries: string[]
@@ -1061,10 +1088,21 @@ export class OpenCodeHookService {
     // Why: no-op — config dirs are app/source-scoped now, and recursive delete on the main-process hot path could freeze on Windows.
   }
 
-  buildPtyEnv(ptyId: string, existingConfigDir?: string | undefined): Record<string, string> {
+  buildPtyEnv(
+    ptyId: string,
+    existingConfigDir?: string | undefined,
+    mcpConfig?: OpenCodeMcpInjectionConfig | null
+  ): Record<string, string> {
     if (!isUsableId(ptyId)) {
       // Why: on a bad id, still preserve a user-set OPENCODE_CONFIG_DIR; only the Orca status plugin is forfeited.
       return existingConfigDir ? { OPENCODE_CONFIG_DIR: existingConfigDir } : {}
+    }
+
+    // Why: the shared/source-keyed overlays below are reused across every PTY with
+    // the same source config, but an MCP block carries a token scoped to ONE
+    // launch's workspace — it must never land in a dir another terminal shares.
+    if (mcpConfig) {
+      return this.buildLaunchScopedPtyEnv(ptyId, existingConfigDir, mcpConfig)
     }
 
     if (!existingConfigDir) {
@@ -1093,6 +1131,59 @@ export class OpenCodeHookService {
     }
 
     return { OPENCODE_CONFIG_DIR: overlayDir }
+  }
+
+  private buildLaunchScopedPtyEnv(
+    ptyId: string,
+    existingConfigDir: string | undefined,
+    mcpConfig: OpenCodeMcpInjectionConfig
+  ): Record<string, string> {
+    const overlayDir = this.getLaunchScopedOverlayDir(ptyId)
+    try {
+      mkdirSync(overlayDir, { recursive: true })
+      if (existingConfigDir && existsSync(existingConfigDir)) {
+        this.mirrorUserConfig(existingConfigDir, overlayDir)
+      }
+      this.writePluginIntoOverlay(overlayDir)
+      this.mergeMcpConfigIntoOverlay(overlayDir, mcpConfig)
+    } catch {
+      // Why: best-effort — fall back to no MCP injection rather than risk a broken launch.
+      return existingConfigDir ? { OPENCODE_CONFIG_DIR: existingConfigDir } : {}
+    }
+    return { OPENCODE_CONFIG_DIR: overlayDir }
+  }
+
+  private getLaunchScopedOverlayDir(ptyId: string): string {
+    return join(this.getOverlayRoot(), toSafeDirName(`pty:${ptyId}`))
+  }
+
+  /**
+   * `mirrorUserConfig` symlinks the user's own opencode.json(c) verbatim — writing
+   * through it would corrupt their real file. Replace that symlink (if any) with a
+   * real file carrying the same content plus our `mcp.orca` entry.
+   */
+  private mergeMcpConfigIntoOverlay(overlayDir: string, mcpConfig: OpenCodeMcpInjectionConfig): void {
+    const existingConfigFile = OPENCODE_CONFIG_FILE_NAMES.map((name) => join(overlayDir, name)).find(
+      (path) => existsSync(path)
+    )
+    const targetPath = existingConfigFile ?? join(overlayDir, OPENCODE_CONFIG_FILE_NAMES[0])
+    const base = existingConfigFile ? readOpenCodeConfigTolerant(existingConfigFile) : {}
+    if (existingConfigFile) {
+      unlinkSync(existingConfigFile)
+    }
+    const merged = {
+      ...base,
+      mcp: {
+        ...(isPlainObject(base.mcp) ? base.mcp : {}),
+        orca: {
+          type: 'remote',
+          url: mcpConfig.endpoint,
+          headers: { Authorization: `Bearer ${mcpConfig.token}` },
+          enabled: true
+        }
+      }
+    }
+    writeFileSync(targetPath, JSON.stringify(merged, null, 2))
   }
 
   private getOverlayRoot(): string {

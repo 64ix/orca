@@ -9,28 +9,43 @@ import {
   JSON_RPC_PARSE_ERROR,
   parseJsonRpcRequest
 } from './mcp-json-rpc'
-import { isBearerAuthorized } from './mcp-bearer-auth'
-
 const MAX_BODY_BYTES = 1024 * 1024
 const LOOPBACK_HOST = '127.0.0.1'
 const MCP_SESSION_ID_HEADER = 'mcp-session-id'
 
-/** Session id travels as HTTP metadata (streamable-HTTP convention), never in the JSON-RPC body. */
-export type McpRequestContext = { sessionId: string | null }
+/**
+ * Session id travels as HTTP metadata (streamable-HTTP convention), never in
+ * the JSON-RPC body. `tokenWorkspaceSelector` is the workspace the presented
+ * bearer token is scoped to — null for the unscoped app-instance token, a
+ * selector for a per-launch token. Non-null always wins over anything the
+ * request body asks for; an agent has no vocabulary to name another workspace.
+ */
+export type McpRequestContext = { sessionId: string | null; tokenWorkspaceSelector: string | null }
 
 export type McpJsonRpcDispatcher = (
   request: McpJsonRpcRequest,
   context: McpRequestContext
 ) => Promise<McpJsonRpcReply>
 
+/** Resolves a presented bearer to the workspace it is scoped to, or null if unauthorized. */
+export type McpAuthResolver = (
+  authorizationHeader: string | undefined
+) => { workspaceSelector: string | null } | null
+
 export class OrcaMcpHttpServer {
   private server: Server | null = null
   private boundPort: number | null = null
-  private readonly authToken: string
+  private readonly resolveAuth: McpAuthResolver
   private readonly dispatch: McpJsonRpcDispatcher
 
-  constructor({ authToken, dispatch }: { authToken: string; dispatch: McpJsonRpcDispatcher }) {
-    this.authToken = authToken
+  constructor({
+    resolveAuth,
+    dispatch
+  }: {
+    resolveAuth: McpAuthResolver
+    dispatch: McpJsonRpcDispatcher
+  }) {
+    this.resolveAuth = resolveAuth
     this.dispatch = dispatch
   }
 
@@ -85,7 +100,8 @@ export class OrcaMcpHttpServer {
 
   private async handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
     // Why: auth precedes routing AND body parsing so bad requests leak nothing but 401s.
-    if (!isBearerAuthorized(request.headers.authorization, this.authToken)) {
+    const auth = this.resolveAuth(request.headers.authorization)
+    if (!auth) {
       respondJson(response, 401, { error: 'unauthorized' })
       return
     }
@@ -119,16 +135,20 @@ export class OrcaMcpHttpServer {
       return
     }
     const request_ = parsedRequest.request
+    const context: McpRequestContext = {
+      sessionId: readSessionHeader(request),
+      tokenWorkspaceSelector: auth.workspaceSelector
+    }
     if (request_.id === undefined) {
       // Notifications get no reply body per JSON-RPC; accept-and-drop with 202.
-      void this.dispatch(request_, { sessionId: readSessionHeader(request) }).catch(() => {})
+      void this.dispatch(request_, context).catch(() => {})
       response.writeHead(202).end()
       return
     }
 
     let reply: McpJsonRpcReply
     try {
-      reply = await this.dispatch(request_, { sessionId: readSessionHeader(request) })
+      reply = await this.dispatch(request_, context)
     } catch (error) {
       reply = {
         kind: 'error',
