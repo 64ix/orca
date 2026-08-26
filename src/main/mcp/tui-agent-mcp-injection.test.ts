@@ -1,4 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -6,7 +14,9 @@ import { buildShellCommandFromArgv } from '../../shared/tui-agent-startup-shell'
 import {
   buildOrcaMcpLaunchInjection,
   MCP_INJECTABLE_TUI_AGENTS,
-  ORCA_MCP_TOKEN_ENV_VAR
+  ORCA_MCP_TOKEN_ENV_VAR,
+  removeMcpLaunchConfigFile,
+  sweepStaleMcpLaunchConfigs
 } from './tui-agent-mcp-injection'
 
 const SECRET_TOKEN = 'super-secret-launch-token'
@@ -68,6 +78,17 @@ describe('buildOrcaMcpLaunchInjection', () => {
       })
     })
 
+    it('reports the config file path so the caller can tie its removal to PTY exit', () => {
+      const userDataPath = makeUserDataPath()
+      const injection = buildOrcaMcpLaunchInjection('claude', {
+        endpoint: ENDPOINT,
+        token: SECRET_TOKEN,
+        userDataPath
+      })
+      const configPathIndex = injection!.extraArgv.indexOf('--mcp-config') + 1
+      expect(injection!.configFilePath).toBe(injection!.extraArgv[configPathIndex])
+    })
+
     it('pre-approves exactly the three stage tools via --allowedTools', () => {
       const userDataPath = makeUserDataPath()
       const injection = buildOrcaMcpLaunchInjection('claude', {
@@ -122,5 +143,70 @@ describe('buildOrcaMcpLaunchInjection', () => {
       const command = buildShellCommandFromArgv(['codex', ...injection!.extraArgv], 'posix')
       expect(command).not.toContain(SECRET_TOKEN)
     })
+  })
+})
+
+describe('removeMcpLaunchConfigFile', () => {
+  it('deletes the per-launch claude config file', () => {
+    const userDataPath = makeUserDataPath()
+    const injection = buildOrcaMcpLaunchInjection('claude', {
+      endpoint: ENDPOINT,
+      token: SECRET_TOKEN,
+      userDataPath
+    })
+    expect(existsSync(injection!.configFilePath!)).toBe(true)
+
+    removeMcpLaunchConfigFile(injection!.configFilePath!)
+
+    expect(existsSync(injection!.configFilePath!)).toBe(false)
+  })
+
+  it('is a no-op for an already-removed file', () => {
+    const userDataPath = makeUserDataPath()
+    expect(() =>
+      removeMcpLaunchConfigFile(join(userDataPath, 'mcp-launch', 'claude-does-not-exist.json'))
+    ).not.toThrow()
+  })
+})
+
+describe('sweepStaleMcpLaunchConfigs', () => {
+  it('removes claude launch configs older than maxAgeMs, keeps fresh ones', () => {
+    const userDataPath = makeUserDataPath()
+    const staleInjection = buildOrcaMcpLaunchInjection('claude', {
+      endpoint: ENDPOINT,
+      token: 'stale-token',
+      userDataPath
+    })!
+    const freshInjection = buildOrcaMcpLaunchInjection('claude', {
+      endpoint: ENDPOINT,
+      token: 'fresh-token',
+      userDataPath
+    })!
+    const oldTime = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    utimesSync(staleInjection.configFilePath!, oldTime, oldTime)
+
+    sweepStaleMcpLaunchConfigs(userDataPath, { maxAgeMs: 12 * 60 * 60 * 1000 })
+
+    expect(existsSync(staleInjection.configFilePath!)).toBe(false)
+    expect(existsSync(freshInjection.configFilePath!)).toBe(true)
+  })
+
+  it('never touches files outside the claude-*.json naming convention', () => {
+    const userDataPath = makeUserDataPath()
+    const launchDir = join(userDataPath, 'mcp-launch')
+    mkdirSync(launchDir, { recursive: true })
+    const foreignFile = join(launchDir, 'not-ours.json')
+    writeFileSync(foreignFile, '{}')
+    const oldTime = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    utimesSync(foreignFile, oldTime, oldTime)
+
+    sweepStaleMcpLaunchConfigs(userDataPath, { maxAgeMs: 12 * 60 * 60 * 1000 })
+
+    expect(existsSync(foreignFile)).toBe(true)
+  })
+
+  it('is a no-op when the launch dir does not exist', () => {
+    const userDataPath = makeUserDataPath()
+    expect(() => sweepStaleMcpLaunchConfigs(userDataPath)).not.toThrow()
   })
 })

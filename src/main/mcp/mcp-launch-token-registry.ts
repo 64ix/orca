@@ -51,6 +51,11 @@ export class McpLaunchTokenRegistry {
     }
   }
 
+  /** Revokes one token immediately — e.g. its PTY exited. No-op if already gone. */
+  revoke(token: string): void {
+    this.tokens.delete(token)
+  }
+
   /** undefined = unknown/expired token; a bound token always resolves to a non-null selector. */
   resolve(token: string): string | undefined {
     this.sweepExpired()

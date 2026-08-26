@@ -26,6 +26,7 @@ import { McpSessionRegistry } from './mcp-session-registry'
 import { McpLaunchTokenRegistry } from './mcp-launch-token-registry'
 import { resolveBearerWorkspace, type BearerTokenCandidate } from './mcp-bearer-auth'
 import { clearOrcaMcpMetadataIfOwned, writeOrcaMcpMetadata } from './mcp-endpoint-metadata'
+import { sweepStaleMcpLaunchConfigs } from './tui-agent-mcp-injection'
 
 const ORCA_MCP_PROTOCOL_VERSION = '2025-06-18'
 
@@ -58,6 +59,10 @@ export class OrcaMcpServer {
       resolveAuth: (header) => resolveBearerWorkspace(header, this.bearerCandidates()),
       dispatch: (request, context) => this.dispatch(request, context)
     })
+    // Why: backstop for claude per-launch config files whose owning PTY never
+    // reached onPtyExit (crash before spawn, prior app version); sweep itself
+    // is best-effort and never throws.
+    sweepStaleMcpLaunchConfigs(this.userDataPath)
   }
 
   /**
@@ -76,6 +81,11 @@ export class OrcaMcpServer {
    */
   rebindLaunchToken(token: string, workspaceSelector: string): void {
     this.launchTokens.rebind(token, workspaceSelector)
+  }
+
+  /** Revokes a launch token immediately — called when its PTY exits (see OrcaRuntimeService.onPtyExit). */
+  revokeLaunchToken(token: string): void {
+    this.launchTokens.revoke(token)
   }
 
   private bearerCandidates(): BearerTokenCandidate[] {

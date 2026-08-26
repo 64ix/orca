@@ -469,6 +469,27 @@ describe('per-launch tokens', () => {
     )
   })
 
+  it('revokeLaunchToken invalidates the token immediately — a session already open with it is refused on the next call', async () => {
+    const { server } = await startServer()
+    const token = server.mintLaunchToken('id:wt-a')
+    const sessionId = await initializeWithoutParams(server, token)
+
+    server.revokeLaunchToken(token)
+
+    const res = await post(
+      server.endpoint(),
+      token,
+      { jsonrpc: '2.0', id: 6, method: 'tools/list' },
+      { 'mcp-session-id': sessionId }
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('revokeLaunchToken is a no-op for an unknown/already-revoked token', async () => {
+    const { server } = await startServer()
+    expect(() => server.revokeLaunchToken('never-minted')).not.toThrow()
+  })
+
   it('the app-instance token still supports the manual params.workspace selector', async () => {
     const { server, runtime } = await startServer()
     const token = server.getBearerToken()

@@ -75,4 +75,32 @@ describe('McpLaunchTokenRegistry', () => {
       ])
     )
   })
+
+  describe('revoke', () => {
+    it('makes the token resolve as unknown immediately, not just after idle TTL', () => {
+      const registry = new McpLaunchTokenRegistry()
+      const token = registry.mint('id:wt-a')
+      expect(registry.resolve(token)).toBe('id:wt-a')
+
+      registry.revoke(token)
+
+      expect(registry.resolve(token)).toBeUndefined()
+    })
+
+    it('is a no-op for an unknown token', () => {
+      const registry = new McpLaunchTokenRegistry()
+      expect(() => registry.revoke('never-minted')).not.toThrow()
+    })
+
+    it('leaves other live tokens untouched', () => {
+      const registry = new McpLaunchTokenRegistry()
+      const tokenA = registry.mint('id:wt-a')
+      const tokenB = registry.mint('id:wt-b')
+
+      registry.revoke(tokenA)
+
+      expect(registry.resolve(tokenA)).toBeUndefined()
+      expect(registry.resolve(tokenB)).toBe('id:wt-b')
+    })
+  })
 })

@@ -3,7 +3,7 @@
 // new supported agent is a data line, not a logic change. Agents outside this
 // table get nothing: never hand an endpoint to an agent that will ignore it.
 import { randomBytes } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeSecureJsonFile } from '../../shared/secure-file'
 import type { TuiAgent } from '../../shared/tui-agent'
@@ -30,6 +30,9 @@ export type OrcaMcpLaunchInjection = {
    *  quotes each token for its target shell. Carries no secret — see the
    *  per-agent builder below for where each agent's token actually rides. */
   extraArgv: string[]
+  /** claude only: the per-launch config file path, so the caller can tie its
+   *  removal to the launch's PTY exit (see OrcaRuntimeService.onPtyExit). */
+  configFilePath?: string
 }
 
 /** null = agent not in the carrier table (opencode goes through hook-service.ts instead). */
@@ -65,7 +68,46 @@ function buildClaudeInjection(context: OrcaMcpLaunchContext): OrcaMcpLaunchInjec
   })
   return {
     env: {},
-    extraArgv: ['--mcp-config', configPath, '--allowedTools', MCP_ALLOWED_TOOL_ARGS.join(' ')]
+    extraArgv: ['--mcp-config', configPath, '--allowedTools', MCP_ALLOWED_TOOL_ARGS.join(' ')],
+    configFilePath: configPath
+  }
+}
+
+/** Best-effort delete of one per-launch claude config file; a missing file is not an error. */
+export function removeMcpLaunchConfigFile(configFilePath: string): void {
+  rmSync(configFilePath, { force: true })
+}
+
+// Why: mirrors McpLaunchTokenRegistry's idle-TTL backstop — a file whose owning
+// launch never reached a tracked PTY exit (crash before spawn, launch path we
+// don't instrument) must not linger indefinitely either.
+const STALE_MCP_LAUNCH_CONFIG_MS = 12 * 60 * 60 * 1000
+
+/** Deletes claude launch config files older than `maxAgeMs`; best-effort, never throws. */
+export function sweepStaleMcpLaunchConfigs(
+  userDataPath: string,
+  { maxAgeMs = STALE_MCP_LAUNCH_CONFIG_MS, now = Date.now }: { maxAgeMs?: number; now?: () => number } = {}
+): void {
+  const launchDir = join(userDataPath, MCP_LAUNCH_CONFIG_DIR)
+  let entries: string[]
+  try {
+    entries = readdirSync(launchDir)
+  } catch {
+    return
+  }
+  const cutoff = now() - maxAgeMs
+  for (const entry of entries) {
+    if (!entry.startsWith('claude-') || !entry.endsWith('.json')) {
+      continue
+    }
+    const entryPath = join(launchDir, entry)
+    try {
+      if (statSync(entryPath).mtimeMs < cutoff) {
+        rmSync(entryPath, { force: true })
+      }
+    } catch {
+      // Why: best-effort sweep — a file removed concurrently (already cleaned up on PTY exit) is not an error.
+    }
   }
 }
 
