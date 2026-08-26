@@ -13,6 +13,7 @@ import {
 } from 'node:fs'
 import { createHash } from 'node:crypto'
 import { mirrorEntry, safeRemoveTree } from '../pty/overlay-mirror'
+import { writeSecureJsonFile } from '../../shared/secure-file'
 
 const ORCA_OPENCODE_PLUGIN_FILE = 'orca-opencode-status.js'
 const OPENCODE_LEGACY_HOOKS_DIR = 'opencode-hooks'
@@ -1140,7 +1141,7 @@ export class OpenCodeHookService {
   ): Record<string, string> {
     const overlayDir = this.getLaunchScopedOverlayDir(ptyId)
     try {
-      mkdirSync(overlayDir, { recursive: true })
+      mkdirSync(overlayDir, { recursive: true, mode: 0o700 })
       if (existingConfigDir && existsSync(existingConfigDir)) {
         this.mirrorUserConfig(existingConfigDir, overlayDir)
       }
@@ -1183,7 +1184,8 @@ export class OpenCodeHookService {
         }
       }
     }
-    writeFileSync(targetPath, JSON.stringify(merged, null, 2))
+    // Why: carries the launch's bearer token — 0600 file + hardened 0700 dir (Windows ACL on win32), not a plain writeFileSync.
+    writeSecureJsonFile(targetPath, merged)
   }
 
   private getOverlayRoot(): string {

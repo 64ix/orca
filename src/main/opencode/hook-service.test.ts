@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { execFile, execFileSync } from 'node:child_process'
 import {
   existsSync,
   lstatSync,
@@ -7,11 +8,13 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { __resetSecureFileWindowsUserSidForTests } from '../../shared/secure-file'
 
 const { getPathMock } = vi.hoisted(() => ({
   getPathMock: vi.fn<(name: string) => string>()
@@ -21,6 +24,11 @@ vi.mock('electron', () => ({
   app: {
     getPath: getPathMock
   }
+}))
+
+vi.mock('child_process', () => ({
+  execFileSync: vi.fn(),
+  execFile: vi.fn()
 }))
 
 import { OpenCodeHookService, _internals } from './hook-service'
@@ -593,6 +601,54 @@ describe('OpenCodeHookService MCP injection', () => {
     expect(
       existsSync(join(env.OPENCODE_CONFIG_DIR!, 'plugins', 'orca-opencode-status.js'))
     ).toBe(true)
+  })
+
+  it('writes the overlay config file 0600 and hardens the overlay dir 0700 (POSIX)', () => {
+    if (process.platform === 'win32') {
+      return
+    }
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-mode', userConfigDir, mcpConfig)
+
+    const configPath = join(env.OPENCODE_CONFIG_DIR!, 'opencode.json')
+    expect(statSync(configPath).mode & 0o777).toBe(0o600)
+    expect(statSync(env.OPENCODE_CONFIG_DIR!).mode & 0o777).toBe(0o700)
+  })
+
+  it('hardens the overlay config file through the Windows ACL path', () => {
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!
+    Object.defineProperty(process, 'platform', { configurable: true, value: 'win32' })
+    process.env.SystemRoot = 'C:\\Windows'
+    __resetSecureFileWindowsUserSidForTests()
+    vi.mocked(execFileSync).mockReset()
+    vi.mocked(execFile).mockReset()
+    vi.mocked(execFileSync).mockImplementation((file) => {
+      if (typeof file === 'string' && file.endsWith('whoami.exe')) {
+        return '"USER","S-1-5-21-1000"'
+      }
+      return ''
+    })
+    vi.mocked(execFile).mockImplementation((_file, _args, _opts, callback) => {
+      if (typeof callback === 'function') {
+        callback(null, '', '')
+      }
+      return {} as ReturnType<typeof execFile>
+    })
+    try {
+      const service = new OpenCodeHookService()
+      service.buildPtyEnv('mcp-pty-win32', userConfigDir, mcpConfig)
+
+      // The synchronous PowerShell ACL apply (writeSecureFile's file-hardening path) ran.
+      const powershellCall = vi
+        .mocked(execFileSync)
+        .mock.calls.find(([file]) => typeof file === 'string' && file.includes('powershell.exe'))
+      expect(powershellCall).toBeDefined()
+    } finally {
+      Object.defineProperty(process, 'platform', originalPlatform)
+      __resetSecureFileWindowsUserSidForTests()
+      vi.mocked(execFileSync).mockReset()
+      vi.mocked(execFile).mockReset()
+    }
   })
 
   it('tolerates JSONC comments in the user config when merging', () => {
