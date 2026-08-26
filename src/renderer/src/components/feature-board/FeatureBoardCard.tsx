@@ -86,7 +86,9 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
   return (
     <div
       className={cn(
-        'relative rounded-lg',
+        // min-w-0: the flex-col column stretches this card to full width, but without it the
+        // card's own auto min-width grows to fit the branch row's unbroken text (#77).
+        'relative min-w-0 w-full rounded-lg',
         card.isAwaitingInput && 'ring-1 ring-amber-500/60',
         isSelected && 'ring-1 ring-primary/50'
       )}
