@@ -570,13 +570,16 @@ import {
 } from '../../shared/tui-agent-startup-shell'
 import {
   MCP_INJECTABLE_TUI_AGENTS,
-  buildOrcaMcpLaunchInjection
+  buildOrcaMcpLaunchInjection,
+  removeMcpLaunchConfigFile
 } from '../mcp/tui-agent-mcp-injection'
 
 /** Narrow view of OrcaMcpServer this module needs — avoids importing its class (main/index.ts wires the real instance in lazily, see getMcpServer). */
 type OrcaMcpServerLaunchApi = {
   mintLaunchToken(workspaceSelector: string): string
   rebindLaunchToken(token: string, workspaceSelector: string): void
+  /** Revokes a launch token immediately — called on the token's PTY exit, see onPtyExit. */
+  revokeLaunchToken(token: string): void
   endpoint(): string
 }
 import {
@@ -1555,6 +1558,10 @@ type TerminalCreateOptions = {
   resumeProviderSession?: AgentProviderSessionMetadata
   launchToken?: string
   launchAgent?: TuiAgent
+  // Why: an MCP launch token (+ optional claude config file) minted for this
+  // launch, tied to the spawned PTY so onPtyExit can revoke/delete it.
+  mcpLaunchToken?: string
+  mcpLaunchConfigPath?: string
   // Why: agent ids are not shell commands (`cursor` is the Cursor desktop app; its
   // CLI is `cursor-agent`). Callers that know the agent name it here instead of
   // guessing a command, and the runtime builds the configured launch.
@@ -3138,6 +3145,14 @@ export class OrcaRuntimeService {
   private handleByLeafKey = new Map<string, string>()
   private handleByPtyId = new Map<string, string>()
   private handleByPtyIncarnation = new Map<string, PtyIncarnationHandleRecord>()
+  // Why: ties a launch's MCP bearer token (and, for claude, its per-launch
+  // config file) to the PTY it was minted for, so onPtyExit can revoke the
+  // token and delete the file the moment the agent's process actually ends
+  // instead of leaving both live for up to the registry's idle TTL.
+  private mcpLaunchArtifactsByPtyId = new Map<
+    string,
+    { token: string; configFilePath: string | null }
+  >()
   private readonly mailPointerRepointScheduler = new MailPointerRepointScheduler((handle) =>
     this.repointPendingMessagesForHandle(handle)
   )
@@ -8881,7 +8896,11 @@ export class OrcaRuntimeService {
             startupCommandDelivery: agentStartup.startupCommandDelivery,
             launchConfig: agentStartup.launchConfig,
             launchAgent: tab.launchAgent,
-            targetGroupId
+            targetGroupId,
+            ...(agentStartup.mcpLaunchToken ? { mcpLaunchToken: agentStartup.mcpLaunchToken } : {}),
+            ...(agentStartup.mcpLaunchConfigPath
+              ? { mcpLaunchConfigPath: agentStartup.mcpLaunchConfigPath }
+              : {})
           })
         } catch (err) {
           if (sessionId && parseAppSshPtyId(sessionId)) {
@@ -15282,6 +15301,7 @@ export class OrcaRuntimeService {
     this.terminalFileUriHostnameByPtyId.delete(ptyId)
     this.wslDistroByPtyId.delete(ptyId)
     this.clearAgentRowSnapshotsForPty(ptyId)
+    this.clearMcpLaunchArtifactForPty(ptyId)
     // Why: a Claude agent-team leader whose PTY exits naturally (agent finished,
     // process died, renderer reload) must release its team + nested panes map.
     // Previously only explicit closeTerminal evicted it, so natural exits leaked
@@ -21793,8 +21813,13 @@ export class OrcaRuntimeService {
     workspaceSelector: string
     platform: NodeJS.Platform
     shell?: AgentStartupShell
-  }): { envAppend: Record<string, string>; argsAppend: string; mintedToken: string | null } {
-    const empty = { envAppend: {}, argsAppend: '', mintedToken: null }
+  }): {
+    envAppend: Record<string, string>
+    argsAppend: string
+    mintedToken: string | null
+    mcpLaunchConfigPath: string | null
+  } {
+    const empty = { envAppend: {}, argsAppend: '', mintedToken: null, mcpLaunchConfigPath: null }
     if (!args.eligible || !MCP_INJECTABLE_TUI_AGENTS.includes(args.agent)) {
       return empty
     }
@@ -21812,7 +21837,8 @@ export class OrcaRuntimeService {
         return {
           envAppend: { ORCA_MCP_OPENCODE_ENDPOINT: endpoint, ORCA_MCP_OPENCODE_TOKEN: token },
           argsAppend: '',
-          mintedToken: token
+          mintedToken: token,
+          mcpLaunchConfigPath: null
         }
       }
       const injection = buildOrcaMcpLaunchInjection(args.agent, {
@@ -21821,7 +21847,7 @@ export class OrcaRuntimeService {
         userDataPath: app.getPath('userData')
       })
       if (!injection) {
-        return { envAppend: {}, argsAppend: '', mintedToken: token }
+        return { envAppend: {}, argsAppend: '', mintedToken: token, mcpLaunchConfigPath: null }
       }
       const shell = resolveStartupShell(args.platform, args.shell)
       return {
@@ -21829,10 +21855,36 @@ export class OrcaRuntimeService {
         argsAppend: injection.extraArgv.length
           ? buildShellCommandFromArgv(injection.extraArgv, shell)
           : '',
-        mintedToken: token
+        mintedToken: token,
+        mcpLaunchConfigPath: injection.configFilePath ?? null
       }
     } catch {
       return empty
+    }
+  }
+
+  /** Ties a minted MCP launch token (+ optional config file) to the PTY it was minted for; revoked/cleaned up in onPtyExit. */
+  private registerMcpLaunchArtifact(
+    ptyId: string,
+    token: string | null | undefined,
+    configFilePath: string | null | undefined
+  ): void {
+    if (!token) {
+      return
+    }
+    this.mcpLaunchArtifactsByPtyId.set(ptyId, { token, configFilePath: configFilePath ?? null })
+  }
+
+  /** Revokes the PTY's MCP launch token and deletes its claude config file, if any — called on real process exit, not idle TTL. */
+  private clearMcpLaunchArtifactForPty(ptyId: string): void {
+    const artifact = this.mcpLaunchArtifactsByPtyId.get(ptyId)
+    if (!artifact) {
+      return
+    }
+    this.mcpLaunchArtifactsByPtyId.delete(ptyId)
+    this.getMcpServerFn?.()?.revokeLaunchToken(artifact.token)
+    if (artifact.configFilePath) {
+      removeMcpLaunchConfigFile(artifact.configFilePath)
     }
   }
 
@@ -21845,7 +21897,12 @@ export class OrcaRuntimeService {
     workspaceSelector: string
     platform: NodeJS.Platform
     shell?: AgentStartupShell
-  }): { agentArgs: string; agentEnv: Record<string, string>; mcpLaunchToken: string | null } {
+  }): {
+    agentArgs: string
+    agentEnv: Record<string, string>
+    mcpLaunchToken: string | null
+    mcpLaunchConfigPath: string | null
+  } {
     const extras = this.buildOrcaMcpLaunchExtras({
       agent: args.agent,
       eligible: args.eligible,
@@ -21856,7 +21913,8 @@ export class OrcaRuntimeService {
     return {
       agentArgs: [args.agentArgs ?? '', extras.argsAppend].filter(Boolean).join(' '),
       agentEnv: { ...args.agentEnv, ...extras.envAppend },
-      mcpLaunchToken: extras.mintedToken
+      mcpLaunchToken: extras.mintedToken,
+      mcpLaunchConfigPath: extras.mcpLaunchConfigPath
     }
   }
 
@@ -23782,6 +23840,7 @@ export class OrcaRuntimeService {
     draftPaste?: WorktreeStartupDraftPaste
     /** Bound to a placeholder selector — rebind once the new worktree's real id is known. */
     mcpLaunchToken?: string
+    mcpLaunchConfigPath?: string
   } | null> {
     if (!this.store) {
       return null
@@ -23860,7 +23919,10 @@ export class OrcaRuntimeService {
             : {}),
           ...(draftLaunchPlan.env ? { env: draftLaunchPlan.env } : {})
         },
-        ...(draftMcpInjected.mcpLaunchToken ? { mcpLaunchToken: draftMcpInjected.mcpLaunchToken } : {})
+        ...(draftMcpInjected.mcpLaunchToken ? { mcpLaunchToken: draftMcpInjected.mcpLaunchToken } : {}),
+        ...(draftMcpInjected.mcpLaunchConfigPath
+          ? { mcpLaunchConfigPath: draftMcpInjected.mcpLaunchConfigPath }
+          : {})
       }
     }
 
@@ -23889,7 +23951,10 @@ export class OrcaRuntimeService {
         ...(startupPlan.env ? { env: startupPlan.env } : {})
       },
       draftPaste: { agent, content },
-      ...(draftMcpInjected.mcpLaunchToken ? { mcpLaunchToken: draftMcpInjected.mcpLaunchToken } : {})
+      ...(draftMcpInjected.mcpLaunchToken ? { mcpLaunchToken: draftMcpInjected.mcpLaunchToken } : {}),
+      ...(draftMcpInjected.mcpLaunchConfigPath
+        ? { mcpLaunchConfigPath: draftMcpInjected.mcpLaunchConfigPath }
+        : {})
     }
   }
 
@@ -23907,6 +23972,7 @@ export class OrcaRuntimeService {
     startup: WorktreeStartupLaunch
     followup?: WorktreeStartupFollowup
     mcpLaunchToken?: string
+    mcpLaunchConfigPath?: string
   } {
     if (!this.store) {
       throw new Error('runtime_unavailable')
@@ -23953,6 +24019,9 @@ export class OrcaRuntimeService {
     return {
       agent,
       ...(agentMcpInjected.mcpLaunchToken ? { mcpLaunchToken: agentMcpInjected.mcpLaunchToken } : {}),
+      ...(agentMcpInjected.mcpLaunchConfigPath
+        ? { mcpLaunchConfigPath: agentMcpInjected.mcpLaunchConfigPath }
+        : {}),
       startup: {
         command: startupPlan.launchCommand,
         launchConfig: startupPlan.launchConfig,
@@ -24444,6 +24513,8 @@ export class OrcaRuntimeService {
     // selector — no worktree exists yet — so rebind to the real one below, as
     // soon as it does, well before any launched agent can reach the MCP server.
     const effectiveMcpLaunchToken = agentStartup?.mcpLaunchToken ?? draftStartup?.mcpLaunchToken
+    const effectiveMcpLaunchConfigPath =
+      agentStartup?.mcpLaunchConfigPath ?? draftStartup?.mcpLaunchConfigPath
     if (isFolderRepo(repo)) {
       const now = Date.now()
       const settings = createSettings
@@ -24527,6 +24598,10 @@ export class OrcaRuntimeService {
             ...(effectiveStartup.viewMode ? { viewMode: effectiveStartup.viewMode } : {}),
             startupCommandDelivery: effectiveStartup.startupCommandDelivery,
             telemetry: effectiveStartup.telemetry,
+            ...(effectiveMcpLaunchToken ? { mcpLaunchToken: effectiveMcpLaunchToken } : {}),
+            ...(effectiveMcpLaunchConfigPath
+              ? { mcpLaunchConfigPath: effectiveMcpLaunchConfigPath }
+              : {}),
             ...ownerSurfacing(shouldActivate)
           })
           if (effectiveDraftPaste) {
@@ -27823,7 +27898,11 @@ export class OrcaRuntimeService {
       ...(startupPlan.env ? { env: startupPlan.env } : {}),
       launchConfig: startupPlan.launchConfig,
       launchAgent: agent,
-      startupCommandDelivery: startupPlan.startupCommandDelivery
+      startupCommandDelivery: startupPlan.startupCommandDelivery,
+      ...(mcpInjected.mcpLaunchToken ? { mcpLaunchToken: mcpInjected.mcpLaunchToken } : {}),
+      ...(mcpInjected.mcpLaunchConfigPath
+        ? { mcpLaunchConfigPath: mcpInjected.mcpLaunchConfigPath }
+        : {})
     }
   }
 
@@ -27986,7 +28065,11 @@ export class OrcaRuntimeService {
       leafId: request.placement?.leafId,
       persistHostSessionBinding: true,
       agentSessionClaim: claim,
-      signal: _caller.signal
+      signal: _caller.signal,
+      ...(resumeMcpInjected.mcpLaunchToken ? { mcpLaunchToken: resumeMcpInjected.mcpLaunchToken } : {}),
+      ...(resumeMcpInjected.mcpLaunchConfigPath
+        ? { mcpLaunchConfigPath: resumeMcpInjected.mcpLaunchConfigPath }
+        : {})
     })
     return {
       terminal,
@@ -28192,7 +28275,13 @@ export class OrcaRuntimeService {
           signal: caller.signal,
           onPtySpawnCommitted: () => {
             retainReplayFence = true
-          }
+          },
+          ...(createMcpInjected.mcpLaunchToken
+            ? { mcpLaunchToken: createMcpInjected.mcpLaunchToken }
+            : {}),
+          ...(createMcpInjected.mcpLaunchConfigPath
+            ? { mcpLaunchConfigPath: createMcpInjected.mcpLaunchConfigPath }
+            : {})
         })
       } catch (error) {
         if (isAgentSessionOperationOutcomeUnknown(error)) {
@@ -28504,6 +28593,11 @@ export class OrcaRuntimeService {
           leafId,
           ...(result.incarnationId ? { incarnationId: result.incarnationId } : {})
         })
+        this.registerMcpLaunchArtifact(
+          result.id,
+          launchOpts.mcpLaunchToken,
+          launchOpts.mcpLaunchConfigPath
+        )
         const pty = this.getOrCreatePtyWorktreeRecord(result.id)
         if (pty) {
           if (persistHostSessionBinding) {
@@ -28659,12 +28753,20 @@ export class OrcaRuntimeService {
     // populates this.leaves may not have arrived yet. Wait for the leaf to
     // appear so we can return a valid handle the caller can use right away.
     const handle = await this.waitForTerminalHandle(reply.tabId)
+    const renderedPtyId = this.handles.get(handle)?.ptyId ?? null
+    if (renderedPtyId) {
+      this.registerMcpLaunchArtifact(
+        renderedPtyId,
+        launchOpts.mcpLaunchToken,
+        launchOpts.mcpLaunchConfigPath
+      )
+    }
     return {
       handle,
       tabId: reply.tabId,
       worktreeId: worktreeId ?? '',
       title: reply.title,
-      ...this.getPtyExecutionHostMetadata(this.handles.get(handle)?.ptyId ?? null),
+      ...this.getPtyExecutionHostMetadata(renderedPtyId),
       surface: 'visible'
     }
   }
@@ -28977,7 +29079,11 @@ export class OrcaRuntimeService {
           viewMode: opts.viewMode,
           targetGroupId: opts.targetGroupId,
           launchConfig: startupCommand.launchConfig,
-          signal: opts.signal
+          signal: opts.signal,
+          ...(startupCommand.mcpLaunchToken ? { mcpLaunchToken: startupCommand.mcpLaunchToken } : {}),
+          ...(startupCommand.mcpLaunchConfigPath
+            ? { mcpLaunchConfigPath: startupCommand.mcpLaunchConfigPath }
+            : {})
         }
       )
     }
@@ -29151,6 +29257,8 @@ export class OrcaRuntimeService {
     startupCommandDelivery?: WorktreeStartupLaunch['startupCommandDelivery']
     launchConfig?: SleepingAgentLaunchConfig
     launchAgent?: TuiAgent
+    mcpLaunchToken?: string
+    mcpLaunchConfigPath?: string
   }> {
     if (opts.command || !opts.agent) {
       return {
@@ -29227,7 +29335,11 @@ export class OrcaRuntimeService {
       envToDelete: opts.envToDelete,
       launchConfig: startupPlan.launchConfig,
       launchAgent: opts.agent,
-      startupCommandDelivery: startupPlan.startupCommandDelivery
+      startupCommandDelivery: startupPlan.startupCommandDelivery,
+      ...(mobileMcpInjected.mcpLaunchToken ? { mcpLaunchToken: mobileMcpInjected.mcpLaunchToken } : {}),
+      ...(mobileMcpInjected.mcpLaunchConfigPath
+        ? { mcpLaunchConfigPath: mobileMcpInjected.mcpLaunchConfigPath }
+        : {})
     }
   }
 
@@ -29247,6 +29359,8 @@ export class OrcaRuntimeService {
       targetGroupId?: string
       launchConfig?: SleepingAgentLaunchConfig
       signal?: AbortSignal
+      mcpLaunchToken?: string
+      mcpLaunchConfigPath?: string
     } = {}
   ): Promise<RuntimeMobileSessionCreateTerminalResult> {
     const workspace = await this.resolveTerminalWorkspaceLaunchScope(`id:${worktreeId}`)
@@ -29278,7 +29392,9 @@ export class OrcaRuntimeService {
       persistHostSessionBinding: true,
       // Why: this method publishes the authoritative snapshot below; skip the intermediate publish to avoid a wrong-group flash.
       deferMobileSessionPublish: true,
-      signal: opts.signal
+      signal: opts.signal,
+      ...(opts.mcpLaunchToken ? { mcpLaunchToken: opts.mcpLaunchToken } : {}),
+      ...(opts.mcpLaunchConfigPath ? { mcpLaunchConfigPath: opts.mcpLaunchConfigPath } : {})
     })
     const livePty = this.getLivePtyForHandle(terminal.handle)
     if (!livePty) {
@@ -33135,6 +33251,7 @@ export class OrcaRuntimeService {
     this.terminalFileUriHostnameByPtyId.delete(ptyId)
     this.wslDistroByPtyId.delete(ptyId)
     this.clearAgentRowSnapshotsForPty(ptyId)
+    this.clearMcpLaunchArtifactForPty(ptyId)
     const handle = this.handleByPtyId.get(ptyId)
     if (handle) {
       // Why: pruning can remove a PTY without onPtyExit firing; release this leader's agent team so it doesn't leak.
