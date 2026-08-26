@@ -7,22 +7,11 @@ import { makeRepo, makeWorktree } from '@/components/worktree-jump-palette-test-
 import { getGitHubPRCacheKey } from '@/store/slices/github-cache-key'
 import type { PRInfo } from '../../../../../shared/github/pull-request-types'
 import { useTaskDetailPanelStageChange } from './use-task-detail-panel-stage-change'
-import type { FeatureBoardCard } from '../feature-board-card-model'
 
 const { toastErrorMock } = vi.hoisted(() => ({ toastErrorMock: vi.fn() }))
 vi.mock('sonner', () => ({ toast: { error: toastErrorMock } }))
 
 const initialState = useAppStore.getInitialState()
-
-function cardFor(worktree: FeatureBoardCard['worktree']): FeatureBoardCard {
-  return {
-    id: worktree.id,
-    effectiveStage: 'idea',
-    isAwaitingInput: false,
-    children: [],
-    worktree
-  }
-}
 
 describe('useTaskDetailPanelStageChange', () => {
   beforeEach(() => {
@@ -41,7 +30,7 @@ describe('useTaskDetailPanelStageChange', () => {
     const updateWorktreeMeta = vi.fn().mockResolvedValue({ ok: true })
     useAppStore.setState({ repos: [repo], updateWorktreeMeta })
 
-    const { result } = renderHook(() => useTaskDetailPanelStageChange(cardFor(worktree)))
+    const { result } = renderHook(() => useTaskDetailPanelStageChange(worktree))
     result.current('spec')
 
     expect(updateWorktreeMeta).toHaveBeenCalledWith('a', { workflowStage: 'spec' })
@@ -76,7 +65,7 @@ describe('useTaskDetailPanelStageChange', () => {
       updateWorktreeMeta
     })
 
-    const { result } = renderHook(() => useTaskDetailPanelStageChange(cardFor(worktree)))
+    const { result } = renderHook(() => useTaskDetailPanelStageChange(worktree))
     result.current('implementing')
 
     expect(updateWorktreeMeta).toHaveBeenCalledWith('a', {
@@ -91,7 +80,7 @@ describe('useTaskDetailPanelStageChange', () => {
     const updateWorktreeMeta = vi.fn().mockResolvedValue({ ok: false, error: 'stage refused' })
     useAppStore.setState({ repos: [repo], updateWorktreeMeta })
 
-    const { result } = renderHook(() => useTaskDetailPanelStageChange(cardFor(worktree)))
+    const { result } = renderHook(() => useTaskDetailPanelStageChange(worktree))
     result.current('spec')
     await vi.waitFor(() => expect(toastErrorMock).toHaveBeenCalled())
 

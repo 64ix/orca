@@ -32,6 +32,8 @@ import {
 } from '../../../shared/tui-agent-launch-defaults'
 import { tuiAgentToAgentKind } from '@/lib/telemetry'
 import { isGitRepoKind } from '../../../shared/repo-kind'
+import { decideComposerStageAssignment } from '@/components/feature-board/composer-stage-assignment'
+import type { WorkflowStage } from '../../../shared/workflow-stages'
 import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-client'
 import { resolveWorktreeCreateBaseBranch } from '@/runtime/worktree-create-base'
 import {
@@ -353,6 +355,10 @@ export type ComposerCardProps = {
   onCreate: () => void
   note: string
   onNoteChange: (value: string) => void
+  /** Optional stage assignment at creation (#80); null when the picker is unavailable
+   *  (folder-workspace target) or the user clears it back to unstaged. */
+  workflowStage: WorkflowStage | null
+  onWorkflowStageChange: (stage: WorkflowStage | null) => void
   baseBranch: string | undefined
   onBaseBranchChange: (next: string | undefined) => void
   /** Called when a PR is selected in the Start-from picker; updates baseBranch and linkedWorkItem/linkedPR in one pass. */
@@ -980,6 +986,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     persistDraft ? (newWorkspaceDraft?.prompt ?? initialPrompt) : initialPrompt
   )
   const [note, setNote] = useState<string>(persistDraft ? (newWorkspaceDraft?.note ?? '') : '')
+  // Why: not part of the persisted draft — the stage picker always starts at the default (#80).
+  const [workflowStage, setWorkflowStage] = useState<WorkflowStage | null>('idea')
   const [attachmentPaths, setAttachmentPaths] = useState<string[]>(
     persistDraft ? (newWorkspaceDraft?.attachments ?? []) : []
   )
@@ -3931,8 +3939,17 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
       const worktree = result.worktree
 
       const trimmedNote = note.trim()
+      // Why (#80): routed through the same authority gate as every other stage-write entry
+      // point rather than a direct meta write, even though a fresh worktree always allows it.
+      const stageOutcome = decideComposerStageAssignment(
+        workflowStage,
+        selectedRepoIsGit ? 'git-worktree' : 'folder'
+      )
       // Why: linked source metadata is already in createWorktree; re-saving it can trigger slow post-create PR push-target lookups.
-      await applyWorktreeMeta(worktree.id, trimmedNote ? { comment: trimmedNote } : {})
+      await applyWorktreeMeta(worktree.id, {
+        ...(trimmedNote ? { comment: trimmedNote } : {}),
+        ...(stageOutcome.allowed ? stageOutcome.metaUpdates : {})
+      })
 
       const issueCommand =
         submitShouldRunIssueAutomation && issueCommandTrustDecision === 'run'
@@ -4073,7 +4090,8 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     workspaceSeedName,
     fallbackCreatureName,
     isProjectGroupTarget,
-    submitFolderTarget
+    submitFolderTarget,
+    workflowStage
   ])
 
   const resetForNextCreate = useCallback(() => {
@@ -4082,6 +4100,7 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     lastAutoNameRef.current = ''
     setAgentPrompt('')
     setNote('')
+    setWorkflowStage('idea')
     setAttachmentPaths([])
     setLinkedWorkItem(null)
     setLinkedTaskSourceContext(null)
@@ -4803,6 +4822,10 @@ export function useComposerState(options: UseComposerStateOptions): UseComposerS
     forkPushWarning: isProjectGroupTarget ? null : forkPushWarning,
     note,
     onNoteChange: setNote,
+    // Why: folder-workspace creation runs a separate submit path (`submitFolderTarget`)
+    // that does not yet plumb a stage write through — scoped to git worktrees for now (#80).
+    workflowStage: isProjectGroupTarget ? null : workflowStage,
+    onWorkflowStageChange: isProjectGroupTarget ? () => {} : setWorkflowStage,
     setupConfig: isProjectGroupTarget ? null : setupConfig,
     requiresExplicitSetupChoice: isProjectGroupTarget ? false : requiresExplicitSetupChoice,
     setupDecision: isProjectGroupTarget ? null : setupDecision,

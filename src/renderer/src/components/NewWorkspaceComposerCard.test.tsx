@@ -241,6 +241,8 @@ function renderCard(
         onCreate={() => {}}
         note=""
         onNoteChange={() => {}}
+        workflowStage="idea"
+        onWorkflowStageChange={() => {}}
         setupConfig={null}
         requiresExplicitSetupChoice={false}
         setupDecision={null}
@@ -442,6 +444,17 @@ describe('NewWorkspaceComposerCard folder task source mode', () => {
     })
     clickReuseCheckbox()
     expect(onChanges).toEqual([true])
+  })
+
+  it('shows the stage picker for git repos only (#80)', () => {
+    current = renderCard({ advancedOpen: true, selectedRepoIsGit: true })
+    expect(current.container.querySelector('#new-workspace-stage')).toBeTruthy()
+
+    act(() => current?.root.unmount())
+    current?.container.remove()
+
+    current = renderCard({ advancedOpen: true, selectedRepoIsGit: false })
+    expect(current.container.querySelector('#new-workspace-stage')).toBeNull()
   })
 
   it('shows the setup startup policy toggle only when setup is available', () => {

@@ -16511,7 +16511,14 @@
           "refused": "Could not set the stage",
           "updateFailed": "Could not update the stage"
         }
+      },
+      "WorktreeContextMenu": {
+        "moveToFeatureBoard": "Move to feature board…"
       }
+    },
+    "newWorkspace": {
+      "stageLabel": "Stage",
+      "stageUnstaged": "No stage"
     }
   },
   "dashboardPopout": {

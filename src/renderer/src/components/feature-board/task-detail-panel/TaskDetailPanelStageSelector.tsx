@@ -28,7 +28,7 @@ export function TaskDetailPanelStageSelector({
   card: FeatureBoardCard
 }): React.JSX.Element {
   const { effectiveStage, workspaceKind, facts } = useWorktreeStageDerivation(card.worktree)
-  const applyStage = useTaskDetailPanelStageChange(card)
+  const applyStage = useTaskDetailPanelStageChange(card.worktree)
 
   const model = useMemo(
     () =>
