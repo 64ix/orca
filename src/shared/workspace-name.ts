@@ -184,7 +184,20 @@ export function getLinkedWorkItemWorkspaceName(
       .replace(new RegExp(`^${escapeRegExp(identifier)}\\s*[:-]?\\s*`, 'i'), '')
       .trim()
   }
-  const displayName = [identifier, subject].filter(Boolean).join(' ') || workItemIdentity(item)
+  // Why: GitHub/GitLab items have no external identifier, so fall back to the
+  // issue/PR number itself — it's what lets the name be traced back to the
+  // tracker. `\b#<n>\b` only matches when glued to a word char, so a title
+  // that already mentions "#<n>" as its own token (unlike a wrapping prefix)
+  // survives getLinkedWorkItemTitleSubject above; strip it here too so the
+  // number isn't doubled.
+  const identity = identifier ?? workItemIdentity(item)
+  if (!identifier && item.number > 0) {
+    subject = subject
+      .replace(new RegExp(`(^|[^\\p{L}\\p{N}])[#!]?${item.number}(?![\\p{L}\\p{N}])`, 'gu'), '$1')
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+  const displayName = [identity, subject].filter(Boolean).join(' ')
   const seedName = slugifyForWorkspaceName(displayName)
   if (!seedName) {
     return null
