@@ -43,7 +43,9 @@ function renderTriggerLabel(
       </span>
     )
   }
-  if (selected.size === repos.length) {
+  // Why: membership check ignores stale selection ids that size comparison would count.
+  const everyRepoSelected = repos.every((repo) => selected.has(repo.id))
+  if (everyRepoSelected) {
     return (
       <span className="inline-flex min-w-0 items-center gap-1.5">
         {translate('auto.components.ui.repo.multi.combobox.bfd8ce21c6', 'All projects')}
@@ -85,7 +87,8 @@ export default function RepoMultiCombobox({
   const [commandValue, setCommandValue] = useState('')
 
   const filteredRepos = useMemo(() => searchRepos(repos, query), [repos, query])
-  const allSelected = selected.size === repos.length && repos.length > 0
+  // Why: membership check ignores stale selection ids that size comparison would count.
+  const allSelected = repos.length > 0 && repos.every((repo) => selected.has(repo.id))
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen)
@@ -98,6 +101,11 @@ export default function RepoMultiCombobox({
     (repoId: string) => {
       const next = new Set(selected)
       if (next.has(repoId)) {
+        // Why: from sticky-all, clicking a repo isolates it instead of toggling it off.
+        if (allSelected && repos.length > 1) {
+          onChange(new Set([repoId]))
+          return
+        }
         // Why: the empty selection is unreachable by design — fetch effects
         // assume at least one repo is selected, so block the click instead of
         // silently allowing a no-op state.
@@ -110,7 +118,7 @@ export default function RepoMultiCombobox({
       }
       onChange(next)
     },
-    [onChange, selected]
+    [allSelected, onChange, repos, selected]
   )
 
   const handleSelectAll = useCallback(() => {
