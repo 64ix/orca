@@ -98,6 +98,11 @@ export default function RepoMultiCombobox({
     (repoId: string) => {
       const next = new Set(selected)
       if (next.has(repoId)) {
+        // Why: from sticky-all, clicking a repo isolates it instead of toggling it off.
+        if (allSelected && repos.length > 1) {
+          onChange(new Set([repoId]))
+          return
+        }
         // Why: the empty selection is unreachable by design — fetch effects
         // assume at least one repo is selected, so block the click instead of
         // silently allowing a no-op state.
@@ -110,7 +115,7 @@ export default function RepoMultiCombobox({
       }
       onChange(next)
     },
-    [onChange, selected]
+    [allSelected, onChange, repos, selected]
   )
 
   const handleSelectAll = useCallback(() => {
