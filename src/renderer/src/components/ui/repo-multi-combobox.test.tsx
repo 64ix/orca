@@ -59,16 +59,25 @@ describe('RepoMultiCombobox selection', () => {
 
   it('keeps the last-selected repo when clicking it below sticky-all', () => {
     const onChange = vi.fn()
+    renderPicker(new Set(['beta']), onChange)
+
+    fireEvent.click(screen.getByRole('option', { name: /Beta/ }))
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('stays a silent no-op when the only repo is clicked while selected', () => {
+    const onChange = vi.fn()
     render(
       <RepoMultiCombobox
-        repos={REPOS}
-        selected={new Set(['beta'])}
+        repos={[REPOS[0]]}
+        selected={new Set(['alpha'])}
         onChange={onChange}
         onSelectAll={vi.fn()}
       />
     )
     fireEvent.click(screen.getByRole('combobox'))
-    fireEvent.click(screen.getByRole('option', { name: /Beta/ }))
+    fireEvent.click(screen.getByRole('option', { name: /Alpha/ }))
 
     expect(onChange).not.toHaveBeenCalled()
   })

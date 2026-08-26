@@ -107,6 +107,16 @@ describe('TaskProjectSourceCombobox selection', () => {
     expect(onChange).toHaveBeenCalledWith(new Set(['beta-ssh']))
   })
 
+  it('stays a silent no-op when the only project is clicked while selected', () => {
+    const onChange = vi.fn()
+    renderPicker(new Set(['alpha']), { onChange }, [GROUPS[0]])
+
+    fireEvent.click(screen.getByRole('combobox'))
+    fireEvent.click(screen.getByRole('button', { name: /Alpha/ }))
+
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('still builds custom subsets with subsequent toggles after isolation', () => {
     const onChange = vi.fn()
     renderPicker(new Set(['beta']), { onChange })
