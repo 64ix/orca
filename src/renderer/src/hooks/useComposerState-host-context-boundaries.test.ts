@@ -137,7 +137,7 @@ describe('useComposerState host-context boundaries', () => {
   it('auto-owns linked-item generated prefilled names', () => {
     expect(
       getInitialAutoManagedWorkspaceName({
-        initialName: 'fix-workspace-name',
+        initialName: 'issue-1234-fix-workspace-name',
         initialLinkedWorkItem: {
           type: 'issue',
           provider: 'github',
@@ -146,7 +146,7 @@ describe('useComposerState host-context boundaries', () => {
           url: 'https://github.com/stablyai/orca/issues/1234'
         }
       })
-    ).toBe('fix-workspace-name')
+    ).toBe('issue-1234-fix-workspace-name')
   })
 
   it('resolves GitHub PR bases against the selected run repo, not the source item repo', () => {
