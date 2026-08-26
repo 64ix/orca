@@ -15,8 +15,7 @@ import { isWorkflowStage, type WorkflowStage } from '../../../../shared/workflow
  */
 export const FEATURE_BOARD_CARD_SELECTOR = '[data-feature-board-card-id]'
 export const FEATURE_BOARD_COLUMN_SELECTOR = '[data-feature-board-column]'
-// Cards scroll region — its top excludes the column header, so empty-column indicator
-// placement (laneTop + 14) lands below the title, mirroring the kanban lane-scroll.
+// Cards scroll region — mirrors the kanban lane-scroll anchor for indicator placement.
 export const FEATURE_BOARD_COLUMN_SCROLL_SELECTOR = '[data-feature-board-column-scroll]'
 const COMMIT_TARGET_FALLBACK_TOLERANCE_PX = 6
 

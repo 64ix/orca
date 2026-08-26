@@ -60,7 +60,11 @@ function stubVisible(element: Element): void {
 
 // Column with a 36px header above the cards scroll region — the #76 fixture.
 // Column top = 100, cards region top = 136: any indicator Y below 136 sits on the header.
-function appendEmptyColumn(): { board: HTMLElement; scrollRegion: HTMLElement } {
+function appendEmptyColumn(): {
+  board: HTMLElement
+  column: HTMLElement
+  scrollRegion: HTMLElement
+} {
   const board = document.createElement('div')
   const column = document.createElement('div')
   column.setAttribute('data-feature-board-column', 'spec')
@@ -77,7 +81,7 @@ function appendEmptyColumn(): { board: HTMLElement; scrollRegion: HTMLElement } 
   board.append(column)
   document.body.append(board)
   vi.spyOn(document, 'elementFromPoint').mockReturnValue(scrollRegion)
-  return { board, scrollRegion }
+  return { board, column, scrollRegion }
 }
 
 function indicatorTranslateY(): number {
@@ -94,8 +98,8 @@ describe('feature board empty-column drop indicator (#76)', () => {
   afterEach(() => {
     removeCardDropIndicator()
     vi.restoreAllMocks()
+    cleanup()
     document.body.innerHTML = ''
-    return cleanup()
   })
 
   it('resolves the target top from the cards region, not the header-bearing column', () => {
@@ -105,6 +109,17 @@ describe('feature board empty-column drop indicator (#76)', () => {
 
     expect(target.stage).toBe('spec')
     expect(target.columnRect?.top).toBe(136)
+  })
+
+  it('falls back to the column top when the cards region attribute is missing', () => {
+    const { board, column } = appendEmptyColumn()
+    column
+      .querySelector('[data-feature-board-column-scroll]')
+      ?.removeAttribute('data-feature-board-column-scroll')
+
+    const target = getFeatureBoardCardDropTarget(board, 140, 300)
+
+    expect(target.columnRect?.top).toBe(100)
   })
 
   it('renders the indicator inside the cards region, below the header', () => {
