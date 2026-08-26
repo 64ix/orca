@@ -107,6 +107,47 @@ describe('catalogBadgeState', () => {
       })
     ).toBe('update-available')
   })
+
+  it('keeps a foreign same-name skill Available instead of claiming it is installed', () => {
+    // Why: a hand-authored skill sharing the catalog skill's name is not an Orca
+    // install — every freshness placement under that name reports 'unrecognized'.
+    const freshness: SkillFreshnessInventory = {
+      schemaVersion: 1,
+      installations: [
+        {
+          id: 'placement-1',
+          name: 'orca-cli',
+          rootId: 'root-1',
+          providers: ['agent-skills'],
+          sourceKind: 'home',
+          sourceLabel: 'Agent skills home',
+          unresolvedPath: '/home/dev/.agents/skills/orca-cli',
+          resolvedPath: '/home/dev/.agents/skills/orca-cli',
+          physicalIdentity: 'inode-1',
+          topology: 'canonical-copy',
+          status: 'unrecognized',
+          installedReleaseRevision: null,
+          installedAppVersion: null,
+          currentReleaseRevision: 4,
+          currentPackageDigest: 'a'.repeat(64),
+          currentAppVersion: '1.2.3',
+          observedPackageDigest: 'c'.repeat(64),
+          errorCategory: null
+        }
+      ],
+      eligibleUpdateNames: [],
+      scanIssues: [],
+      scannedAt: 1
+    }
+    expect(
+      catalogBadgeState({
+        name: 'orca-cli',
+        discoveredSkills: [skill('orca-cli')],
+        freshness,
+        installabilityKnown: true
+      })
+    ).toBe('available')
+  })
 })
 
 describe('buildSkillCatalogRows', () => {

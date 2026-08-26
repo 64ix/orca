@@ -35,6 +35,25 @@ export function isCatalogSkillDiscovered(
 }
 
 /**
+ * Whether every freshness placement discovery found under this name is content
+ * Orca never installed. `unrecognized` means the on-disk bytes matched no known
+ * snapshot of *this* catalog skill, so a same-named installation entirely of
+ * that status is a foreign look-alike, not an Orca install — name alone cannot
+ * tell the two apart, so this is the identity check name-matching is missing.
+ * No freshness data for the name is not evidence of a foreign skill, so it
+ * defers to the discovery-only match instead of forcing `available`.
+ */
+function isForeignSameNameSkill(
+  name: string,
+  freshness: SkillFreshnessInventory | null
+): boolean {
+  const placements = freshness?.installations.filter((installation) =>
+    sameSkillName(installation.name, name)
+  )
+  return Boolean(placements && placements.length > 0 && placements.every((p) => p.status === 'unrecognized'))
+}
+
+/**
  * The single source of truth for the "Available" badge: a skill is installable
  * only when discovery proves it is absent. A failed or pending scan yields
  * `unverified` so the badge never claims availability it cannot prove.
@@ -48,7 +67,10 @@ export function catalogBadgeState(args: {
   if (!args.installabilityKnown) {
     return 'unverified'
   }
-  if (!isCatalogSkillDiscovered(args.name, args.discoveredSkills)) {
+  if (
+    !isCatalogSkillDiscovered(args.name, args.discoveredSkills) ||
+    isForeignSameNameSkill(args.name, args.freshness)
+  ) {
     return 'available'
   }
   // Why: eligibleUpdateNames is the freshness machinery's own update authority —

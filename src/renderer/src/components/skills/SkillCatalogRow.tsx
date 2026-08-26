@@ -157,9 +157,9 @@ export function SkillCatalogRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={onUpdate}>
-                {translate('auto.components.skills.SkillCatalogRow.update', 'Update')}
-              </DropdownMenuItem>
+              {/* Why: badge 'installed' means the freshness authority already sees
+                  nothing behind — offering Update here would run it against a
+                  skill that is not eligible, regardless of what the badge shows. */}
               <DropdownMenuItem onSelect={uninstall}>
                 {translate('auto.components.skills.SkillCatalogRow.uninstall', 'Uninstall')}
               </DropdownMenuItem>

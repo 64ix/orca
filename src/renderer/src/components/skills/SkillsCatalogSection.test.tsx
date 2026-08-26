@@ -4,7 +4,10 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { fireEvent } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SkillCatalogInstallRun } from '../../../../shared/skill-catalog'
+import type {
+  SkillCatalogInstallRun,
+  SkillCatalogInstallStartResult
+} from '../../../../shared/skill-catalog'
 import type { SkillFreshnessInventory, SkillUpdateRun } from '../../../../shared/skill-freshness'
 import type { SkillRemoveOperation } from '../../../../shared/skill-sharing-contract'
 import type { DiscoveredSkill } from '../../../../shared/skills'
@@ -20,7 +23,12 @@ const mocks = vi.hoisted(() => ({
   loading: false,
   error: null as string | null,
   refresh: vi.fn(),
-  notifyChanged: vi.fn()
+  notifyChanged: vi.fn(),
+  toastError: vi.fn()
+}))
+
+vi.mock('sonner', () => ({
+  toast: { error: mocks.toastError }
 }))
 
 vi.mock('@/hooks/useSkillFreshness', () => ({
@@ -59,7 +67,9 @@ const skillsApi = {
       }
     ]
   })),
-  startCatalogInstall: vi.fn(async () => ({ started: true as const })),
+  startCatalogInstall: vi.fn(
+    async (): Promise<SkillCatalogInstallStartResult> => ({ started: true })
+  ),
   cancelCatalogInstall: vi.fn(async () => {}),
   acknowledgeCatalogInstall: vi.fn(async () => {}),
   getCatalogInstall: vi.fn(async (): Promise<SkillCatalogInstallRun> => ({ state: 'idle' })),
@@ -196,6 +206,7 @@ beforeEach(() => {
   mocks.error = null
   mocks.refresh.mockReset()
   mocks.notifyChanged.mockReset()
+  mocks.toastError.mockReset()
   pushInstallRun = null
   skillsApi.catalog.mockClear()
   skillsApi.startCatalogInstall.mockClear()
@@ -425,5 +436,37 @@ describe('SkillsCatalogSection', () => {
     await flush()
 
     expect(container?.textContent).toContain('Could not check installed versions')
+  })
+
+  it('never offers Update from the manage menu of a fully current skill', async () => {
+    mocks.inventory = {
+      schemaVersion: 1,
+      installations: [],
+      eligibleUpdateNames: [],
+      scanIssues: [],
+      scannedAt: 1
+    }
+    await renderSection({ discoveredSkills: [discovered('orca-cli')] })
+    await flush()
+
+    await openManageMenu('orca-cli')
+    const menuItems = [...document.body.querySelectorAll('[role="menuitem"]')].map(
+      (node) => node.textContent?.trim()
+    )
+    expect(menuItems).toEqual(['Uninstall'])
+  })
+
+  it('surfaces a concurrent-install click instead of silently doing nothing', async () => {
+    skillsApi.startCatalogInstall.mockResolvedValue({
+      started: false,
+      reason: 'already-running'
+    })
+    await renderSection()
+    await flush()
+
+    await act(async () => fireEvent.click(buttonInRow('orchestration', 'Install')))
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      expect.stringContaining('Already installing skills')
+    )
   })
 })
