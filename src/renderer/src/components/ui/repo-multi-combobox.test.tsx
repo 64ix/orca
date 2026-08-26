@@ -4,8 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Repo } from '../../../../shared/repo-types'
-import { getRepoMultiComboboxDetail } from './repo-multi-combobox'
-import RepoMultiCombobox from './repo-multi-combobox'
+import RepoMultiCombobox, { getRepoMultiComboboxDetail } from './repo-multi-combobox'
 
 afterEach(cleanup)
 
