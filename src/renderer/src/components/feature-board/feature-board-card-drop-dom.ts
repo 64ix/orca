@@ -15,6 +15,9 @@ import { isWorkflowStage, type WorkflowStage } from '../../../../shared/workflow
  */
 export const FEATURE_BOARD_CARD_SELECTOR = '[data-feature-board-card-id]'
 export const FEATURE_BOARD_COLUMN_SELECTOR = '[data-feature-board-column]'
+// Cards scroll region — its top excludes the column header, so empty-column indicator
+// placement (laneTop + 14) lands below the title, mirroring the kanban lane-scroll.
+export const FEATURE_BOARD_COLUMN_SCROLL_SELECTOR = '[data-feature-board-column-scroll]'
 const COMMIT_TARGET_FALLBACK_TOLERANCE_PX = 6
 
 export type FeatureBoardCardDropRect = { top: number; bottom: number }
@@ -92,12 +95,15 @@ export function getFeatureBoardCardDropTarget(
     return { stage, dropIndex: 0 }
   }
 
-  const columnRect = column.getBoundingClientRect()
+  const cardsRegion = column.querySelector<HTMLElement>(FEATURE_BOARD_COLUMN_SCROLL_SELECTOR)
+  // Why: anchor indicator placement to the cards region, not the header-bearing column —
+  // the empty-column fallback (regionTop + 14) must land below the title (#76).
+  const regionRect = (cardsRegion ?? column).getBoundingClientRect()
   const cardRects = getColumnCardDropRects(column)
   return {
     stage,
     dropIndex: resolveWorkspaceCardDropIndexFromRects(cardRects, y),
-    columnRect: { left: columnRect.left, top: columnRect.top, width: columnRect.width },
+    columnRect: { left: regionRect.left, top: regionRect.top, width: regionRect.width },
     cardRects
   }
 }
