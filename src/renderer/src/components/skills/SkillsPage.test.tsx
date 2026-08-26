@@ -38,11 +38,14 @@ function discoveryResult(names: string[]): SkillDiscoveryResult {
   return { skills: names.map((name) => skill(name)), sources: [], scannedAt: 1 }
 }
 
-function skillsApi(discover: ReturnType<typeof vi.fn>) {
+function skillsApi(
+  discover: ReturnType<typeof vi.fn>,
+  catalogSkills: { name: string; description: string; releaseRevision: number; packageDigest: string; appVersion: string }[] = []
+) {
   return {
     discover,
     onInstallProgress: () => () => undefined,
-    catalog: vi.fn().mockResolvedValue({ schemaVersion: 1, skills: [], scannedAt: 1 }),
+    catalog: vi.fn().mockResolvedValue({ schemaVersion: 1, skills: catalogSkills, scannedAt: 1 }),
     freshnessInventory: vi.fn().mockResolvedValue({
       schemaVersion: 1,
       installations: [],
@@ -461,5 +464,47 @@ describe('SkillsPage', () => {
     await flushMicrotasks()
     expect(container?.textContent).toContain('0 selected')
     expect(renderedSkillNames()).toEqual(['beta'])
+  })
+
+  // Why: without a fix, installabilityKnown stays true across a rescan (it only
+  // tracks `result !== null`), so the catalog badge keeps claiming the previous
+  // scan's answer — including "Available" for a skill that may already be
+  // installed for whatever target the in-flight scan is about to report on.
+  it('stops claiming a catalog skill is Available while a rescan is in flight', async () => {
+    const firstScan = discoveryResult([])
+    const secondScan = deferred<SkillDiscoveryResult>()
+    const discover = vi.fn().mockResolvedValueOnce(firstScan).mockReturnValueOnce(secondScan.promise)
+    Object.defineProperty(window, 'api', {
+      configurable: true,
+      value: {
+        skills: skillsApi(discover, [
+          {
+            name: 'orchestration',
+            description: 'Coordinate agents',
+            releaseRevision: 9,
+            packageDigest: 'b'.repeat(64),
+            appVersion: '1.2.3'
+          }
+        ]),
+        runtimeEnvironments: { call: vi.fn() }
+      }
+    })
+
+    await renderPage()
+    await flushMicrotasks()
+    expect(container?.textContent).toContain('Available')
+    expect(buttonNamed('Install').hasAttribute('disabled')).toBe(false)
+
+    await act(async () => fireEvent.click(buttonNamed('Refresh')))
+    await flushMicrotasks()
+    // Why: the previous scan's snapshot is still on screen, but it is no longer
+    // proof of anything about the rescan that is now in flight.
+    expect(container?.textContent).not.toContain('Available')
+    expect(buttonNamed('Install').hasAttribute('disabled')).toBe(true)
+
+    await act(async () => secondScan.resolve(discoveryResult([])))
+    await flushMicrotasks()
+    expect(container?.textContent).toContain('Available')
+    expect(buttonNamed('Install').hasAttribute('disabled')).toBe(false)
   })
 })

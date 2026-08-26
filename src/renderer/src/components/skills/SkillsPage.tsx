@@ -55,6 +55,10 @@ export default function SkillsPage(): React.JSX.Element {
   const activeSkillRuntime = useActiveProjectSkillRuntime()
   const hostLabel = useSkillDiscoveryHostLabel(runtimeTarget)
   const [result, setResult] = useState<SkillDiscoveryResult | null>(null)
+  // Why: the generation the current `result` was produced by. Compared against
+  // scanGenerationRef.current so a stale snapshot can never be mistaken for proof
+  // about whatever target is scanning right now — see resultIsCurrent below.
+  const [resultGeneration, setResultGeneration] = useState(0)
   const [loading, setLoading] = useState(true)
   const [scanError, setScanError] = useState<string | null>(null)
   const [shareSkills, setShareSkills] = useState<DiscoveredSkill[]>([])
@@ -86,6 +90,7 @@ export default function SkillsPage(): React.JSX.Element {
       const local = runtimeTarget.kind === 'local'
       if (isCurrentScan()) {
         setResult(nextResult)
+        setResultGeneration(scanGeneration)
         setScanError(null)
         setSelectedSkillIds((current) =>
           retainedShareableSkillSelection(current, nextResult.skills, local)
@@ -210,6 +215,11 @@ export default function SkillsPage(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [closeSkillsPage, exitSelection, exitSharedLinks, selectingShare, view])
 
+  // Why: proof of installability requires a result from the scan that is current
+  // right now — not merely a non-null one. A rescan bumps scanGenerationRef before
+  // this render, so a result left over from an earlier target or an earlier click
+  // of Refresh reads as unknown until its own scan lands.
+  const installabilityKnown = result !== null && resultGeneration === scanGenerationRef.current
   const skills = result?.skills ?? EMPTY_SKILLS
   const local = runtimeTarget?.kind === 'local'
   const agentByRootPath = useMemo(() => skillAgentByRootPath(result), [result])
@@ -321,7 +331,7 @@ export default function SkillsPage(): React.JSX.Element {
               {activeSkillRuntime.canUseLocalSkillFreshness ? (
                 <SkillsCatalogSection
                   discoveredSkills={skills}
-                  installabilityKnown={result !== null}
+                  installabilityKnown={installabilityKnown}
                   query={filters.query}
                 />
               ) : null}
