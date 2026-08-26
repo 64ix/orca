@@ -65,7 +65,10 @@ export function FeatureBoardColumn({
         count={cards.length + columnGhosts.length}
         headerAction={headerAction}
       />
-      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+      <div
+        className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2"
+        data-feature-board-column-scroll=""
+      >
         {cards.length === 0 && columnGhosts.length === 0 ? (
           <div className="px-1 py-6 text-center text-[12px] text-muted-foreground/70">
             {translate('components.featureBoard.column.empty', 'No cards')}
