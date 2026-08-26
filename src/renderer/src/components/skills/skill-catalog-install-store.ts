@@ -1,6 +1,11 @@
 import { useSyncExternalStore } from 'react'
-import type { SkillCatalogInstallRun } from '../../../../shared/skill-catalog'
+import { toast } from 'sonner'
+import type {
+  SkillCatalogInstallRun,
+  SkillCatalogInstallStartResult
+} from '../../../../shared/skill-catalog'
 import { notifyInstalledAgentSkillsChanged } from '@/hooks/useInstalledAgentSkills'
+import { translate } from '@/i18n/i18n'
 
 // Why: the run outlives the section — closing the page must not cancel it, and
 // the result has to be visible when the user comes back. Module state keeps the
@@ -84,10 +89,38 @@ export function useSkillCatalogInstallRun(): SkillCatalogInstallRun {
   )
 }
 
+// Why: `started: false` leaves the run state untouched — no push arrives to
+// explain it — so a rejected start must be surfaced here or the click is a
+// silent no-op.
+function startFailureMessage(
+  reason: Extract<SkillCatalogInstallStartResult, { started: false }>['reason']
+): string {
+  switch (reason) {
+    case 'already-running':
+      return translate(
+        'auto.components.skills.SkillCatalogInstallStore.alreadyRunning',
+        'Already installing skills — wait for it to finish, then try again.'
+      )
+    case 'invalid-names':
+      return translate(
+        'auto.components.skills.SkillCatalogInstallStore.invalidNames',
+        'Could not start the install: invalid skill name.'
+      )
+    case 'unsafe-command-path':
+      return translate(
+        'auto.components.skills.SkillCatalogInstallStore.unsafeCommandPath',
+        'Could not start the install: the install command could not run safely from this location.'
+      )
+  }
+}
+
 export async function startCatalogSkillInstall(names: readonly string[]): Promise<void> {
   ensureSubscribed()
   try {
-    await window.api.skills.startCatalogInstall([...names])
+    const result = await window.api.skills.startCatalogInstall([...names])
+    if (!result.started) {
+      toast.error(startFailureMessage(result.reason))
+    }
   } catch (error) {
     console.error('Failed to start skill catalog install', error)
   }
