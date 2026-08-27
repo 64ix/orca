@@ -1,5 +1,5 @@
 import type { DerivedWorkflowStage } from '../../../src/shared/stage-derivation/stage-derivation'
-import { MOBILE_STAGE_LABELS, MOBILE_STAGE_UNSTAGED_LABEL } from './mobile-stage-labels'
+import { MOBILE_STAGE_LABELS, MOBILE_NO_STAGE_LABEL } from './mobile-stage-labels'
 
 export type MobileStageRowModel = {
   stageLabel: string
@@ -15,7 +15,7 @@ export type MobileStageRowModel = {
 }
 
 function stageLabelFor(stage: DerivedWorkflowStage['stage']): string {
-  return stage ? MOBILE_STAGE_LABELS[stage] : MOBILE_STAGE_UNSTAGED_LABEL
+  return stage ? MOBILE_STAGE_LABELS[stage] : MOBILE_NO_STAGE_LABEL
 }
 
 function explainMobileStageDerivation(derived: DerivedWorkflowStage): string {
