@@ -13,13 +13,14 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { ChevronLeft } from 'lucide-react-native'
+import { ChevronLeft, EyeOff, GitBranch } from 'lucide-react-native'
 import { loadHosts } from '../transport/host-store'
 import { useHostClient } from '../transport/client-context'
 import { sendSingleFlightRequest } from '../transport/request-single-flight'
 import { getCachedWorktrees, setCachedWorktrees } from '../cache/worktree-cache'
 import { BottomDrawer } from '../components/BottomDrawer'
 import { ActionSheetContent, type ActionSheetAction } from '../components/ActionSheetModal'
+import { NewWorktreeModal } from '../components/NewWorktreeModal'
 import { colors } from '../theme/mobile-theme'
 import type { Worktree } from './workspace-list-types'
 import { buildMobileStageBoardCards, type MobileStageBoardCard } from './mobile-stage-board-card'
@@ -36,11 +37,15 @@ import { declareMobileWorktreeStage } from './mobile-stage-declaration'
 import { MOBILE_STAGE_LABELS } from './mobile-stage-labels'
 import { WORKTREE_PS_FULL_LIMIT } from './worktree-catalog-snapshot-client'
 import { MobileStageBoardCardRow } from './MobileStageBoardCardRow'
+import { MobileGhostCardRow } from './MobileGhostCardRow'
+import { isMobileGhostBoardCard, type MobileGhostBoardCard } from './mobile-ghost-board-cards'
+import { useMobileGhostBoardState } from './use-mobile-ghost-board-state'
 import { boardStyles } from './mobile-stage-board-styles'
 
 const REFRESH_MS = 5000
 
 type Props = { hostId: string | undefined }
+type BoardRow = MobileStageBoardCard | MobileGhostBoardCard
 
 /**
  * Ticket #98: one stage per full-width page, swiped horizontally with snap paging (D5) — a
@@ -51,13 +56,14 @@ export function MobileStageBoardPanel({ hostId }: Props) {
   const router = useRouter()
   const { width: windowWidth } = useWindowDimensions()
   const { client, state: connState } = useHostClient(hostId)
-  const pagesRef = useRef<FlatList<MobileStageBoardColumn<MobileStageBoardCard>>>(null)
+  const pagesRef = useRef<FlatList<MobileStageBoardColumn<BoardRow>>>(null)
 
   const [hostName, setHostName] = useState('')
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
   const [catalogError, setCatalogError] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [actionTarget, setActionTarget] = useState<Worktree | null>(null)
+  const ghost = useMobileGhostBoardState({ client, worktrees })
 
   useEffect(() => {
     if (!hostId) {
@@ -102,6 +108,9 @@ export function MobileStageBoardPanel({ hostId }: Props) {
       const poll = () => {
         if (!cancelled) {
           void fetchWorktrees()
+          // Why here, not only on mount: a dismissal made on desktop (or another phone) must
+          // reach this board through the same poll cadence as the worktree catalog itself.
+          ghost.refreshDismissals()
         }
       }
       poll()
@@ -110,11 +119,13 @@ export function MobileStageBoardPanel({ hostId }: Props) {
         cancelled = true
         clearInterval(interval)
       }
-    }, [fetchWorktrees])
+    }, [fetchWorktrees, ghost])
   )
 
   const cards = useMemo(() => buildMobileStageBoardCards(worktrees), [worktrees])
-  const columns = useMemo(() => buildMobileStageBoardColumns(cards), [cards])
+  const rows = useMemo<BoardRow[]>(() => [...cards, ...ghost.ghostCards], [cards, ghost.ghostCards])
+  const columns = useMemo(() => buildMobileStageBoardColumns<BoardRow>(rows), [rows])
+  const existingWorktreePaths = useMemo(() => worktrees.map((w) => w.path), [worktrees])
 
   const scrollToStageIndex = useCallback(
     (index: number) => {
@@ -199,6 +210,31 @@ export function MobileStageBoardPanel({ hostId }: Props) {
     }))
   }, [actionTarget, handleSelectStageOption])
 
+  const handleDismissGhost = useCallback(async () => {
+    const outcome = await ghost.dismissDetailTarget()
+    if (!outcome || outcome.kind === 'dismissed') {
+      return
+    }
+    // D3's skew hazard: an old host silently strips the dismissal, so this never reports
+    // success — the ghost stays visible and the user is told honestly why.
+    Alert.alert(
+      'Could not dismiss',
+      outcome.kind === 'unsupported'
+        ? "This host doesn't support dismissing ghost cards yet."
+        : outcome.message
+    )
+  }, [ghost])
+
+  const ghostSheetActions: ActionSheetAction[] = useMemo(() => {
+    if (!ghost.detailTarget) {
+      return []
+    }
+    return [
+      { label: 'Adopt', icon: GitBranch, onPress: () => ghost.beginAdoptFromDetail() },
+      { label: 'Dismiss', icon: EyeOff, onPress: () => void handleDismissGhost() }
+    ]
+  }, [ghost, handleDismissGhost])
+
   const showPlaceholder = worktrees.length === 0 && connState !== 'connected'
   const showError = worktrees.length === 0 && !!catalogError && !showPlaceholder
 
@@ -279,13 +315,17 @@ export function MobileStageBoardPanel({ hostId }: Props) {
                       </Text>
                     </View>
                   }
-                  renderItem={({ item: card }) => (
-                    <MobileStageBoardCardRow
-                      card={card}
-                      onPress={onCardPress}
-                      onLongPress={onCardLongPress}
-                    />
-                  )}
+                  renderItem={({ item: card }) =>
+                    isMobileGhostBoardCard(card) ? (
+                      <MobileGhostCardRow card={card} onPress={ghost.openDetail} />
+                    ) : (
+                      <MobileStageBoardCardRow
+                        card={card}
+                        onPress={onCardPress}
+                        onLongPress={onCardLongPress}
+                      />
+                    )
+                  }
                 />
               </View>
             )}
@@ -303,6 +343,31 @@ export function MobileStageBoardPanel({ hostId }: Props) {
           />
         ) : null}
       </BottomDrawer>
+
+      <BottomDrawer visible={ghost.detailTarget != null} onClose={ghost.closeDetail}>
+        {ghost.detailContent ? (
+          <ActionSheetContent
+            title={ghost.detailContent.title}
+            message={ghost.detailContent.message}
+            actions={ghostSheetActions}
+            onClose={ghost.closeDetail}
+          />
+        ) : null}
+      </BottomDrawer>
+
+      <NewWorktreeModal
+        visible={ghost.adoptPrefill != null}
+        client={client}
+        hostId={hostId}
+        existingWorktreePaths={existingWorktreePaths}
+        existingWorktrees={worktrees}
+        initialGitHubWorkItem={ghost.adoptPrefill}
+        onCreated={(worktreeId) => {
+          ghost.handleAdoptionCreated(worktreeId)
+          void fetchWorktrees()
+        }}
+        onClose={ghost.clearAdoptPrefill}
+      />
     </SafeAreaView>
   )
 }

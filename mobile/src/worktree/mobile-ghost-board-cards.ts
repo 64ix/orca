@@ -24,8 +24,8 @@ export type MobileGhostBoardCard = {
 }
 
 /** Discriminates a ghost row from a plain workspace-shaped row sharing the same board column. */
-export function isMobileGhostBoardCard(card: { kind?: unknown }): card is MobileGhostBoardCard {
-  return card.kind === 'ghost'
+export function isMobileGhostBoardCard(card: unknown): card is MobileGhostBoardCard {
+  return typeof card === 'object' && card !== null && (card as { kind?: unknown }).kind === 'ghost'
 }
 
 export type BuildMobileGhostBoardCardsParams = {
