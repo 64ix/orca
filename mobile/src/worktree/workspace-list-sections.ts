@@ -6,7 +6,10 @@ import {
   getMobileWorkspaceStatus,
   getMobileWorkspaceStatusGroupKey
 } from './mobile-workspace-statuses'
-import { applyMobileWorkspaceLineage, getMobileWorkspaceLineageRoot } from './mobile-workspace-lineage'
+import {
+  applyMobileWorkspaceLineage,
+  getMobileWorkspaceLineageRoot
+} from './mobile-workspace-lineage'
 import { getPRGroupKey, PR_GROUP_LABELS, PR_GROUP_ORDER } from './workspace-pr-status-groups'
 import { deriveMobileWorktreeStage } from './mobile-stage-facts'
 import { MOBILE_NO_STAGE_LABEL, MOBILE_STAGE_LABELS } from './mobile-stage-labels'
@@ -244,9 +247,7 @@ export function buildSections(
     // Why root-based bucketing: children never carry their own stage for section
     // membership (desktop's #28 rule, mirrored via getMobileWorkspaceLineageRoot) —
     // a child buckets under its root ancestor's effective stage, not its own.
-    const worktreeById = new Map(
-      canonicalGroupWorktrees.map((w) => [getWorktreeRowIdentity(w), w])
-    )
+    const worktreeById = new Map(canonicalGroupWorktrees.map((w) => [getWorktreeRowIdentity(w), w]))
     const byStage = new Map<string, Worktree[]>()
     for (const w of canonicalGroupWorktrees) {
       const root = getMobileWorkspaceLineageRoot(w, worktreeById)

@@ -101,7 +101,8 @@ import { HostWorkspaceListStates } from '../../../src/worktree/host-workspace-li
 import { repoColor } from '../../../src/worktree/repo-color'
 import {
   WORKSPACE_GROUP_OPTIONS as GROUP_OPTIONS,
-  WORKSPACE_SORT_OPTIONS as SORT_OPTIONS
+  WORKSPACE_SORT_OPTIONS as SORT_OPTIONS,
+  getGroupModeToolbarLabel
 } from '../../../src/worktree/workspace-list-picker-options'
 import type { RepoSummary } from '../../../src/worktree/host-worktree-rpc-types'
 import type { WorkspaceStatusDefinition } from '../../../../src/shared/worktree/types'
@@ -913,13 +914,7 @@ export function HostScreen({
               >
                 <Layers size={14} color={colors.textSecondary} />
                 <Text style={styles.sortLabel} numberOfLines={1}>
-                  {groupMode === 'none'
-                    ? 'Group'
-                    : groupMode === 'workspaceStatus'
-                      ? 'Status'
-                      : groupMode === 'repo'
-                        ? 'Repo'
-                        : 'PR'}
+                  {getGroupModeToolbarLabel(groupMode)}
                 </Text>
               </Pressable>
             </View>
@@ -1035,13 +1030,7 @@ export function HostScreen({
             <Pressable style={styles.modeButton} onPress={() => setShowGroupPicker(true)}>
               <Layers size={14} color={colors.textSecondary} />
               <Text style={styles.sortLabel} numberOfLines={1}>
-                {groupMode === 'none'
-                  ? 'Group'
-                  : groupMode === 'workspaceStatus'
-                    ? 'Status'
-                    : groupMode === 'repo'
-                      ? 'Repo'
-                      : 'PR'}
+                {getGroupModeToolbarLabel(groupMode)}
               </Text>
             </Pressable>
 
