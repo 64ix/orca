@@ -1,4 +1,5 @@
 import type { ClassifiedError } from '../classified-error'
+import type { SpecTicketShape } from '../spec-ticket-shape'
 import type { PRCheckDetail } from './check-types'
 import type { GitHubIssueTimelineItem, PRComment } from './comment-types'
 import type {
@@ -30,6 +31,13 @@ export type GitHubWorkItem = {
   authorAvatarUrl?: string
   branchName?: string
   baseRefName?: string
+  // Why: derived server-side (#94) from the issue body so the feature board can route spec
+  // sub-tickets without a per-issue fetch. Absent on an older host's payload (remote wire) —
+  // readers must then fall back to today's title-only `[Spec]` classification.
+  specShape?: SpecTicketShape
+  // Why: sub-tickets carry `## Parent #N` in their body (#94); readers use this to exclude
+  // them from ghost candidacy unconditionally. Absent on an older host means "no exclusion".
+  parentIssueNumber?: number
   // Why: PR checks are keyed by head commit; carrying this lets task rows use
   // the cached check-runs endpoint instead of one `gh pr checks` call per row.
   headSha?: string

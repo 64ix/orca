@@ -4,7 +4,7 @@ import { useRepoMap } from '@/store/selectors'
 import { getForcedOriginWorkItemsCacheKey } from '@/store/slices/github'
 import {
   buildFeatureBoardGhostCandidates,
-  isOrphanSpecIssue,
+  isSpecShapedIssue,
   parseReferencedIssueNumbers,
   type GhostCandidate
 } from '../../../../shared/feature-board/ghost-candidates'
@@ -154,19 +154,19 @@ export function useFeatureBoardGhostCandidates(
   }, [workItemsCache, selectedRepos, repos, settings])
 
   const linkedIssues = useMemo(() => {
-    // Why [Spec] bodies only: specs cross-reference their covered tickets; a plain linked
+    // Why spec bodies only: specs cross-reference their covered tickets; a plain linked
     // bug mentioning "#12" must not hide #12 from the board.
-    const titleByRepoNumber = new Map<string, string>()
+    const issueByRepoNumber = new Map<string, GitHubWorkItem>()
     for (const item of openIssues) {
-      titleByRepoNumber.set(`${item.repoId}\n${item.number}`, item.title)
+      issueByRepoNumber.set(`${item.repoId}\n${item.number}`, item)
     }
     const linked: { repoPath: string; repoId: string; number: number }[] = []
     for (const worktree of scopedWorktrees) {
       if (!worktree.linkedIssue) {
         continue
       }
-      const title = titleByRepoNumber.get(`${worktree.repoId}\n${worktree.linkedIssue}`)
-      if (title === undefined || !isOrphanSpecIssue(title)) {
+      const linkedIssue = issueByRepoNumber.get(`${worktree.repoId}\n${worktree.linkedIssue}`)
+      if (!linkedIssue || !isSpecShapedIssue(linkedIssue)) {
         continue
       }
       const repo = repoMap.get(worktree.repoId)

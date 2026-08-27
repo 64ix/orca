@@ -6,6 +6,8 @@ import {
   type BuildGhostCandidatesParams,
   type GhostCandidateIssue
 } from './ghost-candidates'
+// Why: single source of both fields (#94) — mappers spread this, so it must feed the derivation the same way.
+import { deriveSpecTicketFields } from '../spec-ticket-shape'
 
 const REPO = 'owner/orca'
 
@@ -154,6 +156,124 @@ describe('buildFeatureBoardGhostCandidates', () => {
     it('non-capture labels never become badges', () => {
       expect(getGhostCandidateBadges(['bug', 'p1'])).toEqual([])
     })
+  })
+})
+
+describe('specShape routing (#94)', () => {
+  it('routes specShape "spec" to the spec column regardless of title', () => {
+    const candidates = build({
+      openIssues: [issue({ number: 1, title: 'Les alliances', specShape: 'spec' })]
+    })
+    expect(candidates[0].targetStage).toBe('spec')
+  })
+
+  it('falls back to title-only [Spec] classification when specShape is absent (remote wire)', () => {
+    const withField = build({
+      openIssues: [issue({ number: 1, title: 'Plain title' })]
+    })
+    expect(withField[0].targetStage).toBe('idea')
+    const legacySpec = build({
+      openIssues: [issue({ number: 2, title: '[Spec] Legacy' })]
+    })
+    expect(legacySpec[0].targetStage).toBe('spec')
+  })
+
+  it('never lets specShape "ticket" alone route to spec — such issues carry parentIssueNumber and are excluded instead', () => {
+    const candidates = build({
+      openIssues: [
+        issue({
+          number: 1,
+          title: 'Ticket — Alliance UI',
+          specShape: 'ticket',
+          parentIssueNumber: 7
+        })
+      ]
+    })
+    expect(candidates).toEqual([])
+  })
+
+  it('routes a spec whose body also has a ## Parent heading to the spec column, not the void — mapper/derivation parity', () => {
+    // Why: title-vs-body precedence lives in deriveSpecTicketFields (spec-ticket-shape.ts); if the
+    // fields it hands the mapper ever disagree with that precedence again, the issue carries both
+    // specShape 'spec' and a parentIssueNumber, and the unconditional parentIssueNumber exclusion
+    // below silently drops it from every column (#102 review finding).
+    const title = '[Spec] Nested spec'
+    const fields = deriveSpecTicketFields({ title, body: '## Parent\n#1' })
+    const candidates = build({
+      openIssues: [issue({ number: 1, title, ...fields })]
+    })
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0].targetStage).toBe('spec')
+  })
+})
+
+describe('parentIssueNumber exclusion (#94)', () => {
+  it('never becomes a ghost candidate, unconditionally', () => {
+    const candidates = build({
+      openIssues: [issue({ number: 1, parentIssueNumber: 7 }), issue({ number: 2 })]
+    })
+    expect(candidates.map((c) => c.issue.number)).toEqual([2])
+  })
+
+  it('excludes even when the parent spec is not open, not visible, or in a different repo', () => {
+    const candidates = build({
+      openIssues: [
+        // Parent #999 is absent from openIssues entirely — exclusion does not depend on it.
+        issue({ number: 1, parentIssueNumber: 999 })
+      ]
+    })
+    expect(candidates).toEqual([])
+  })
+})
+
+describe('childTicketCount (#94)', () => {
+  it('counts open issues in the same repo whose parentIssueNumber names the spec', () => {
+    const candidates = build({
+      openIssues: [
+        issue({ number: 1, title: '[Spec] Alliances' }),
+        issue({ number: 2, parentIssueNumber: 1 }),
+        issue({ number: 3, parentIssueNumber: 1 }),
+        issue({ number: 4, parentIssueNumber: 1 })
+      ]
+    })
+    expect(candidates[0].childTicketCount).toBe(3)
+  })
+
+  it('is zero when no open issue names it as parent', () => {
+    const candidates = build({ openIssues: [issue({ number: 1, title: '[Spec] Alliances' })] })
+    expect(candidates[0].childTicketCount).toBe(0)
+  })
+
+  it('is computed before candidate filtering — an excluded (dismissed) ticket still counts', () => {
+    const candidates = build({
+      openIssues: [
+        issue({ number: 1, title: '[Spec] Alliances' }),
+        issue({ number: 2, parentIssueNumber: 1 })
+      ],
+      dismissedIssueNumbers: new Set([2])
+    })
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0].childTicketCount).toBe(1)
+  })
+
+  it('does not count closed sub-tickets', () => {
+    const candidates = build({
+      openIssues: [
+        issue({ number: 1, title: '[Spec] Alliances' }),
+        issue({ number: 2, parentIssueNumber: 1, state: 'closed' })
+      ]
+    })
+    expect(candidates[0].childTicketCount).toBe(0)
+  })
+
+  it('does not count sub-tickets from a different repo', () => {
+    const candidates = build({
+      openIssues: [
+        issue({ number: 1, title: '[Spec] Alliances' }),
+        issue({ number: 2, parentIssueNumber: 1, repoId: 'other/repo' })
+      ]
+    })
+    expect(candidates[0].childTicketCount).toBe(0)
   })
 })
 

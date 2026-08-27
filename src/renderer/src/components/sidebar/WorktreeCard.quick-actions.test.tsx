@@ -392,7 +392,10 @@ describe('WorktreeCard quick actions', () => {
 
     expect(markup).toContain('primary')
     expect(markup).not.toContain('aria-label="Primary worktree"')
-    expect(markup).toContain('data-worktree-card-meta-row=""')
+    // Why no meta row: the branch row was its only content, and 'branch' is opt-in. Here the
+    // branch ('main') is the title, so there is nothing to displace into a hover either.
+    expect(markup).not.toContain('data-worktree-card-meta-row=""')
+    expect(markup).not.toContain('data-hover-open-delay="100"')
   })
 
   it('keeps unread in the status lane and moves primary into the title row when compact cards are enabled', () => {

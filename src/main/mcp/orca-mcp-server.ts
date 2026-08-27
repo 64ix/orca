@@ -21,9 +21,12 @@ import {
   listMcpStageTools
 } from './mcp-stage-tools'
 import type { McpSessionBinding } from './mcp-stage-tools'
-import { OrcaMcpHttpServer } from './orca-mcp-http-server'
+import { OrcaMcpHttpServer, type McpRequestContext } from './orca-mcp-http-server'
 import { McpSessionRegistry } from './mcp-session-registry'
+import { McpLaunchTokenRegistry } from './mcp-launch-token-registry'
+import { resolveBearerWorkspace, type BearerTokenCandidate } from './mcp-bearer-auth'
 import { clearOrcaMcpMetadataIfOwned, writeOrcaMcpMetadata } from './mcp-endpoint-metadata'
+import { sweepStaleMcpLaunchConfigs } from './tui-agent-mcp-injection'
 
 const ORCA_MCP_PROTOCOL_VERSION = '2025-06-18'
 
@@ -34,6 +37,7 @@ export class OrcaMcpServer {
   private readonly serverVersion: string
   private readonly sessions = new McpSessionRegistry()
   private readonly authToken = randomBytes(24).toString('hex')
+  private readonly launchTokens = new McpLaunchTokenRegistry()
   private readonly httpServer: OrcaMcpHttpServer
 
   constructor({
@@ -52,9 +56,40 @@ export class OrcaMcpServer {
     this.serverVersion = version
     this.pid = pid
     this.httpServer = new OrcaMcpHttpServer({
-      authToken: this.authToken,
+      resolveAuth: (header) => resolveBearerWorkspace(header, this.bearerCandidates()),
       dispatch: (request, context) => this.dispatch(request, context)
     })
+    // Why: backstop for claude per-launch config files whose owning PTY never
+    // reached onPtyExit (crash before spawn, prior app version); sweep itself
+    // is best-effort and never throws.
+    sweepStaleMcpLaunchConfigs(this.userDataPath)
+  }
+
+  /**
+   * Mints a token for one agent launch, bound to `workspaceSelector`
+   * (`id:<worktreeId>`, `path:<path>` or `folder:<folderWorkspaceId>`). The
+   * server resolves the workspace from this token at `initialize`, so the
+   * launched agent has no vocabulary to name a different one.
+   */
+  mintLaunchToken(workspaceSelector: string): string {
+    return this.launchTokens.mint(workspaceSelector)
+  }
+
+  /**
+   * Repoints an already-minted token once its real selector is known — e.g.
+   * worktree creation mints before the new worktree id exists.
+   */
+  rebindLaunchToken(token: string, workspaceSelector: string): void {
+    this.launchTokens.rebind(token, workspaceSelector)
+  }
+
+  /** Revokes a launch token immediately — called when its PTY exits (see OrcaRuntimeService.onPtyExit). */
+  revokeLaunchToken(token: string): void {
+    this.launchTokens.revoke(token)
+  }
+
+  private bearerCandidates(): BearerTokenCandidate[] {
+    return [{ token: this.authToken, workspaceSelector: null }, ...this.launchTokens.list()]
   }
 
   async start(): Promise<void> {
@@ -87,7 +122,7 @@ export class OrcaMcpServer {
 
   private async dispatch(
     request: McpJsonRpcRequest,
-    context: { sessionId: string | null }
+    context: McpRequestContext
   ): Promise<McpJsonRpcReply> {
     if (isNotification(request)) {
       // Why: notifications (initialized, cancelled…) carry no reply; accept-and-drop.
@@ -96,7 +131,7 @@ export class OrcaMcpServer {
     const id = request.id as JsonRpcId
     switch (request.method) {
       case 'initialize':
-        return this.initialize(id, request.params ?? {})
+        return this.initialize(id, request.params ?? {}, context)
       case 'tools/list':
         // Why: deferred load = the manifest is served on demand here, already auto-approved.
         return jsonRpcResult(id, { tools: listMcpStageTools() })
@@ -107,8 +142,27 @@ export class OrcaMcpServer {
     }
   }
 
-  /** Auto-approved: ships the manifest with initialize and binds the optional workspace selector. */
-  private initialize(id: JsonRpcId, params: Record<string, unknown>): McpJsonRpcReply {
+  /**
+   * Auto-approved: ships the manifest with initialize and binds a workspace.
+   * A per-launch token already names its workspace server-side — that always
+   * wins over `params.workspace`, which stays available only for the
+   * unscoped app-instance token (manual/legacy MCP clients).
+   */
+  private initialize(
+    id: JsonRpcId,
+    params: Record<string, unknown>,
+    context: McpRequestContext
+  ): McpJsonRpcReply {
+    if (context.tokenWorkspaceSelector !== null) {
+      const session = this.sessions.bind(context.tokenWorkspaceSelector)
+      return jsonRpcResult(id, {
+        protocolVersion: ORCA_MCP_PROTOCOL_VERSION,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: { name: MCP_SERVER_NAME, version: this.serverVersion },
+        instructions: mcpInstructions(),
+        sessionId: session.sessionId
+      })
+    }
     const requestedWorkspace = params['workspace']
     if (
       requestedWorkspace !== undefined &&
@@ -128,11 +182,7 @@ export class OrcaMcpServer {
       protocolVersion: ORCA_MCP_PROTOCOL_VERSION,
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: MCP_SERVER_NAME, version: this.serverVersion },
-      instructions:
-        'Orca workspace stage tools. Tools operate on the workspace bound to your session: ' +
-        'pass params.workspace at initialize, e.g. "id:<worktreeId>", "path:<path>" or ' +
-        '"folder:<folderWorkspaceId>". shipped cannot be declared by agents: it comes from a ' +
-        'merged pull request or the human.',
+      instructions: mcpInstructions(),
       sessionId: session.sessionId
     })
   }
@@ -140,7 +190,7 @@ export class OrcaMcpServer {
   private async toolsCall(
     id: JsonRpcId,
     params: Record<string, unknown>,
-    context: { sessionId: string | null }
+    context: McpRequestContext
   ): Promise<McpJsonRpcReply> {
     if (!context.sessionId) {
       return jsonRpcError(
@@ -155,6 +205,18 @@ export class OrcaMcpServer {
         id,
         MCP_SESSION_NOT_FOUND,
         'session_not_found: initialize again (server restarts invalidate sessions)'
+      )
+    }
+    if (
+      context.tokenWorkspaceSelector !== null &&
+      session.workspaceSelector !== context.tokenWorkspaceSelector
+    ) {
+      // Why: a scoped token may only drive sessions bound to its own workspace —
+      // otherwise a session id alone (not the token) would decide the target.
+      return jsonRpcError(
+        id,
+        MCP_SESSION_NOT_FOUND,
+        'session_not_found: this session belongs to another workspace'
       )
     }
     const toolName = params['name']
@@ -177,6 +239,18 @@ export class OrcaMcpServer {
       throw error
     }
   }
+}
+
+// Why: MCP-compliant clients surface `initialize`'s `instructions` as initial
+// context to the model — the one non-per-tool guidance channel every agent gets.
+function mcpInstructions(): string {
+  return (
+    'Orca workspace stage tools, bound to the workspace you were launched in. ' +
+    'Declare stage as your work moves through it: implementing when you start writing code, ' +
+    'review when you open a pull request. shipped cannot be declared by agents: it comes from a ' +
+    'merged pull request or the human in the board UI. Declaring stage keeps the board honest — ' +
+    'do it as soon as it changes, not just when asked.'
+  )
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
