@@ -197,10 +197,11 @@ export default function FeatureBoardPage(): React.JSX.Element {
           data-feature-board=""
           onPointerDownCapture={onCardPointerDownCapture}
         >
-          {WORKFLOW_STAGE_IDS.map((stage) => (
+          {WORKFLOW_STAGE_IDS.map((stage, stageIndex) => (
             <FeatureBoardColumn
               key={stage}
               stage={stage}
+              isAlternateSurface={stageIndex % 2 === 1}
               cards={columns.get(stage) ?? []}
               ghosts={ghosts.ghostsByStage.get(stage) ?? []}
               headerAction={

@@ -31,6 +31,8 @@ export type FeatureBoardColumnProps = {
   columnWidth?: number
   isResizingColumn?: boolean
   isDragTarget?: boolean
+  /** Zebra striping: every other lane sits on a tinted surface so the column boundaries read without a divider. */
+  isAlternateSurface?: boolean
   onColumnResizeStart?: (event: React.PointerEvent<HTMLElement>) => void
   onColumnResizeKeyDown?: (event: React.KeyboardEvent<HTMLElement>) => void
 }
@@ -43,6 +45,7 @@ export function FeatureBoardColumn({
   columnWidth = 280,
   isResizingColumn = false,
   isDragTarget = false,
+  isAlternateSurface = false,
   onColumnResizeStart,
   onColumnResizeKeyDown
 }: FeatureBoardColumnProps): React.JSX.Element {
@@ -51,11 +54,15 @@ export function FeatureBoardColumn({
   return (
     <div
       className={cn(
-        'relative flex h-full shrink-0 flex-col rounded-lg border border-border/60 bg-muted/20 transition-colors',
-        isDragTarget && 'border-primary/60 bg-primary/5'
+        'relative flex h-full shrink-0 flex-col rounded-lg border border-border/60 transition-colors',
+        // Why the dark override: a `muted` tint in dark mode lands above `--card`, which would sink
+        // the cards into their own lane instead of lifting them off it.
+        isAlternateSurface ? 'bg-muted dark:bg-white/[0.025]' : 'bg-transparent',
+        isDragTarget && 'border-primary/60 bg-primary/5 dark:bg-primary/10'
       )}
       style={{ width: `${columnWidth}px` }}
       data-feature-board-column={stage}
+      data-feature-board-column-surface={isAlternateSurface ? 'alt' : 'base'}
     >
       <FeatureBoardColumnHeader
         stage={stage}
