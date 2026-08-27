@@ -40,8 +40,14 @@ export function useMobileSessionWorkspaceRow(input: {
     if (!client || !hostId) {
       return
     }
-    const row = await loadMobileSessionWorkspaceRow(client, hostId, worktreeId)
-    setWorktree(row)
+    const result = await loadMobileSessionWorkspaceRow(client, hostId, worktreeId)
+    if (!result.ok) {
+      // A failed refresh (e.g. a transient worktree.ps error on the connState -> 'connected'
+      // transition, or right after a stage change) learns nothing — keep whatever row is
+      // already known rather than discarding a good cached/optimistic row (D6).
+      return
+    }
+    setWorktree(result.worktree)
   }, [client, hostId, worktreeId])
 
   useEffect(() => {

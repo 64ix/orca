@@ -56,20 +56,20 @@ describe('loadMobileSessionWorkspaceRow', () => {
   it('fetches, writes the shared cache through, and returns the matching row', async () => {
     const hostId = 'host-fetch-live'
     const client = fakeClient([worktree({ worktreeId: 'wt-1' }), worktree({ worktreeId: 'wt-2' })])
-    const row = await loadMobileSessionWorkspaceRow(client, hostId, 'wt-1')
-    expect(row?.worktreeId).toBe('wt-1')
+    const result = await loadMobileSessionWorkspaceRow(client, hostId, 'wt-1')
+    expect(result).toEqual({ ok: true, worktree: expect.objectContaining({ worktreeId: 'wt-1' }) })
     expect(getCachedWorktrees(hostId)).toHaveLength(2)
   })
 
-  it('returns null when the worktree is not in the catalog', async () => {
+  it('confirms absence — ok:true with a null worktree — when the host listed the catalog and it is not there', async () => {
     const client = fakeClient([worktree({ worktreeId: 'wt-other' })])
-    const row = await loadMobileSessionWorkspaceRow(client, 'host-fetch-missing', 'wt-1')
-    expect(row).toBeNull()
+    const result = await loadMobileSessionWorkspaceRow(client, 'host-fetch-missing', 'wt-1')
+    expect(result).toEqual({ ok: true, worktree: null })
   })
 
-  it('returns null on an RPC failure instead of throwing', async () => {
+  it('returns ok:false (not a confirmed absence) on an RPC failure instead of throwing', async () => {
     const client = fakeClient({ failure: true })
-    const row = await loadMobileSessionWorkspaceRow(client, 'host-fetch-failed', 'wt-1')
-    expect(row).toBeNull()
+    const result = await loadMobileSessionWorkspaceRow(client, 'host-fetch-failed', 'wt-1')
+    expect(result).toEqual({ ok: false, message: 'boom' })
   })
 })

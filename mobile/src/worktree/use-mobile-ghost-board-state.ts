@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert } from 'react-native'
 import type { FeatureBoardGhostDismissals } from '../../../src/shared/feature-board-ghost-dismissals'
 import type { GitHubWorkItem } from '../../../src/shared/github/work-item-types'
 import type { RpcClient } from '../transport/rpc-client'
@@ -180,9 +181,28 @@ export function useMobileGhostBoardState({ client, worktrees }: UseMobileGhostBo
   const handleAdoptionCreated = useCallback(
     (worktreeId: string) => {
       setAdoptPrefill(null)
-      if (client) {
-        void declareMobileWorktreeStage(client, worktreeId, MOBILE_GHOST_ADOPTION_DECLARED_STAGE)
+      if (!client) {
+        return
       }
+      void declareMobileWorktreeStage(
+        client,
+        worktreeId,
+        MOBILE_GHOST_ADOPTION_DECLARED_STAGE
+      ).then((result) => {
+        if (result.ok) {
+          return
+        }
+        // Every other stage-write path in this PR surfaces a failure (mobile-stage-declaration.ts,
+        // MobileStageBoardPanel.tsx's handleSelectStageOption) — an unhandled rejection here would
+        // otherwise leave the newly adopted workspace with no declared stage and no governing fact,
+        // so buildMobileStageBoardCards silently drops it from every column (D6).
+        Alert.alert(
+          result.refused ? 'Shipped is set automatically' : 'Could not set stage',
+          result.refused
+            ? result.message
+            : `${result.message} The new workspace has no stage yet — set one from its session screen.`
+        )
+      })
     },
     [client]
   )
