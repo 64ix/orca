@@ -61,3 +61,23 @@ export function deriveSpecTicketShape(args: { title: string; body: string }): Sp
   }
   return undefined
 }
+
+/**
+ * Single source of truth for both derived fields together: a spec is never a sub-ticket, so
+ * `parentIssueNumber` is only ever set alongside `specShape: 'ticket'`. Callers must spread this
+ * instead of calling `deriveSpecTicketShape` and `parseParentIssueNumber` independently — doing so
+ * let a spec title win the shape while the body's `## Parent` heading still stamped a
+ * parentIssueNumber, which the ghost board's unconditional sub-ticket exclusion then read as
+ * "drop this issue from every column" (#94, #102).
+ */
+export function deriveSpecTicketFields(args: {
+  title: string
+  body: string
+}): { specShape?: SpecTicketShape; parentIssueNumber?: number } {
+  const specShape = deriveSpecTicketShape(args)
+  const parentIssueNumber = specShape === 'ticket' ? parseParentIssueNumber(args.body) : undefined
+  return {
+    ...(specShape ? { specShape } : {}),
+    ...(parentIssueNumber !== undefined ? { parentIssueNumber } : {})
+  }
+}
