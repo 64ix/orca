@@ -24,10 +24,7 @@ function fakeClient(result: unknown, calls: Call[] = [], ok = true): RpcClient {
 describe('dismissMobileGhost', () => {
   it('persists the dismissal through ui.set and confirms it by reading the server-merged ui back', async () => {
     const calls: Call[] = []
-    const client = fakeClient(
-      { ui: { featureBoardGhostDismissals: { 'repo-1': [5] } } },
-      calls
-    )
+    const client = fakeClient({ ui: { featureBoardGhostDismissals: { 'repo-1': [5] } } }, calls)
     const outcome = await dismissMobileGhost(client, {}, 'repo-1', 5)
     expect(outcome).toEqual({ kind: 'dismissed', dismissals: { 'repo-1': [5] } })
     expect(calls).toEqual([

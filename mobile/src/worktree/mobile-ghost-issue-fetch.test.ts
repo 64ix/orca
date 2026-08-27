@@ -50,10 +50,16 @@ describe('extractOpenGitHubIssues', () => {
 describe('fetchMobileGhostIssues', () => {
   it('fetches via the same github.listWorkItems RPC mobile smart-source search already uses', async () => {
     const client = fakeClient(() => ({
-      items: [workItem({ number: 4, type: 'issue', state: 'open' }), workItem({ number: 5, type: 'pr' })]
+      items: [
+        workItem({ number: 4, type: 'issue', state: 'open' }),
+        workItem({ number: 5, type: 'pr' })
+      ]
     }))
     const result = await fetchMobileGhostIssues(client, 'repo-1')
-    expect(result).toEqual({ ok: true, issues: [workItem({ number: 4, type: 'issue', state: 'open' })] })
+    expect(result).toEqual({
+      ok: true,
+      issues: [workItem({ number: 4, type: 'issue', state: 'open' })]
+    })
   })
 
   it('flags an SSH-remote-required failure distinctly from a generic failure', async () => {

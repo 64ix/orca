@@ -29,7 +29,10 @@ describe('buildMobileGhostBoardCards', () => {
       openIssuesByRepo: new Map([
         [
           'repo-1',
-          [issue({ number: 1, title: '[Spec] Mobile board' }), issue({ number: 2, title: 'Fix a bug' })]
+          [
+            issue({ number: 1, title: '[Spec] Mobile board' }),
+            issue({ number: 2, title: 'Fix a bug' })
+          ]
         ]
       ]),
       linkedIssueNumbersByRepo: new Map(),
