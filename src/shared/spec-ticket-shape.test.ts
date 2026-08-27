@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deriveSpecTicketShape, parseParentIssueNumber } from './spec-ticket-shape'
+import { deriveSpecTicketFields, deriveSpecTicketShape, parseParentIssueNumber } from './spec-ticket-shape'
 
 describe('deriveSpecTicketShape', () => {
   it.each([
@@ -57,6 +57,24 @@ describe('deriveSpecTicketShape', () => {
     expect(
       deriveSpecTicketShape({ title: '[Spec] Parent spec', body: '## Parent\n#1' })
     ).toBe('spec')
+  })
+})
+
+describe('deriveSpecTicketFields', () => {
+  it('never sets parentIssueNumber for a spec — title wins over a ## Parent body heading', () => {
+    expect(
+      deriveSpecTicketFields({ title: '[Spec] Parent spec', body: '## Parent\n#1' })
+    ).toEqual({ specShape: 'spec' })
+  })
+
+  it('sets both fields together for a ticket', () => {
+    expect(
+      deriveSpecTicketFields({ title: 'Ticket — Alliance UI', body: '## Parent\n#324' })
+    ).toEqual({ specShape: 'ticket', parentIssueNumber: 324 })
+  })
+
+  it('sets neither field when nothing classifies', () => {
+    expect(deriveSpecTicketFields({ title: 'An open idea', body: 'Some notes.' })).toEqual({})
   })
 })
 

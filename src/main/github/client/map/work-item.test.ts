@@ -77,5 +77,19 @@ describe('mapIssueWorkItem', () => {
       const item = mapIssueWorkItem({ number: 11, title: '[Spec] No body field', state: 'open' })
       expect(item.specShape).toBe('spec')
     })
+
+    it('never carries parentIssueNumber for a spec title, even when the body also has a ## Parent heading', () => {
+      // Why: a spec is never a sub-ticket (spec-ticket-shape.test.ts title-vs-body precedence);
+      // stamping both fields dropped the issue off the whole board (#102 review finding).
+      const item = mapIssueWorkItem({
+        number: 12,
+        title: '[Spec] Nested spec',
+        state: 'open',
+        body: '## Parent\n#1'
+      })
+      expect(item.specShape).toBe('spec')
+      expect(item.parentIssueNumber).toBeUndefined()
+      expect('parentIssueNumber' in item).toBe(false)
+    })
   })
 })

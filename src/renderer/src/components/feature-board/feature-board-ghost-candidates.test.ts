@@ -6,6 +6,8 @@ import {
   type BuildGhostCandidatesParams,
   type GhostCandidateIssue
 } from './feature-board-ghost-candidates'
+// Why: single source of both fields (#94) — mappers spread this, so it must feed the derivation the same way.
+import { deriveSpecTicketFields } from '../../../../shared/spec-ticket-shape'
 
 const REPO = 'owner/orca'
 
@@ -183,6 +185,20 @@ describe('specShape routing (#94)', () => {
       ]
     })
     expect(candidates).toEqual([])
+  })
+
+  it('routes a spec whose body also has a ## Parent heading to the spec column, not the void — mapper/derivation parity', () => {
+    // Why: title-vs-body precedence lives in deriveSpecTicketFields (spec-ticket-shape.ts); if the
+    // fields it hands the mapper ever disagree with that precedence again, the issue carries both
+    // specShape 'spec' and a parentIssueNumber, and the unconditional parentIssueNumber exclusion
+    // below silently drops it from every column (#102 review finding).
+    const title = '[Spec] Nested spec'
+    const fields = deriveSpecTicketFields({ title, body: '## Parent\n#1' })
+    const candidates = build({
+      openIssues: [issue({ number: 1, title, ...fields })]
+    })
+    expect(candidates).toHaveLength(1)
+    expect(candidates[0].targetStage).toBe('spec')
   })
 })
 
