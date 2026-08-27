@@ -3,8 +3,12 @@ import { Bell, ChevronDown, ChevronRight, GitBranch, GitPullRequest } from 'luci
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { RepoIcon } from '../../../src/shared/repo-icon'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
+import type { WorkflowIssueState } from '../../../src/shared/stage-derivation/stage-derivation'
+import type { WorkflowStage } from '../../../src/shared/workflow-stages'
 import { triggerMediumImpact } from '../platform/haptics'
 import { colors, radii, spacing, typography } from '../theme/mobile-theme'
+import { deriveMobileWorktreeStage } from '../worktree/mobile-stage-facts'
+import { MOBILE_STAGE_LABELS } from '../worktree/mobile-stage-labels'
 import { AgentSpinner } from './AgentSpinner'
 import { MobileRepoIcon } from './MobileRepoIcon'
 import { WorktreeAgentList } from './WorktreeAgentList'
@@ -31,6 +35,11 @@ export type WorktreeListRowItem = {
   isActive?: boolean
   linkedPR: { number: number; state: string } | null
   linkedIssue?: number | null
+  /** Declared stage only; absent = unstaged. The row reads the *effective* stage
+   *  through deriveMobileWorktreeStage below, never off this field directly. */
+  workflowStage?: WorkflowStage | null
+  linkedIssueState?: WorkflowIssueState
+  consumedMergedPRNumbers?: number[]
   linkedLinearIssue?: string | null
   linkedGitLabMR?: number | null
   linkedGitLabIssue?: number | null
@@ -75,6 +84,9 @@ function WorktreeListRowComponent<T extends WorktreeListRowItem>({
   const metaText = isFolderWorkspace ? folderMeta : displayBranch(item.branch)
   const lineageDepth = Math.max(0, item.lineageDepth ?? 0)
   const lineageChildCount = item.lineageChildCount ?? 0
+  // Own effective stage (#97) — never the root's, so a lineage child that is
+  // itself unstaged shows no badge even while nested under a staged root.
+  const effectiveStage = deriveMobileWorktreeStage(item).stage
 
   return (
     <Pressable
@@ -131,6 +143,11 @@ function WorktreeListRowComponent<T extends WorktreeListRowItem>({
           {isFolderWorkspace && (
             <View style={styles.folderBadge}>
               <Text style={styles.folderBadgeText}>Folder</Text>
+            </View>
+          )}
+          {effectiveStage && (
+            <View style={styles.stageBadge}>
+              <Text style={styles.stageBadgeText}>{MOBILE_STAGE_LABELS[effectiveStage]}</Text>
             </View>
           )}
           <WorktreeMetaGlyphs
@@ -271,6 +288,18 @@ const styles = StyleSheet.create({
     borderRadius: 4
   },
   folderBadgeText: {
+    fontSize: 10,
+    color: colors.textSecondary
+  },
+  // Neutral, label-only chip — no per-stage color (STYLEGUIDE: color is reserved
+  // for state, not workflow-stage identity; matches desktop's outline badge).
+  stageBadge: {
+    backgroundColor: colors.bgRaised,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4
+  },
+  stageBadgeText: {
     fontSize: 10,
     color: colors.textSecondary
   },

@@ -17,4 +17,4 @@ export const MOBILE_STAGE_LABELS: Record<WorkflowStage, string> = {
 }
 
 /** Desktop's sidebar says "Sans stage"; mobile keeps its own plain English for the unstaged/clear state. */
-export const MOBILE_STAGE_UNSTAGED_LABEL = 'No stage'
+export const MOBILE_NO_STAGE_LABEL = 'No stage'

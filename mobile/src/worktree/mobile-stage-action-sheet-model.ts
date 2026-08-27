@@ -3,7 +3,7 @@ import {
   SHIPPED_STAGE_STEERING_MESSAGE
 } from '../../../src/shared/stage-authority/stage-write-authority'
 import { WORKFLOW_STAGE_IDS, type WorkflowStage } from '../../../src/shared/workflow-stages'
-import { MOBILE_STAGE_LABELS, MOBILE_STAGE_UNSTAGED_LABEL } from './mobile-stage-labels'
+import { MOBILE_STAGE_LABELS, MOBILE_NO_STAGE_LABEL } from './mobile-stage-labels'
 import type { MobileStageDeclarationResult } from './mobile-stage-declaration'
 
 export type MobileStageActionKind = WorkflowStage | 'clear'
@@ -34,7 +34,7 @@ export function buildMobileStageActionOptions(
     const decision = decideStageWrite({ callerKind: 'agent', requestedStage })
     return {
       kind,
-      label: kind === 'clear' ? MOBILE_STAGE_UNSTAGED_LABEL : MOBILE_STAGE_LABELS[kind],
+      label: kind === 'clear' ? MOBILE_NO_STAGE_LABEL : MOBILE_STAGE_LABELS[kind],
       requestedStage,
       allowed: decision.allowed,
       refusalMessage: decision.allowed ? null : decision.explanation,

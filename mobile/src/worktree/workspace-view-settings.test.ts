@@ -21,7 +21,7 @@ const base: MobileViewState = {
 
 describe('group mode mapping', () => {
   it('round-trips every mobile group mode through the desktop value', () => {
-    for (const mode of ['none', 'workspaceStatus', 'repo', 'prStatus'] as const) {
+    for (const mode of ['none', 'workspaceStatus', 'repo', 'prStatus', 'stage'] as const) {
       expect(groupModeFromDesktop(groupModeToDesktop(mode))).toBe(mode)
     }
   })
@@ -30,6 +30,11 @@ describe('group mode mapping', () => {
     expect(groupModeFromDesktop('workspace-status')).toBe('workspaceStatus')
     expect(groupModeFromDesktop('pr-status')).toBe('prStatus')
     expect(groupModeFromDesktop(undefined)).toBeNull()
+  })
+
+  it('maps mobile "stage" onto desktop\'s existing "workflow-stage" sidebar mode (#45)', () => {
+    expect(groupModeToDesktop('stage')).toBe('workflow-stage')
+    expect(groupModeFromDesktop('workflow-stage')).toBe('stage')
   })
 })
 

@@ -22,6 +22,43 @@ function hasValidLineageParent(worktree: Worktree, parent: Worktree): boolean {
   )
 }
 
+/**
+ * Walks a worktree's `parentWorktreeId` chain to its top-most valid ancestor —
+ * mobile's counterpart to desktop's `getWorkflowStageLaneRoot` (#28). Callers that
+ * bucket by root stage (the "By stage" grouping, #97) use this instead of a
+ * declared/derived stage read directly off `worktree`, because children never
+ * carry their own stage for section-membership purposes.
+ *
+ * `worktreeById` should be keyed by `getWorktreeRowIdentity` over the same
+ * visible population the caller is bucketing — an invisible/stale parent (see
+ * `hasValidLineageParent`) stops the walk and returns the current worktree, and
+ * a `seen` guard stops a cyclic chain from looping forever.
+ */
+export function getMobileWorkspaceLineageRoot(
+  worktree: Worktree,
+  worktreeById: ReadonlyMap<string, Worktree>
+): Worktree {
+  const seen = new Set<string>([getWorktreeRowIdentity(worktree)])
+  let current = worktree
+  for (;;) {
+    const parentId = current.parentWorktreeId
+    const parentIdentity = parentId
+      ? getWorktreeRowIdentity({ worktreeId: parentId, hostId: current.hostId })
+      : null
+    const parent = parentIdentity ? worktreeById.get(parentIdentity) : undefined
+    if (
+      !parentIdentity ||
+      !parent ||
+      seen.has(parentIdentity) ||
+      !hasValidLineageParent(current, parent)
+    ) {
+      return current
+    }
+    seen.add(parentIdentity)
+    current = parent
+  }
+}
+
 export function applyMobileWorkspaceLineage(
   worktrees: readonly Worktree[],
   collapsedGroups: ReadonlySet<string> = new Set()

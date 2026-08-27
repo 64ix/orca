@@ -9,6 +9,19 @@ import {
 import { consumedMergeIdsFromNumbers } from '../../../src/shared/stage-derivation/github-stage-fact-source'
 import type { Worktree } from './workspace-list-types'
 
+/** The minimal wire shape the derivation reads — lets any structural subset of
+ *  Worktree (e.g. WorktreeListRow's row-item type) call the entry point below
+ *  without depending on the full catalog-row shape. */
+export type WorktreeStageFactsSource = Pick<
+  Worktree,
+  | 'workspaceKind'
+  | 'workflowStage'
+  | 'linkedPR'
+  | 'linkedIssue'
+  | 'linkedIssueState'
+  | 'consumedMergedPRNumbers'
+>
+
 /** Raw `worktree.ps` PR states that read as open work for stage purposes; anything else (incl. the
  *  host's own 'unknown' fallback for an unhydrated `meta.linkedPR`) carries no signal — see D6. */
 const PR_FACT_STATE_BY_WIRE_STATE: Record<string, WorkflowPullRequestState> = {
@@ -18,7 +31,9 @@ const PR_FACT_STATE_BY_WIRE_STATE: Record<string, WorkflowPullRequestState> = {
   closed: 'closed'
 }
 
-function pullRequestFactFromCatalogRow(worktree: Worktree): WorkflowPullRequestFact | null {
+function pullRequestFactFromCatalogRow(
+  worktree: WorktreeStageFactsSource
+): WorkflowPullRequestFact | null {
   const linkedPR = worktree.linkedPR
   if (!linkedPR) {
     return null
@@ -30,7 +45,7 @@ function pullRequestFactFromCatalogRow(worktree: Worktree): WorkflowPullRequestF
   return { id: String(linkedPR.number), state }
 }
 
-function issueFactFromCatalogRow(worktree: Worktree) {
+function issueFactFromCatalogRow(worktree: WorktreeStageFactsSource) {
   const state = worktree.linkedIssueState
   if (state !== 'open' && state !== 'closed') {
     return null
@@ -38,7 +53,9 @@ function issueFactFromCatalogRow(worktree: Worktree) {
   return { id: worktree.linkedIssue != null ? String(worktree.linkedIssue) : null, state }
 }
 
-function buildCatalogRowFacts(worktree: Worktree): WorkflowWorktreeFacts | undefined {
+function buildCatalogRowFacts(
+  worktree: WorktreeStageFactsSource
+): WorkflowWorktreeFacts | undefined {
   const pullRequest = pullRequestFactFromCatalogRow(worktree)
   const issue = issueFactFromCatalogRow(worktree)
   if (!pullRequest && !issue) {
@@ -55,7 +72,9 @@ function buildCatalogRowFacts(worktree: Worktree): WorkflowWorktreeFacts | undef
  * adapter for mobile, analogous to `github-stage-fact-source.ts` on desktop. Absent wire
  * fields (old host) stay absent here; never defaulted to a negative (`null`/`[]`) — see D6.
  */
-export function buildWorktreeStageDerivationInput(worktree: Worktree): DeriveWorkflowStageInput {
+export function buildWorktreeStageDerivationInput(
+  worktree: WorktreeStageFactsSource
+): DeriveWorkflowStageInput {
   const facts = buildCatalogRowFacts(worktree)
   return {
     workspaceKind: worktree.workspaceKind === 'folder-workspace' ? 'folder' : 'git-worktree',
@@ -74,6 +93,8 @@ export function buildWorktreeStageDerivationInput(worktree: Worktree): DeriveWor
  * stage (board columns, badges, action sheets — #97-#100) should read through this, not
  * through `worktree.workflowStage` directly.
  */
-export function deriveMobileWorktreeStage(worktree: Worktree): DerivedWorkflowStage {
+export function deriveMobileWorktreeStage(
+  worktree: WorktreeStageFactsSource
+): DerivedWorkflowStage {
   return deriveWorkflowStage(buildWorktreeStageDerivationInput(worktree))
 }
