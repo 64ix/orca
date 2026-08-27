@@ -8,11 +8,11 @@ import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
 import { branchName } from '@/lib/git-utils'
-import { cn } from '@/lib/utils'
 import { isFolderRepo } from '../../../../shared/repo-kind'
 import type { Worktree } from '../../../../shared/worktree/types'
 import type { FeatureBoardCard as FeatureBoardCardModel } from './feature-board-card-model'
 import { FeatureBoardBranchRow, FeatureBoardCardActions } from './FeatureBoardCardActions'
+import { featureBoardCardSurfaceClass } from './feature-board-card-surface'
 
 function stopNestedWorktreeCardBubble(event: React.SyntheticEvent<HTMLElement>): void {
   event.stopPropagation()
@@ -85,13 +85,10 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
 
   return (
     <div
-      className={cn(
-        // min-w-0: the flex-col column stretches this card to full width, but without it the
-        // card's own auto min-width grows to fit the branch row's unbroken text (#77).
-        'relative min-w-0 w-full rounded-lg',
-        card.isAwaitingInput && 'ring-1 ring-amber-500/60',
-        isSelected && 'ring-1 ring-primary/50'
-      )}
+      className={featureBoardCardSurfaceClass({
+        isAwaitingInput: card.isAwaitingInput,
+        isSelected
+      })}
       data-feature-board-card-id={card.id}
       data-feature-board-awaiting-input={card.isAwaitingInput ? 'true' : 'false'}
       data-feature-board-card-selected={isSelected ? 'true' : 'false'}
@@ -134,6 +131,9 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
         repo={repo}
         isActive={activeWorktreeId === card.worktree.id}
         nativeDragEnabled={false}
+        // Why: the board card now owns the outline, so the nested surface must inset evenly
+        // inside it instead of hanging 4px past the right edge.
+        flushSurface
       />
       <FeatureBoardCardActions
         menuLabel={translate('components.featureBoard.card.menu', 'Card actions')}
