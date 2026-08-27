@@ -379,7 +379,7 @@ describe('WorktreeCard compact hover details', () => {
     expect(markup).toContain('feature/local-branch')
   }, 30_000)
 
-  it('keeps branch identity visible on detailed cards by default', async () => {
+  it('moves branch identity off the detailed card row and into the hover by default', async () => {
     settings = { compactWorktreeCards: false }
     worktreeCardProperties = ['status', 'issue', 'linear-issue', 'comment', 'ports']
     const { default: WorktreeCard } = await import('./WorktreeCard')
@@ -392,7 +392,9 @@ describe('WorktreeCard compact hover details', () => {
       />
     )
 
-    expect(markup).not.toContain('data-hover-open-delay="100"')
+    // Why: 'branch' is absent from DEFAULT_WORKTREE_CARD_PROPERTIES, so the row is opt-in —
+    // detailed cards now honour that preference the way compact cards already did.
+    expect(markup).toContain('data-hover-open-delay="100"')
     expect(markup).toContain('feature/local-branch')
     expect(markup).toContain('Human title')
   })
@@ -774,6 +776,43 @@ describe('WorktreeCard compact hover details', () => {
 
     expect(markup).not.toContain('data-worktree-card-meta-row=""')
     expect(markup).toContain('data-hover-open-delay="100"')
+    expect(markup).toContain('feature/local-branch')
+  })
+
+  it('lifts detail indicators onto the title row rather than leaving a branch-less meta row', async () => {
+    settings = { compactWorktreeCards: false }
+    // 'issue' gives the card detail indicators; without 'branch' the meta row has no left content,
+    // so keeping the row would strand those icons on an otherwise empty line.
+    worktreeCardProperties = ['status', 'issue']
+    const { default: WorktreeCard } = await import('./WorktreeCard')
+
+    const markup = renderToStaticMarkup(
+      <WorktreeCard
+        worktree={makeWorktree({ displayName: 'Human title', linkedIssue: 123 })}
+        repo={undefined}
+        isActive={false}
+      />
+    )
+
+    expect(markup).not.toContain('data-worktree-card-meta-row=""')
+    expect(markup).toContain('Linked issue #123')
+  })
+
+  it('drops the whole meta row from a detailed card whose only content was the branch', async () => {
+    settings = { compactWorktreeCards: false }
+    // Only 'status' — no repo badge, no host badge, nothing else that would keep the row alive.
+    worktreeCardProperties = ['status']
+    const { default: WorktreeCard } = await import('./WorktreeCard')
+
+    const markup = renderToStaticMarkup(
+      <WorktreeCard
+        worktree={makeWorktree({ displayName: 'Human title' })}
+        repo={undefined}
+        isActive={false}
+      />
+    )
+
+    expect(markup).not.toContain('data-worktree-card-meta-row=""')
     expect(markup).toContain('feature/local-branch')
   })
 
