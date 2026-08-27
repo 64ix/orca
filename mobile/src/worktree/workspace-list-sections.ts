@@ -1,3 +1,4 @@
+import { WORKFLOW_STAGE_IDS } from '../../../src/shared/workflow-stages'
 import type { WorkspaceStatusDefinition } from '../../../src/shared/worktree/types'
 import {
   DEFAULT_MOBILE_WORKSPACE_STATUSES,
@@ -5,12 +6,19 @@ import {
   getMobileWorkspaceStatus,
   getMobileWorkspaceStatusGroupKey
 } from './mobile-workspace-statuses'
-import { applyMobileWorkspaceLineage } from './mobile-workspace-lineage'
+import { applyMobileWorkspaceLineage, getMobileWorkspaceLineageRoot } from './mobile-workspace-lineage'
 import { getPRGroupKey, PR_GROUP_LABELS, PR_GROUP_ORDER } from './workspace-pr-status-groups'
+import { deriveMobileWorktreeStage } from './mobile-stage-facts'
+import { MOBILE_NO_STAGE_LABEL, MOBILE_STAGE_LABELS } from './mobile-stage-labels'
 import type { FilterState, Section, Worktree } from './workspace-list-types'
 import type { MobileGroupMode, MobileSortMode } from './workspace-view-settings'
 import { sortWorktrees } from './workspace-list-ordering'
 import { getWorktreeRowIdentity } from './worktree-host-row-identity'
+
+/** Section key for the "By stage" grouping's unstaged lane — mirrors desktop's
+ *  WORKFLOW_STAGE_SANS_KEY convention (workflow-stage-grouping.ts), scoped to mobile's
+ *  own `stage:` section-key prefix rather than reusing the wire-facing lane key. */
+const STAGE_SANS_KEY = 'stage:sans'
 
 export type { FilterState, Section, Worktree } from './workspace-list-types'
 export { CREATE_GRACE_MS, getWorktreeStatus, sortWorktrees } from './workspace-list-ordering'
@@ -225,6 +233,45 @@ export function buildSections(
           makeSection(
             `pr:${groupKey}`,
             PR_GROUP_LABELS[groupKey],
+            items,
+            undefined,
+            collapsedGroups
+          )
+        )
+      }
+    }
+  } else if (groupMode === 'stage') {
+    // Why root-based bucketing: children never carry their own stage for section
+    // membership (desktop's #28 rule, mirrored via getMobileWorkspaceLineageRoot) —
+    // a child buckets under its root ancestor's effective stage, not its own.
+    const worktreeById = new Map(
+      canonicalGroupWorktrees.map((w) => [getWorktreeRowIdentity(w), w])
+    )
+    const byStage = new Map<string, Worktree[]>()
+    for (const w of canonicalGroupWorktrees) {
+      const root = getMobileWorkspaceLineageRoot(w, worktreeById)
+      const stage = deriveMobileWorktreeStage(root).stage
+      const key = stage ? `stage:${stage}` : STAGE_SANS_KEY
+      const list = byStage.get(key)
+      if (list) {
+        list.push(w)
+      } else {
+        byStage.set(key, [w])
+      }
+    }
+    const sansItems = byStage.get(STAGE_SANS_KEY)
+    if (sansItems && sansItems.length > 0) {
+      sections.push(
+        makeSection(STAGE_SANS_KEY, MOBILE_NO_STAGE_LABEL, sansItems, undefined, collapsedGroups)
+      )
+    }
+    for (const stage of WORKFLOW_STAGE_IDS) {
+      const items = byStage.get(`stage:${stage}`)
+      if (items && items.length > 0) {
+        sections.push(
+          makeSection(
+            `stage:${stage}`,
+            MOBILE_STAGE_LABELS[stage],
             items,
             undefined,
             collapsedGroups
