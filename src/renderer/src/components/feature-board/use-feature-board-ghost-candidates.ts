@@ -7,7 +7,7 @@ import {
   isOrphanSpecIssue,
   parseReferencedIssueNumbers,
   type GhostCandidate
-} from './feature-board-ghost-candidates'
+} from '../../../../shared/feature-board/ghost-candidates'
 import { getFeatureBoardDismissedIssueNumbers } from '../../../../shared/feature-board-ghost-dismissals'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
 import { PER_REPO_FETCH_LIMIT } from '../../../../shared/work-items'

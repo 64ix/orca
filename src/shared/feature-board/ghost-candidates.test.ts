@@ -5,7 +5,7 @@ import {
   parseReferencedIssueNumbers,
   type BuildGhostCandidatesParams,
   type GhostCandidateIssue
-} from './feature-board-ghost-candidates'
+} from './ghost-candidates'
 
 const REPO = 'owner/orca'
 
