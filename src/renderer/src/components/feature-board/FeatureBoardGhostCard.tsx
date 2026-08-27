@@ -91,8 +91,15 @@ export function FeatureBoardGhostCard({
         </button>
         <FeatureBoardGhostDismissButton candidate={candidate} repoId={repoId} />
       </div>
-      {candidate.badges.length > 0 ? (
+      {candidate.badges.length > 0 || candidate.childTicketCount > 0 ? (
         <div className="mt-1.5 flex flex-wrap gap-1">
+          {candidate.childTicketCount > 0 ? (
+            <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-muted-foreground">
+              {translate('components.featureBoard.ghost.childTicketCount', '{{value0}} tickets', {
+                value0: candidate.childTicketCount
+              })}
+            </Badge>
+          ) : null}
           {candidate.badges.map((badge) => (
             <Badge key={badge} variant="outline" className="px-1.5 py-0 text-[10px]">
               {translate(BADGE_LABEL_KEYS[badge], BADGE_LABEL_FALLBACKS[badge])}

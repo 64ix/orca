@@ -1,4 +1,5 @@
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
+import { parseIssueReferenceNumbers, type SpecTicketShape } from '../../../../shared/spec-ticket-shape'
 
 /** Minimal issue shape the derivation needs — callers pass richer records through `T`. */
 export type GhostCandidateIssue = {
@@ -10,6 +11,10 @@ export type GhostCandidateIssue = {
   labels: readonly string[]
   /** Base-remote scoping: only issues stamped with the board's repoId are consumed. */
   repoId: string
+  /** Derived server-side (#94) from the issue body; absent means "classify by title only" (remote wire fallback). */
+  specShape?: SpecTicketShape
+  /** Derived server-side (#94) from a `## Parent` body heading; present issues are sub-tickets, never ghost candidates. */
+  parentIssueNumber?: number
 }
 
 export type GhostCandidateBadge = 'ready-for-agent' | 'ready-for-human' | 'needs-triage'
@@ -30,6 +35,8 @@ export type GhostCandidate<T extends GhostCandidateIssue> = {
   targetStage: Extract<WorkflowStage, 'idea' | 'spec'>
   /** Capture/triage labels surfaced for display only — they gate nothing. */
   badges: GhostCandidateBadge[]
+  /** Open issues in the same repo whose `parentIssueNumber` names this one (#94) — visible without expanding. */
+  childTicketCount: number
 }
 
 /** Wayfinder process artifacts never become ghosts, even when open. */
@@ -45,16 +52,10 @@ export function isOrphanSpecIssue(title: string): boolean {
  * Extract plain-text issue refs (`#12`) from a linked spec/task body, ignoring
  * URLs (`.../issues/12`) and heading anchors (`#summary`). Callers resolve the
  * numbers against their known issues; unknown numbers harmlessly exclude nothing.
+ * Same rule as `## Parent` parsing in `spec-ticket-shape.ts` — delegates to it.
  */
 export function parseReferencedIssueNumbers(body: string): number[] {
-  const numbers: number[] = []
-  for (const match of body.matchAll(/(^|[^A-Za-z0-9/#&])#(\d+)\b/g)) {
-    const number = Number(match[2])
-    if (!numbers.includes(number)) {
-      numbers.push(number)
-    }
-  }
-  return numbers
+  return parseIssueReferenceNumbers(body)
 }
 
 export type BuildGhostCandidatesParams<T extends GhostCandidateIssue> = {
@@ -83,6 +84,23 @@ export function buildFeatureBoardGhostCandidates<T extends GhostCandidateIssue>(
   const { openIssues, repoId, linkedIssueNumbers, referencedIssueNumbers, dismissedIssueNumbers } =
     params
 
+  // #94: counted over every open issue of the repo before any exclusion below, so a
+  // dismissed/linked/closed-elsewhere sub-ticket still counts toward its spec's total.
+  const childTicketCountByParent = new Map<number, number>()
+  for (const issue of openIssues) {
+    if (
+      issue.repoId !== repoId ||
+      issue.state !== 'open' ||
+      issue.parentIssueNumber === undefined
+    ) {
+      continue
+    }
+    childTicketCountByParent.set(
+      issue.parentIssueNumber,
+      (childTicketCountByParent.get(issue.parentIssueNumber) ?? 0) + 1
+    )
+  }
+
   const candidates: GhostCandidate<T>[] = []
   for (const issue of openIssues) {
     // Fork-local board: issues from any other repo never leak in.
@@ -104,12 +122,22 @@ export function buildFeatureBoardGhostCandidates<T extends GhostCandidateIssue>(
     if (isWayfinderArtifact(issue)) {
       continue
     }
+    // #94: a sub-ticket is covered by its spec's card, never its own ghost — unconditionally,
+    // regardless of whether the parent spec is open, visible, or in the selected repos.
+    if (issue.parentIssueNumber !== undefined) {
+      continue
+    }
 
-    const orphanSpec = isOrphanSpecIssue(issue.title)
+    // #94: an explicit specShape wins; when the host hasn't sent it yet (remote wire fallback),
+    // classify by the legacy title-only [Spec] convention.
+    const orphanSpec =
+      issue.specShape === 'spec' ||
+      (issue.specShape === undefined && isOrphanSpecIssue(issue.title))
     candidates.push({
       issue,
       targetStage: orphanSpec ? 'spec' : 'idea',
-      badges: getGhostCandidateBadges(issue.labels)
+      badges: getGhostCandidateBadges(issue.labels),
+      childTicketCount: childTicketCountByParent.get(issue.number) ?? 0
     })
   }
   return candidates

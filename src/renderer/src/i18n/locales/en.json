@@ -16528,6 +16528,7 @@
       "ghost": {
         "restore": "Restore ghost card",
         "dismiss": "Don't show this issue",
+        "childTicketCount": "{{value0}} tickets",
         "badges": {
           "ready-for-agent": "Ready for agent",
           "ready-for-human": "Ready for human",
