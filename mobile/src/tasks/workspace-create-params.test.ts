@@ -40,7 +40,7 @@ describe('task workspace create params', () => {
     ).toMatchObject({
       repo: 'id:repo-1',
       name: 'mobile-tasks',
-      displayName: 'Fix mobile tasks',
+      displayName: 'PR 123 Fix mobile tasks',
       setupDecision: 'run',
       activate: true,
       startupDraft: 'https://github.com/acme/app/pull/123',
@@ -71,7 +71,7 @@ describe('task workspace create params', () => {
     expect(params).toMatchObject({
       repo: 'id:repo-1',
       name: 'issue-88',
-      displayName: 'Investigate login',
+      displayName: 'Issue 88 Investigate login',
       setupDecision: 'skip',
       activate: true,
       linkedIssue: 88
@@ -128,7 +128,7 @@ describe('task workspace create params', () => {
     ).toMatchObject({
       repo: 'id:repo-2',
       name: 'mr-7',
-      displayName: 'Port drawer',
+      displayName: 'MR 7 Port drawer',
       startupDraft: 'https://gitlab.com/acme/app/-/merge_requests/7',
       createdWithAgent: 'claude',
       linkedGitLabMR: 7,

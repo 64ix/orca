@@ -81,7 +81,7 @@ describe('resolveWorkItemAutoName', () => {
         title: 'Fix the Login Bug',
         provider: 'github'
       })
-    ).toBe('fix-the-login-bug')
+    ).toBe('issue-3-fix-the-login-bug')
   })
 })
 
