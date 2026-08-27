@@ -33,7 +33,12 @@ function ghostEntry(repoId: string, number: number): FeatureBoardGhostEntry {
   }
   return {
     repoId,
-    candidate: { issue, targetStage: 'idea', badges: [] } satisfies GhostCandidate<GitHubWorkItem>
+    candidate: {
+      issue,
+      targetStage: 'idea',
+      badges: [],
+      childTicketCount: 0
+    } satisfies GhostCandidate<GitHubWorkItem>
   }
 }
 
