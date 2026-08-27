@@ -1799,9 +1799,24 @@ export function buildPtyHostEnv(
       ? resolvePiAgentSourceDir(baseEnv, 'prime-agent')
       : resolveScopedPiAgentSourceDir(baseEnv, 'prime-agent')
 
+  // Why: orca-runtime.ts threads the opencode MCP endpoint+token through these
+  // two vars as internal plumbing (workspace context lives there, not here) —
+  // strip them unconditionally so they never reach the spawned process's env.
+  const opencodeMcpEndpoint = baseEnv.ORCA_MCP_OPENCODE_ENDPOINT
+  const opencodeMcpToken = baseEnv.ORCA_MCP_OPENCODE_TOKEN
+  delete baseEnv.ORCA_MCP_OPENCODE_ENDPOINT
+  delete baseEnv.ORCA_MCP_OPENCODE_TOKEN
+  const opencodeMcpConfig =
+    opencodeMcpEndpoint && opencodeMcpToken
+      ? { endpoint: opencodeMcpEndpoint, token: opencodeMcpToken }
+      : null
+
   if (opts.agentStatusHooksEnabled) {
     // Why: OPENCODE_CONFIG_DIR is a single path, not a colon-list; mirror the user's value into an overlay so their plugins and Orca's status plugin coexist. See docs/opencode-config-dir-collision.md.
-    Object.assign(baseEnv, openCodeHookService.buildPtyEnv(id, preexistingOpenCodeConfigDir))
+    Object.assign(
+      baseEnv,
+      openCodeHookService.buildPtyEnv(id, preexistingOpenCodeConfigDir, opencodeMcpConfig)
+    )
     if (baseEnv.OPENCODE_CONFIG_DIR) {
       // Why: ~/.zshrc can re-export the user's default after spawn; shell-ready wrappers restore this PTY-scoped value.
       baseEnv.ORCA_OPENCODE_CONFIG_DIR = baseEnv.OPENCODE_CONFIG_DIR

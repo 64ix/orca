@@ -2627,6 +2627,9 @@ void app.whenReady().then(async () => {
       )
   }
   const runtimeService = new OrcaRuntimeService(store, stats, {
+    // Why: mcpServer is constructed after runtimeService below, so resolve it lazily (same
+    // pattern as getLocalProvider) — by the time any agent actually launches, it exists.
+    getMcpServer: () => mcpServer,
     agentSessionClaimSigner: loadAgentSessionClaimSigner(
       getProfileUserDataPath(),
       getProfileUserDataPath()

@@ -30,6 +30,9 @@ const RemoveFolderDialog = React.memo(function RemoveFolderDialog() {
   const repoId = typeof modalData.repoId === 'string' ? modalData.repoId : ''
   const displayName = typeof modalData.displayName === 'string' ? modalData.displayName : ''
   const hostId = typeof modalData.hostId === 'string' ? (modalData.hostId as ExecutionHostId) : null
+  // Why: set by the shared delete funnel when git refuses to delete the primary
+  // checkout, so the user learns why project removal — not workspace deletion — was offered.
+  const removalReason = modalData.removalReason === 'primary-checkout' ? 'primary-checkout' : null
 
   // Why: for an SSH project the files live on the remote host's disk, not the
   // user's — "still on your disk" would be misleading. Name the host (using the
@@ -104,6 +107,15 @@ const RemoveFolderDialog = React.memo(function RemoveFolderDialog() {
             {descriptionBeforeName}
             <span className="break-all font-medium text-foreground">{displayName}</span>
             {descriptionAfterName}
+            {removalReason === 'primary-checkout' ? (
+              <>
+                <br />
+                {translate(
+                  'auto.components.sidebar.RemoveFolderDialog.primaryCheckoutReason',
+                  "This is the project's primary checkout — it cannot be deleted as an individual workspace, so Orca offers to remove the whole project."
+                )}
+              </>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

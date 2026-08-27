@@ -91,4 +91,18 @@ describe('RemoveFolderDialog', () => {
     expect(html).toContain('Its files stay on Persistent host')
     expect(html).not.toContain('VM recipe')
   })
+
+  it('explains the primary-checkout constraint when removal came from the delete funnel', () => {
+    mocks.state.modalData.removalReason = 'primary-checkout'
+
+    const html = renderToStaticMarkup(<RemoveFolderDialog />)
+
+    expect(html).toContain('cannot be deleted as an individual workspace')
+  })
+
+  it('omits the primary-checkout explanation for plain remove-project actions', () => {
+    const html = renderToStaticMarkup(<RemoveFolderDialog />)
+
+    expect(html).not.toContain("can't be deleted as an individual workspace")
+  })
 })

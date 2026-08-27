@@ -52,9 +52,9 @@ export function listMcpStageTools(): McpToolManifestEntry[] {
     {
       name: 'declare_stage',
       description:
-        'Declare the working stage of your bound Orca workspace. Stages: idea, exploring, spec, ' +
-        'implementing, review, triage. Pass stage:null to clear back to unstaged. Orca refuses ' +
-        '"shipped" — a merged pull request or the human in the board UI sets shipped.',
+        'Declare the working stage of your bound Orca workspace: idea, exploring, spec, ' +
+        'implementing (as soon as you start writing code), review (as soon as you open a PR), ' +
+        'triage. Pass stage:null to unstage. Orca refuses "shipped": a merged PR or the human sets it.',
       inputSchema: {
         type: 'object',
         properties: {

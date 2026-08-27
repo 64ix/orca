@@ -172,8 +172,14 @@ export default function TaskProjectSourceCombobox({
     (group: TaskProjectPickerGroup) => {
       const next = new Set(selected)
       const selectedSource = group.sources.find((source) => next.has(source.id))
+      const selectedGroupCount = selectedTaskProjectGroups(groups, selected).length
+      // Why: from sticky-all, clicking a project isolates it instead of toggling it off.
+      if (groups.length > 1 && selectedGroupCount === groups.length && selectedSource) {
+        onChange(new Set([selectedSource.id]))
+        return
+      }
       if (selectedSource) {
-        if (selectedTaskProjectGroups(groups, selected).length <= 1) {
+        if (selectedGroupCount <= 1) {
           return
         }
         for (const source of group.sources) {

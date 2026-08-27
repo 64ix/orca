@@ -42,10 +42,12 @@ import type { LinearIssue } from '../../../shared/linear/issue-types'
 import type { OrcaHooks, SetupAgentStartupPolicy } from '../../../shared/orca-yaml-hook-types'
 import type { TuiAgent } from '../../../shared/tui-agent'
 import type { SparsePreset } from '../../../shared/worktree/create-types'
+import type { WorkflowStage } from '../../../shared/workflow-stages'
 import SparseCheckoutPresetSelect from '@/components/sparse/SparseCheckoutPresetSelect'
 import SmartWorkspaceNameField, {
   type SmartWorkspaceNameSelection
 } from '@/components/new-workspace/SmartWorkspaceNameField'
+import { NewWorkspaceStageField } from '@/components/new-workspace/NewWorkspaceStageField'
 import type { SmartNameMode } from '@/components/new-workspace/smart-workspace-source-results'
 import ProjectCombobox from '@/components/new-workspace/ProjectCombobox'
 import RunTargetCombobox from '@/components/new-workspace/RunTargetCombobox'
@@ -141,6 +143,8 @@ type NewWorkspaceComposerCardProps = {
   onCreate: () => void
   note: string
   onNoteChange: (value: string) => void
+  workflowStage: WorkflowStage | null
+  onWorkflowStageChange: (stage: WorkflowStage | null) => void
   setupConfig: SetupConfig | null
   requiresExplicitSetupChoice: boolean
   setupDecision: 'run' | 'skip' | null
@@ -354,6 +358,8 @@ export default function NewWorkspaceComposerCard({
   onCreate,
   note,
   onNoteChange,
+  workflowStage,
+  onWorkflowStageChange,
   setupConfig,
   requiresExplicitSetupChoice,
   setupDecision,
@@ -1021,6 +1027,12 @@ export default function NewWorkspaceComposerCard({
                     className="w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   />
                 </div>
+              ) : null}
+
+              {/* Why: stage assignment lands through decideComposerStageAssignment on submit
+                  (#80); folder-workspace creation doesn't plumb that write yet. */}
+              {selectedRepoIsGit ? (
+                <NewWorkspaceStageField value={workflowStage} onChange={onWorkflowStageChange} />
               ) : null}
 
               <div className="space-y-1">

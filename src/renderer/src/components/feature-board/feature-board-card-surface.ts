@@ -10,7 +10,9 @@ export function featureBoardCardSurfaceClass(state: {
   isSelected: boolean
 }): string {
   return cn(
-    'relative rounded-lg border border-border bg-card pt-1 shadow-xs',
+    // min-w-0: the flex-col column stretches this card to full width, but without it the
+    // card's own auto min-width grows to fit the branch row's unbroken text (#77).
+    'relative min-w-0 w-full rounded-lg border border-border bg-card pt-1 shadow-xs',
     'transition-[border-color,box-shadow] duration-150',
     'hover:border-ring/45 hover:shadow-sm',
     // Selection wins: an awaiting-input card the user opened would otherwise stack two rings.

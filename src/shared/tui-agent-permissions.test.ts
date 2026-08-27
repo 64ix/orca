@@ -85,4 +85,30 @@ describe('tui agent permissions', () => {
       })
     ).toBe('yolo')
   })
+
+  it('resolves an opencode yolo launch as yolo via OPENCODE_CONFIG_CONTENT', () => {
+    expect(
+      resolveTuiAgentPermissionMode({
+        agent: 'opencode',
+        agentArgs: '',
+        agentEnv: YOLO_TUI_AGENT_ENV.opencode
+      })
+    ).toBe('yolo')
+  })
+
+  it('resolves an opencode launch with no env as manual', () => {
+    expect(
+      resolveTuiAgentPermissionMode({ agent: 'opencode', agentArgs: '', agentEnv: {} })
+    ).toBe('manual')
+  })
+
+  it('turns opencode yolo off back to an empty env', () => {
+    const result = applyAgentPermissionMode({
+      mode: 'manual',
+      agentDefaultArgs: YOLO_TUI_AGENT_ARGS,
+      agentDefaultEnv: YOLO_TUI_AGENT_ENV
+    })
+
+    expect(result.agentDefaultEnv.opencode).toEqual({})
+  })
 })

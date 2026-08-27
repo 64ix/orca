@@ -3140,6 +3140,16 @@ function createSkillsApi(): NonNullable<Partial<PreloadApi>['skills']> {
     cancelUpdateRun: () => Promise.resolve(),
     acknowledgeUpdateRun: () => Promise.resolve(),
     getUpdateRun: () => Promise.resolve({ state: 'idle' as const }),
+    // Why: browser clients have no local bundle artifacts; the catalog is served
+    // by the desktop host that owns the skill homes.
+    catalog: () =>
+      Promise.resolve({ schemaVersion: 1 as const, skills: [], scannedAt: Date.now() }),
+    startCatalogInstall: () =>
+      Promise.resolve({ started: false as const, reason: 'invalid-names' }),
+    cancelCatalogInstall: () => Promise.resolve(),
+    acknowledgeCatalogInstall: () => Promise.resolve(),
+    getCatalogInstall: () => Promise.resolve({ state: 'idle' as const }),
+    onCatalogInstallRun: () => () => {},
     prepareShare: () => Promise.reject(new Error('Skill publishing requires the desktop app.')),
     publishShare: () => Promise.reject(new Error('Skill publishing requires the desktop app.')),
     cancelShare: () => Promise.resolve(),

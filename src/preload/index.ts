@@ -169,6 +169,11 @@ import type {
   SkillUpdateStartResult
 } from '../shared/skill-freshness'
 import type {
+  SkillBundleCatalog,
+  SkillCatalogInstallRun,
+  SkillCatalogInstallStartResult
+} from '../shared/skill-catalog'
+import type {
   RuntimeBrowserDriverState,
   RuntimeMobileSessionTabMove,
   RuntimeRendererSyncWindowGraph,
@@ -2664,6 +2669,20 @@ const api = {
         callback(run)
       ipcRenderer.on('skills:updateRun', listener)
       return () => ipcRenderer.removeListener('skills:updateRun', listener)
+    },
+    catalog: (): Promise<SkillBundleCatalog> => ipcRenderer.invoke('skills:catalog'),
+    startCatalogInstall: (names: string[]): Promise<SkillCatalogInstallStartResult> =>
+      ipcRenderer.invoke('skills:startCatalogInstall', names),
+    cancelCatalogInstall: (): Promise<void> => ipcRenderer.invoke('skills:cancelCatalogInstall'),
+    acknowledgeCatalogInstall: (): Promise<void> =>
+      ipcRenderer.invoke('skills:acknowledgeCatalogInstall'),
+    getCatalogInstall: (): Promise<SkillCatalogInstallRun> =>
+      ipcRenderer.invoke('skills:getCatalogInstall'),
+    onCatalogInstallRun: (callback: (run: SkillCatalogInstallRun) => void): (() => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, run: SkillCatalogInstallRun): void =>
+        callback(run)
+      ipcRenderer.on('skills:catalogInstallRun', listener)
+      return () => ipcRenderer.removeListener('skills:catalogInstallRun', listener)
     }
   },
 

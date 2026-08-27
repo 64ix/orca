@@ -104,7 +104,8 @@ describe('registerPtyHandlers', () => {
       })
       expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(
         expect.any(String),
-        '/tmp/user-opencode-config'
+        '/tmp/user-opencode-config',
+        null
       )
       expect(env.OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
       expect(env.ORCA_OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
@@ -116,7 +117,7 @@ describe('registerPtyHandlers', () => {
         ORCA_OPENCODE_CONFIG_DIR: '/tmp/parent-orca-opencode-overlay'
       })
 
-      expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(expect.any(String), undefined)
+      expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(expect.any(String), undefined, null)
       expect(env.OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-config')
       expect(env.ORCA_OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-config')
       expect(env.ORCA_OPENCODE_SOURCE_CONFIG_DIR).toBeUndefined()
@@ -154,6 +155,30 @@ describe('registerPtyHandlers', () => {
       expect(env.ORCA_OPENCODE_CONFIG_DIR).toBeUndefined()
       expect(env.ORCA_OPENCODE_SOURCE_CONFIG_DIR).toBeUndefined()
     })
+    it('finding D: YOLO OPENCODE_CONFIG_CONTENT and the MCP OPENCODE_CONFIG_DIR overlay both reach the spawned process', async () => {
+      // Why: orca-runtime.ts's YOLO_TUI_AGENT_ENV sets OPENCODE_CONFIG_CONTENT
+      // directly on agentEnv; the MCP endpoint/token ride ORCA_MCP_OPENCODE_*
+      // as internal plumbing this function strips before spawn. Both must
+      // survive into the final env — this proves Orca's own launch plan does
+      // not drop one when the other is present (it says nothing about
+      // opencode's own internal config-merge precedence).
+      const env = await spawnAndGetEnv({
+        OPENCODE_CONFIG_CONTENT: '{"permission":"allow"}',
+        ORCA_MCP_OPENCODE_ENDPOINT: 'http://127.0.0.1:54999',
+        ORCA_MCP_OPENCODE_TOKEN: 'launch-token-xyz'
+      })
+
+      expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(expect.any(String), undefined, {
+        endpoint: 'http://127.0.0.1:54999',
+        token: 'launch-token-xyz'
+      })
+      expect(env.OPENCODE_CONFIG_CONTENT).toBe('{"permission":"allow"}')
+      expect(env.OPENCODE_CONFIG_DIR).toEqual(expect.any(String))
+      // Why: internal plumbing vars must never reach the spawned opencode process.
+      expect(env.ORCA_MCP_OPENCODE_ENDPOINT).toBeUndefined()
+      expect(env.ORCA_MCP_OPENCODE_TOKEN).toBeUndefined()
+    })
+
     it('injects MiMo overlay env only when launch command is mimo', async () => {
       const env = await spawnAndGetEnv(undefined, undefined, undefined, undefined, 'mimo')
 
@@ -232,7 +257,8 @@ describe('registerPtyHandlers', () => {
 
         expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(
           expect.any(String),
-          '/home/pim/company/opencode-config'
+          '/home/pim/company/opencode-config',
+          null
         )
         expect(env.OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
         expect(env.ORCA_OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')

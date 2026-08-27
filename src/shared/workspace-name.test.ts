@@ -53,7 +53,7 @@ describe('getLinkedWorkItemSuggestedName', () => {
 })
 
 describe('getLinkedWorkItemWorkspaceName', () => {
-  it('uses the resolved GitHub title instead of the source URL or provider number', () => {
+  it('leads a GitHub PR name with its number so it can be traced back to the tracker', () => {
     expect(
       getLinkedWorkItemWorkspaceName({
         type: 'pr',
@@ -61,8 +61,48 @@ describe('getLinkedWorkItemWorkspaceName', () => {
         title: 'Fix pasted URL workspace names'
       })
     ).toEqual({
-      displayName: 'Fix pasted URL workspace names',
-      seedName: 'fix-pasted-url-workspace-names'
+      displayName: 'PR 2049 Fix pasted URL workspace names',
+      seedName: 'pr-2049-fix-pasted-url-workspace-names'
+    })
+  })
+
+  it('leads a GitHub issue name with its number so it can be traced back to the tracker', () => {
+    expect(
+      getLinkedWorkItemWorkspaceName({
+        type: 'issue',
+        number: 42,
+        title: 'Spec - Clore et celebrer'
+      })
+    ).toEqual({
+      displayName: 'Issue 42 Spec - Clore et celebrer',
+      seedName: 'issue-42-spec-clore-et-celebrer'
+    })
+  })
+
+  it('does not double the number when the title already contains it', () => {
+    expect(
+      getLinkedWorkItemWorkspaceName({
+        type: 'issue',
+        number: 42,
+        title: 'Fix #42 regression'
+      })
+    ).toEqual({
+      displayName: 'Issue 42 Fix regression',
+      seedName: 'issue-42-fix-regression'
+    })
+  })
+
+  it('leads a GitLab MR name with its number so it can be traced back to the tracker', () => {
+    expect(
+      getLinkedWorkItemWorkspaceName({
+        type: 'mr',
+        provider: 'gitlab',
+        number: 77,
+        title: 'Resolve sync race'
+      })
+    ).toEqual({
+      displayName: 'MR 77 Resolve sync race',
+      seedName: 'mr-77-resolve-sync-race'
     })
   })
 
@@ -78,6 +118,21 @@ describe('getLinkedWorkItemWorkspaceName', () => {
     ).toEqual({
       displayName: 'PROJ-7 Fix flaky import',
       seedName: 'proj-7-fix-flaky-import'
+    })
+  })
+
+  it('leads with the Linear identifier instead of the issue number, unchanged by GitHub numbering', () => {
+    expect(
+      getLinkedWorkItemWorkspaceName({
+        type: 'issue',
+        provider: 'linear',
+        number: 42,
+        title: 'Ship Linear parity',
+        linearIdentifier: 'ENG-42'
+      })
+    ).toEqual({
+      displayName: 'ENG-42 Ship Linear parity',
+      seedName: 'eng-42-ship-linear-parity'
     })
   })
 })

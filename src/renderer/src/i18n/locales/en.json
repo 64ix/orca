@@ -4633,6 +4633,37 @@
           "supportingFilesDescription": "Includes readable reference files beyond the main instructions.",
           "runnableFilesDescription": "Includes scripts that an agent may run with your access.",
           "binaryFilesDescription": "Includes opaque assets and an executable binary."
+        },
+        "SkillCatalogRow": {
+          "installed": "Installed",
+          "version": "v{{value0}}",
+          "install": "Install",
+          "update": "Update",
+          "removePrompt": "Remove {{value0}}?",
+          "confirmRemove": "Remove",
+          "cancelRemove": "Cancel",
+          "manageAria": "Manage {{value0}}",
+          "uninstall": "Uninstall",
+          "unverifiedTooltip": "Scanning skills first — install is enabled once installability is known."
+        },
+        "SkillCatalogSection": {
+          "loadFailed": "Could not load the Orca skills catalog.",
+          "removeFailed": "Could not remove {{value0}}.",
+          "removeConflict": "{{value0}} was not removed because it was changed on disk.",
+          "title": "Orca skills ({{value0}})",
+          "checking": "Checking installed versions…",
+          "checkFailed": "Could not check installed versions.",
+          "installingOne": "Installing {{value0}}…",
+          "installingMany": "Installing {{value0}} skills…",
+          "installedOne": "Installed {{value0}}.",
+          "installedMany": "Installed {{value0}} skills.",
+          "dismiss": "Dismiss",
+          "listAria": "Orca skills catalog"
+        },
+        "SkillCatalogInstallStore": {
+          "alreadyRunning": "Already installing skills — wait for it to finish, then try again.",
+          "invalidNames": "Could not start the install: invalid skill name.",
+          "unsafeCommandPath": "Could not start the install: the install command could not run safely from this location."
         }
       },
       "sidebar": {
@@ -4904,7 +4935,8 @@
           "b79b39d865": "Remove Project",
           "removeDescriptionSsh": "This only removes {{name}} from Orca. Its files stay on {{host}} — re-add that SSH host to recover it.",
           "removeDescriptionLocal": "This only removes {{name}} from Orca. It is still on your disk.",
-          "removeDescriptionVmRecipe": "This removes {{name}} from Orca. Its VM recipe determines whether the environment and its files are permanently deleted."
+          "removeDescriptionVmRecipe": "This removes {{name}} from Orca. Its VM recipe determines whether the environment and its files are permanently deleted.",
+          "primaryCheckoutReason": "This is the project's primary checkout — it cannot be deleted as an individual workspace, so Orca offers to remove the whole project."
         },
         "ScrollToCurrentWorkspaceToolbarButton": {
           "23989bb663": "Reveal active workspace"
@@ -5980,9 +6012,6 @@
           "projectOnly": "Added in this project only.",
           "useGlobalFor": "Use global for {{value0}}",
           "useGlobal": "Use global"
-        },
-        "SidebarUsageGauge": {
-          "eff13eff75": "Feature usage"
         }
       },
       "shared": {
@@ -12874,6 +12903,10 @@
             "90cabf6cfc": "Stack this PR above #{{value0}}",
             "ff81473a57": "Creates a GitHub Stack or extends the parent's existing stack.",
             "29732f2fb0": "new PR"
+          },
+          "HostedReviewStateActions": {
+            "c7e3bd83df": "Primary checkout — it cannot be deleted as an individual workspace, so removal covers the whole project.",
+            "65e2fb6a24": "Remove Project from Orca…"
           }
         }
       },
@@ -16514,7 +16547,14 @@
           "refused": "Could not set the stage",
           "updateFailed": "Could not update the stage"
         }
+      },
+      "WorktreeContextMenu": {
+        "moveToFeatureBoard": "Move to feature board…"
       }
+    },
+    "newWorkspace": {
+      "stageLabel": "Stage",
+      "stageUnstaged": "No stage"
     }
   },
   "dashboardPopout": {

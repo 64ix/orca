@@ -19,6 +19,8 @@ export type FeatureBoardColumnProps = {
   cards: readonly FeatureBoardCardModel[]
   /** Ghost cards (#49): quick-grab candidates rendered after real cards. */
   ghosts?: readonly FeatureBoardGhostEntry[]
+  /** #73: label each ghost with its source repo once several repos contribute ghosts. */
+  showGhostRepoNames?: boolean
   /** Extension point for #48 — forwarded to `FeatureBoardColumnHeader`. */
   headerAction?: React.ReactNode
   /**
@@ -41,6 +43,7 @@ export function FeatureBoardColumn({
   stage,
   cards,
   ghosts,
+  showGhostRepoNames = false,
   headerAction,
   columnWidth = 280,
   isResizingColumn = false,
@@ -69,7 +72,10 @@ export function FeatureBoardColumn({
         count={cards.length + columnGhosts.length}
         headerAction={headerAction}
       />
-      <div className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2">
+      <div
+        className="scrollbar-sleek flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2"
+        data-feature-board-column-scroll=""
+      >
         {cards.length === 0 && columnGhosts.length === 0 ? (
           <div className="px-1 py-6 text-center text-[12px] text-muted-foreground/70">
             {translate('components.featureBoard.column.empty', 'No cards')}
@@ -84,6 +90,7 @@ export function FeatureBoardColumn({
                 key={`ghost-${repoId}-${candidate.issue.number}`}
                 candidate={candidate}
                 repoId={repoId}
+                showRepoName={showGhostRepoNames}
               />
             ))}
           </>

@@ -77,11 +77,12 @@ export function buildWorktreeCardPresentation(card: WorktreeCardController) {
     !showRepoIdentityInTitle && !!repo && !hideRepoBadge && !showPinnedRepoIcon
   const showHostContextBadge = !compactCards && !!hostContextLabel
   const showDetachedHeadInMetaRow = !compactCards && !isFolder && detachedHeadDisplay !== null
-  const showBranch =
-    !isFolder &&
-    branch.length > 0 &&
-    !newCardStyle &&
-    (!compactCards || branch !== worktree.displayName)
+  const hasLegacyBranchIdentity = !isFolder && branch.length > 0 && !newCardStyle
+  // Why the `cardProps` gate: the branch row is opt-in ('branch' is absent from
+  // DEFAULT_WORKTREE_CARD_PROPERTIES), and detailed cards used to ignore that preference and spend
+  // a whole row on identity the title usually already carries. Compact cards never had a row for
+  // it at all — `hasMetaRow` skips theirs — so the gate is a detailed-card concern only.
+  const showBranch = hasLegacyBranchIdentity && !compactCards && cardProps.includes('branch')
   // Why: rebases already surface in source control, so dense cards skip the persistent rebase chip.
   const showConflictOperationBadge =
     !!conflictOperation && conflictOperation !== 'unknown' && conflictOperation !== 'rebase'
@@ -90,10 +91,10 @@ export function buildWorktreeCardPresentation(card: WorktreeCardController) {
   // Why: the slot owns the unread/status lane; legacy keeps the bell toggle, the new card keeps the glyph passive.
   const showCombinedStatusSlot = showStatus
   const showTitleRowPrimary = compactCards && worktree.isMainWorktree && !isFolder
-  const showMetaRowDetails = !newCardStyle && !compactCards && (hasDetails || hasPorts)
-  const showTitleRowIndicators = (newCardStyle || compactCards) && (hasDetails || hasPorts)
   // Why: grouped views can hide the repo badge; don't reserve a blank metadata lane unless there's real content.
-  const hasDetailedMetaRowContent = Boolean(
+  // Split from the row's own visibility because detail indicators sit at its right edge — they
+  // cannot justify a row on their own, or hiding the branch strands them on an empty line.
+  const hasMetaRowLeadingContent = Boolean(
     (showRepoBadgeInMetaRow && repo) ||
     showHostContextBadge ||
     folderMetaRowContent ||
@@ -101,9 +102,13 @@ export function buildWorktreeCardPresentation(card: WorktreeCardController) {
     showIdentityInNewCard ||
     showDetachedHeadInMetaRow ||
     showConflictOperationBadge ||
-    cacheStartedAt != null ||
-    showMetaRowDetails
+    cacheStartedAt != null
   )
+  const showMetaRowDetails =
+    !newCardStyle && !compactCards && (hasDetails || hasPorts) && hasMetaRowLeadingContent
+  const showTitleRowIndicators =
+    (newCardStyle || compactCards || !hasMetaRowLeadingContent) && (hasDetails || hasPorts)
+  const hasDetailedMetaRowContent = hasMetaRowLeadingContent || showMetaRowDetails
   const hasMetaRow = compactCards
     ? hasMetadataBadge || cacheStartedAt != null
     : hasDetailedMetaRowContent
@@ -114,7 +119,9 @@ export function buildWorktreeCardPresentation(card: WorktreeCardController) {
     ? Boolean(identityDisplay) &&
       !cardProps.includes('branch') &&
       identityDisplay !== trimmedVisibleCardTitle
-    : compactCards && showBranch
+    : // Why: whatever the row does not show, the hover carries — but only when it says something
+      // the title has not already said.
+      hasLegacyBranchIdentity && !showBranch && branch !== trimmedVisibleCardTitle
   const hoverBranchName = newCardStyle
     ? identityDisplay
     : showBranchIdentityHover
@@ -143,7 +150,10 @@ export function buildWorktreeCardPresentation(card: WorktreeCardController) {
     ? hasHoverDetails
       ? (title: React.ReactElement): React.ReactElement => title
       : undefined
-    : compactCards && (showBranchIdentityHover || hasDetails || hasPorts)
+    : // Why the detailed arm: a detailed card whose branch row is off still needs somewhere to
+      // state the branch. Its details/ports already render inline in the meta row, so only the
+      // displaced identity earns a hover here.
+      showBranchIdentityHover || (compactCards && (hasDetails || hasPorts))
       ? (title: React.ReactElement): React.ReactElement => (
           <WorktreeCardDetailsHover
             issue={metaIssue}
@@ -157,7 +167,9 @@ export function buildWorktreeCardPresentation(card: WorktreeCardController) {
             branchName={showBranchIdentityHover ? branch : undefined}
             workspaceTitle={worktree.displayName}
             identityOrder="branch-first"
-            detailsAfter={hasPorts ? <WorktreeCardPortsDetails ports={workspacePorts} /> : null}
+            detailsAfter={
+              compactCards && hasPorts ? <WorktreeCardPortsDetails ports={workspacePorts} /> : null
+            }
             openDelay={100}
             // Why: compact mode also renders the plug/badge hover root; sharing one open-state made hovering the
             // plug force-open the wider title card and race it closed (#9304), so let this title hover own its state.
