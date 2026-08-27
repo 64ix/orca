@@ -16,15 +16,21 @@ vi.mock('lucide-react-native', () => ({
 }))
 
 describe('MobileSessionPrRow', () => {
-  let renderer: ReactTestRenderer | null = null
+  const mounted: ReactTestRenderer[] = []
+  let renderer!: ReactTestRenderer
 
   afterEach(() => {
-    act(() => renderer?.unmount())
-    renderer = null
+    act(() => mounted.pop()?.unmount())
   })
 
+  function render(element: Parameters<typeof create>[0]): ReactTestRenderer {
+    renderer = create(element)
+    mounted.push(renderer)
+    return renderer
+  }
+
   function texts(): string[] {
-    return renderer!.root
+    return renderer.root
       .findAllByType('Text')
       .flatMap((node) => node.children.filter((child) => typeof child === 'string'))
   }
@@ -32,7 +38,7 @@ describe('MobileSessionPrRow', () => {
   it('shows the linked PR number and state', () => {
     const model: MobilePrRowModel = { number: 42, stateLabel: 'Open', stateToken: 'statusGreen' }
     act(() => {
-      renderer = create(createElement(MobileSessionPrRow, { model, onPress: () => {} }))
+      render(createElement(MobileSessionPrRow, { model, onPress: () => {} }))
     })
     expect(texts()).toContain('#42')
     expect(texts()).toContain('Open')
@@ -42,9 +48,9 @@ describe('MobileSessionPrRow', () => {
     const onPress = vi.fn()
     const model: MobilePrRowModel = { number: 7, stateLabel: 'Merged', stateToken: 'statusPurple' }
     act(() => {
-      renderer = create(createElement(MobileSessionPrRow, { model, onPress }))
+      render(createElement(MobileSessionPrRow, { model, onPress }))
     })
-    renderer!.root.findByType('Pressable').props.onPress()
+    renderer.root.findByType('Pressable').props.onPress()
     expect(onPress).toHaveBeenCalledTimes(1)
   })
 })

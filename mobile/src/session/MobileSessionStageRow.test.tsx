@@ -13,15 +13,21 @@ vi.mock('react-native', () => ({
 vi.mock('lucide-react-native', () => ({ ChevronRight: 'ChevronRight' }))
 
 describe('MobileSessionStageRow', () => {
-  let renderer: ReactTestRenderer | null = null
+  const mounted: ReactTestRenderer[] = []
+  let renderer!: ReactTestRenderer
 
   afterEach(() => {
-    act(() => renderer?.unmount())
-    renderer = null
+    act(() => mounted.pop()?.unmount())
   })
 
+  function render(element: Parameters<typeof create>[0]): ReactTestRenderer {
+    renderer = create(element)
+    mounted.push(renderer)
+    return renderer
+  }
+
   function texts(): string[] {
-    return renderer!.root
+    return renderer.root
       .findAllByType('Text')
       .flatMap((node) => node.children.filter((child) => typeof child === 'string'))
   }
@@ -33,7 +39,7 @@ describe('MobileSessionStageRow', () => {
       shippedSourceLabel: null
     }
     act(() => {
-      renderer = create(createElement(MobileSessionStageRow, { model, onPress: () => {} }))
+      render(createElement(MobileSessionStageRow, { model, onPress: () => {} }))
     })
     expect(texts()).toContain('Review')
     expect(texts()).toContain('Open pull request #42 keeps the stage at Review.')
@@ -46,7 +52,7 @@ describe('MobileSessionStageRow', () => {
       shippedSourceLabel: 'Set by merged PR #99'
     }
     act(() => {
-      renderer = create(createElement(MobileSessionStageRow, { model, onPress: () => {} }))
+      render(createElement(MobileSessionStageRow, { model, onPress: () => {} }))
     })
     expect(texts().join(' ')).toContain('Set by merged PR #99')
     expect(texts().join(' ')).toContain('Merged pull request #99 keeps the stage at Shipped')
@@ -60,9 +66,9 @@ describe('MobileSessionStageRow', () => {
       shippedSourceLabel: null
     }
     act(() => {
-      renderer = create(createElement(MobileSessionStageRow, { model, onPress }))
+      render(createElement(MobileSessionStageRow, { model, onPress }))
     })
-    const pressable = renderer!.root.findByType('Pressable')
+    const pressable = renderer.root.findByType('Pressable')
     pressable.props.onPress()
     expect(onPress).toHaveBeenCalledTimes(1)
   })

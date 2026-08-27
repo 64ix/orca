@@ -229,7 +229,7 @@ function collectText(node: JsonNode | string | null): string[] {
 }
 
 async function renderRowText(item: TestItem): Promise<string[]> {
-  let renderer: ReactTestRenderer | null = null
+  let renderer!: ReactTestRenderer
   const onPress = () => undefined
   await act(async () => {
     renderer = create(
@@ -245,8 +245,8 @@ async function renderRowText(item: TestItem): Promise<string[]> {
       })
     )
   })
-  const text = collectText(renderer!.toJSON() as JsonNode | null)
-  await act(async () => renderer!.unmount())
+  const text = collectText(renderer.toJSON() as JsonNode | null)
+  await act(async () => renderer.unmount())
   return text
 }
 
