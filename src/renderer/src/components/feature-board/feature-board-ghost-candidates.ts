@@ -1,5 +1,8 @@
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
-import { parseIssueReferenceNumbers, type SpecTicketShape } from '../../../../shared/spec-ticket-shape'
+import {
+  parseIssueReferenceNumbers,
+  type SpecTicketShape
+} from '../../../../shared/spec-ticket-shape'
 
 /** Minimal issue shape the derivation needs — callers pass richer records through `T`. */
 export type GhostCandidateIssue = {
@@ -46,6 +49,17 @@ function isWayfinderArtifact(issue: GhostCandidateIssue): boolean {
 
 export function isOrphanSpecIssue(title: string): boolean {
   return /^\s*\[Spec\]/i.test(title)
+}
+
+/**
+ * #94: an explicit specShape wins; when the host hasn't sent it yet (remote wire fallback),
+ * classify by the legacy title-only [Spec] convention. Shared with the hook's linked-spec
+ * lookup so both surfaces agree on what a spec is.
+ */
+export function isSpecShapedIssue(issue: GhostCandidateIssue): boolean {
+  return (
+    issue.specShape === 'spec' || (issue.specShape === undefined && isOrphanSpecIssue(issue.title))
+  )
 }
 
 /**
@@ -128,11 +142,7 @@ export function buildFeatureBoardGhostCandidates<T extends GhostCandidateIssue>(
       continue
     }
 
-    // #94: an explicit specShape wins; when the host hasn't sent it yet (remote wire fallback),
-    // classify by the legacy title-only [Spec] convention.
-    const orphanSpec =
-      issue.specShape === 'spec' ||
-      (issue.specShape === undefined && isOrphanSpecIssue(issue.title))
+    const orphanSpec = isSpecShapedIssue(issue)
     candidates.push({
       issue,
       targetStage: orphanSpec ? 'spec' : 'idea',

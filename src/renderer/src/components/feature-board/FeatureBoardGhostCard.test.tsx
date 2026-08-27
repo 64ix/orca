@@ -54,8 +54,13 @@ describe('FeatureBoardGhostCard child ticket counter (#94)', () => {
     expect(screen.getByText('6 tickets')).toBeTruthy()
   })
 
+  it('reads singular for a single ticket', () => {
+    const screen = renderCard(1)
+    expect(screen.getByText('1 ticket')).toBeTruthy()
+  })
+
   it('renders no counter badge when childTicketCount is zero', () => {
     const screen = renderCard(0)
-    expect(screen.queryByText(/tickets$/)).toBeNull()
+    expect(screen.queryByText(/ticket/)).toBeNull()
   })
 })

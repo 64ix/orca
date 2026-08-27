@@ -185,4 +185,34 @@ describe('useFeatureBoardGhostCandidates', () => {
       expect(ghosts.map((g) => g.candidate.issue.number)).toEqual([2])
     })
   })
+
+  // The linked-spec lookup used to test the title for `[Spec]`, so a `Spec — …` linked spec
+  // resolved no body and excluded none of the tickets it covers.
+  it('resolves a linked spec by its derived shape, not only by a [Spec] title', async () => {
+    const repo = makeRepo()
+    const linkedSpec = makeWorktree('wt-spec', 'Alliances', { linkedIssue: 324 })
+    useAppStore.setState({
+      repos: [repo],
+      worktreesByRepo: { [repo.id]: [linkedSpec] },
+      fetchIssue: (async () => ({ description: 'Covers #331' })) as never,
+      prefetchWorkItems: vi.fn() as never
+    })
+    seedWorkItems(repo, [
+      workItem({
+        number: 324,
+        id: 'gh:issue-324',
+        title: 'Spec — Les alliances',
+        specShape: 'spec'
+      }),
+      workItem({ number: 331, id: 'gh:issue-331' }),
+      workItem({ number: 332, id: 'gh:issue-332' })
+    ])
+    const repos = [repo]
+    const scopedRepoIds = new Set([repo.id])
+    const { result } = renderHook(() => useFeatureBoardGhostCandidates(repos, scopedRepoIds))
+    await waitFor(() => {
+      const ghosts = [...result.current.ghostsByStage.values()].flat()
+      expect(ghosts.map((g) => g.candidate.issue.number)).toEqual([332])
+    })
+  })
 })

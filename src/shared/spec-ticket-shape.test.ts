@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { deriveSpecTicketFields, deriveSpecTicketShape, parseParentIssueNumber } from './spec-ticket-shape'
+import {
+  deriveSpecTicketFields,
+  deriveSpecTicketShape,
+  parseParentIssueNumber
+} from './spec-ticket-shape'
 
 describe('deriveSpecTicketShape', () => {
   it.each([
@@ -54,17 +58,17 @@ describe('deriveSpecTicketShape', () => {
   })
 
   it('prefers a spec title even when the body also has a Parent heading', () => {
-    expect(
-      deriveSpecTicketShape({ title: '[Spec] Parent spec', body: '## Parent\n#1' })
-    ).toBe('spec')
+    expect(deriveSpecTicketShape({ title: '[Spec] Parent spec', body: '## Parent\n#1' })).toBe(
+      'spec'
+    )
   })
 })
 
 describe('deriveSpecTicketFields', () => {
   it('never sets parentIssueNumber for a spec — title wins over a ## Parent body heading', () => {
-    expect(
-      deriveSpecTicketFields({ title: '[Spec] Parent spec', body: '## Parent\n#1' })
-    ).toEqual({ specShape: 'spec' })
+    expect(deriveSpecTicketFields({ title: '[Spec] Parent spec', body: '## Parent\n#1' })).toEqual({
+      specShape: 'spec'
+    })
   })
 
   it('sets both fields together for a ticket', () => {
@@ -89,9 +93,7 @@ describe('parseParentIssueNumber', () => {
 
   it('ignores URLs and heading anchors under Parent, reusing the referenced-issue rules', () => {
     expect(
-      parseParentIssueNumber(
-        '## Parent\nhttps://github.com/o/r/issues/5\n[link](#summary)\n#9'
-      )
+      parseParentIssueNumber('## Parent\nhttps://github.com/o/r/issues/5\n[link](#summary)\n#9')
     ).toBe(9)
   })
 
@@ -105,5 +107,25 @@ describe('parseParentIssueNumber', () => {
 
   it('returns undefined when the Parent heading names no issue', () => {
     expect(parseParentIssueNumber('## Parent\nTBD, not linked yet.')).toBeUndefined()
+  })
+})
+
+// Conventions seen in the wild that the first pass did not cover.
+describe('spec/ticket conventions beyond the common spelling', () => {
+  it.each(['PRD — Alliances', 'PRD - Alliances', 'Spec- Alliances', 'Spec : Alliances'])(
+    'classifies %j as a spec',
+    (title) => {
+      expect(deriveSpecTicketShape({ title, body: '' })).toBe('spec')
+    }
+  )
+
+  it('still refuses a spec word that only starts a longer one', () => {
+    expect(deriveSpecTicketShape({ title: 'Specialise the reducer', body: '' })).toBeUndefined()
+    expect(deriveSpecTicketShape({ title: 'Prdouct naming', body: '' })).toBeUndefined()
+  })
+
+  it('reads a parent named on the heading line itself', () => {
+    expect(parseParentIssueNumber('## Parent: #25\n\n## What to build')).toBe(25)
+    expect(deriveSpecTicketShape({ title: 'Slice 1/7', body: '## Parent: #25' })).toBe('ticket')
   })
 })

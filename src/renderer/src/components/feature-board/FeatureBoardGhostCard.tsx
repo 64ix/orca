@@ -23,6 +23,15 @@ const BADGE_LABEL_FALLBACKS: Record<GhostCandidateBadge, string> = {
   'needs-triage': 'Needs triage'
 }
 
+/** The children never get their own ghost, so this count is the spec's only trace of them. */
+function childTicketCountLabel(count: number): string {
+  return count === 1
+    ? translate('components.featureBoard.ghost.childTicketCount_one', '1 ticket')
+    : translate('components.featureBoard.ghost.childTicketCount_other', '{{value0}} tickets', {
+        value0: count
+      })
+}
+
 export function FeatureBoardGhostCard({
   candidate,
   repoId,
@@ -95,9 +104,7 @@ export function FeatureBoardGhostCard({
         <div className="mt-1.5 flex flex-wrap gap-1">
           {candidate.childTicketCount > 0 ? (
             <Badge variant="outline" className="px-1.5 py-0 text-[10px] text-muted-foreground">
-              {translate('components.featureBoard.ghost.childTicketCount', '{{value0}} tickets', {
-                value0: candidate.childTicketCount
-              })}
+              {childTicketCountLabel(candidate.childTicketCount)}
             </Badge>
           ) : null}
           {candidate.badges.map((badge) => (

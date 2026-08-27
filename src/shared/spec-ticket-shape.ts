@@ -3,8 +3,10 @@
 
 export type SpecTicketShape = 'spec' | 'ticket'
 
-// [Spec], Spec:, Spec —, Spec -, [PRD], PRD: — case-insensitive, tolerant of leading whitespace.
-const SPEC_TITLE_PATTERN = /^\s*(\[(?:spec|prd)\]|(?:spec|prd):|spec\s+[—-])/i
+// [Spec], [PRD], and Spec/PRD followed by any of : — – - — case-insensitive, tolerant of
+// leading whitespace and of spacing around the separator. The separator is required, so
+// "Specialise the reducer" is not a spec.
+const SPEC_TITLE_PATTERN = /^\s*(\[(?:spec|prd)\]|(?:spec|prd)\s*[:—–-])/i
 
 /**
  * Extract plain-text issue refs (`#12`) from markdown, ignoring URLs (`.../issues/12`) and
@@ -24,14 +26,16 @@ export function parseIssueReferenceNumbers(text: string): number[] {
 
 /** Text of the first `## <heading>` section (up to the next heading of any level, or end of body). */
 function sectionAfterHeading(body: string, heading: string): string | undefined {
-  const headingPattern = new RegExp(`^#{1,6}[ \\t]+${heading}[ \\t]*$`, 'im')
+  // Why the trailing capture: `## Parent: #25` puts the ref on the heading line itself, so the
+  // section has to start there rather than after the newline.
+  const headingPattern = new RegExp(`^#{1,6}[ \\t]+${heading}\\b([^\\n]*)$`, 'im')
   const match = headingPattern.exec(body)
   if (!match) {
     return undefined
   }
   const rest = body.slice(match.index + match[0].length)
   const nextHeading = /^#{1,6}[ \t]+\S/m.exec(rest)
-  return nextHeading ? rest.slice(0, nextHeading.index) : rest
+  return `${match[1] ?? ''}\n${nextHeading ? rest.slice(0, nextHeading.index) : rest}`
 }
 
 /** First `#N` under a `## Parent` heading, ignoring URLs/anchors — undefined when absent or unnamed. */
@@ -48,7 +52,10 @@ export function parseParentIssueNumber(body: string): number | undefined {
  * ticket: the body has a `## Parent` heading naming an issue. Title wins over body when both
  * classify — a spec cataloguing its own parent stays a spec, not a ticket.
  */
-export function deriveSpecTicketShape(args: { title: string; body: string }): SpecTicketShape | undefined {
+export function deriveSpecTicketShape(args: {
+  title: string
+  body: string
+}): SpecTicketShape | undefined {
   const { title, body } = args
   if (SPEC_TITLE_PATTERN.test(title)) {
     return 'spec'
@@ -70,10 +77,10 @@ export function deriveSpecTicketShape(args: { title: string; body: string }): Sp
  * parentIssueNumber, which the ghost board's unconditional sub-ticket exclusion then read as
  * "drop this issue from every column" (#94, #102).
  */
-export function deriveSpecTicketFields(args: {
-  title: string
-  body: string
-}): { specShape?: SpecTicketShape; parentIssueNumber?: number } {
+export function deriveSpecTicketFields(args: { title: string; body: string }): {
+  specShape?: SpecTicketShape
+  parentIssueNumber?: number
+} {
   const specShape = deriveSpecTicketShape(args)
   const parentIssueNumber = specShape === 'ticket' ? parseParentIssueNumber(args.body) : undefined
   return {
