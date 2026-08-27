@@ -1129,8 +1129,14 @@ export class OpenCodeHookService {
     // outlive any single PTY and a recursive delete on the main-process hot path
     // could freeze on Windows. A launch-scoped overlay belongs to this PTY alone
     // and carries its bearer token, so it dies with it.
-    if (isUsableId(ptyId)) {
+    if (!isUsableId(ptyId)) {
+      return
+    }
+    try {
       safeRemoveTree(this.getLaunchScopedOverlayDir(ptyId))
+    } catch {
+      // Why: teardown runs on every PTY exit path, including ones with no overlay
+      // and no Electron app dir at all — it must never throw back into the caller.
     }
   }
 
