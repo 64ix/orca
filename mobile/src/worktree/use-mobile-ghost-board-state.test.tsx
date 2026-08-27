@@ -1,6 +1,7 @@
 import { createElement } from 'react'
 import { act, create } from 'react-test-renderer'
 import { describe, expect, it, vi } from 'vitest'
+import { SHIPPED_STAGE_STEERING_MESSAGE } from '../../../src/shared/stage-authority/stage-write-authority'
 import type { RpcClient } from '../transport/rpc-client'
 import { useMobileGhostBoardState } from './use-mobile-ghost-board-state'
 
@@ -78,7 +79,7 @@ describe('useMobileGhostBoardState handleAdoptionCreated', () => {
     expect(alertMock).toHaveBeenCalledTimes(1)
     const [title, message] = alertMock.mock.calls[0]!
     expect(title).toBe('Shipped is set automatically')
-    expect(message).toBe('refused by server')
+    expect(message).toBe(SHIPPED_STAGE_STEERING_MESSAGE)
   })
 
   it('shows no alert when the declare succeeds', async () => {
