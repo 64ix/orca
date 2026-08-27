@@ -35,7 +35,12 @@ function workItem(overrides: Partial<GitHubWorkItem> = {}): GitHubWorkItem {
 function ghostEntry(repoId: string, number: number): FeatureBoardGhostEntry {
   return {
     repoId,
-    candidate: { issue: workItem({ repoId, number }), targetStage: 'idea', badges: [] }
+    candidate: {
+      issue: workItem({ repoId, number }),
+      targetStage: 'idea',
+      badges: [],
+      childTicketCount: 0
+    }
   }
 }
 

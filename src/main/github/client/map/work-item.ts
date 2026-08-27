@@ -1,5 +1,6 @@
 import type { OwnerRepo } from '../../gh-utils'
 import { mapIssueState } from '../../mappers'
+import { deriveSpecTicketShape, parseParentIssueNumber } from '../../../../shared/spec-ticket-shape'
 import {
   authorFieldsFromUnknown,
   extractHeadOwnerLogin,
@@ -22,12 +23,17 @@ function pullRequestMergedAt(value: unknown): string | null {
 }
 
 export function mapIssueWorkItem(item: Record<string, unknown>): MainWorkItem {
+  const title = String(item.title ?? '')
+  // Why: body is parsed here only to derive shape/parent — never carried onto the item (#94).
+  const body = typeof item.body === 'string' ? item.body : ''
+  const specShape = deriveSpecTicketShape({ title, body })
+  const parentIssueNumber = parseParentIssueNumber(body)
   // Why: type stays 'issue' (id prefix keys linked-issue lookups) but a merged PR must not render 'closed'.
   return {
     id: `issue:${String(item.number)}`,
     type: 'issue',
     number: Number(item.number),
-    title: String(item.title ?? ''),
+    title,
     state: mapIssueState(String(item.state ?? 'open'), {
       prMergedAt: pullRequestMergedAt(item.pull_request),
       mergedAt:
@@ -49,7 +55,9 @@ export function mapIssueWorkItem(item: Record<string, unknown>): MainWorkItem {
       : [],
     updatedAt: String(item.updated_at ?? item.updatedAt ?? ''),
     ...authorFieldsFromUnknown(item),
-    ...(item.assignees !== undefined ? { assignees: usersFromUnknown(item.assignees) } : {})
+    ...(item.assignees !== undefined ? { assignees: usersFromUnknown(item.assignees) } : {}),
+    ...(specShape ? { specShape } : {}),
+    ...(parentIssueNumber !== undefined ? { parentIssueNumber } : {})
   }
 }
 
