@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { execFile, execFileSync } from 'node:child_process'
 import {
   existsSync,
   lstatSync,
@@ -7,11 +8,14 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { __resetSecureFileWindowsUserSidForTests } from '../../shared/secure-file'
 
 const { getPathMock } = vi.hoisted(() => ({
   getPathMock: vi.fn<(name: string) => string>()
@@ -21,6 +25,11 @@ vi.mock('electron', () => ({
   app: {
     getPath: getPathMock
   }
+}))
+
+vi.mock('child_process', () => ({
+  execFileSync: vi.fn(),
+  execFile: vi.fn()
 }))
 
 import { OpenCodeHookService, _internals } from './hook-service'
@@ -508,5 +517,190 @@ describe('OpenCodeHookService overlay mode (user OPENCODE_CONFIG_DIR set)', () =
       'export default "new"'
     )
     expect(existsSync(join(overlayDir, 'node_modules', 'opencode-runtime', 'index.js'))).toBe(true)
+  })
+})
+
+describe('OpenCodeHookService MCP injection', () => {
+  const mcpConfig = { endpoint: 'http://127.0.0.1:54999', token: 'secret-launch-token' }
+  let userDataDir: string
+  let userConfigDir: string
+
+  beforeAll(() => {
+    userDataDir = mkdtempSync(join(tmpdir(), 'orca-opencode-mcp-userdata-'))
+    getPathMock.mockImplementation((name: string) => {
+      if (name === 'userData') {
+        return userDataDir
+      }
+      throw new Error(`unexpected getPath(${name})`)
+    })
+  })
+
+  afterAll(() => {
+    rmSync(userDataDir, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    userConfigDir = mkdtempSync(join(tmpdir(), 'orca-opencode-mcp-userconfig-'))
+    writeFileSync(
+      join(userConfigDir, 'opencode.json'),
+      JSON.stringify({ userTheme: 'solarized', mcp: { other: { type: 'local' } } })
+    )
+  })
+
+  afterEach(() => {
+    rmSync(userConfigDir, { recursive: true, force: true })
+    rmSync(join(userDataDir, 'opencode-config-overlays'), { recursive: true, force: true })
+  })
+
+  it('writes the mcp.orca block as a real file, preserving the rest of the user config', () => {
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-1', userConfigDir, mcpConfig)
+
+    const configPath = join(env.OPENCODE_CONFIG_DIR!, 'opencode.json')
+    expect(lstatSync(configPath).isSymbolicLink()).toBe(false)
+    const merged = JSON.parse(readFileSync(configPath, 'utf8'))
+    expect(merged.userTheme).toBe('solarized')
+    expect(merged.mcp.other).toEqual({ type: 'local' })
+    expect(merged.mcp.orca).toEqual({
+      type: 'remote',
+      url: mcpConfig.endpoint,
+      headers: { Authorization: `Bearer ${mcpConfig.token}` },
+      enabled: true
+    })
+    // The user's real file must never be touched.
+    expect(readFileSync(join(userConfigDir, 'opencode.json'), 'utf8')).not.toContain('orca')
+  })
+
+  it('two concurrent PTYs with mcp injection get isolated overlays, not the shared/source-keyed one', () => {
+    const service = new OpenCodeHookService()
+    const tokenA = { endpoint: 'http://127.0.0.1:1', token: 'token-a' }
+    const tokenB = { endpoint: 'http://127.0.0.1:2', token: 'token-b' }
+
+    const envA = service.buildPtyEnv('pty-a', userConfigDir, tokenA)
+    const envB = service.buildPtyEnv('pty-b', userConfigDir, tokenB)
+
+    expect(envA.OPENCODE_CONFIG_DIR).not.toBe(envB.OPENCODE_CONFIG_DIR)
+    const configA = JSON.parse(readFileSync(join(envA.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8'))
+    const configB = JSON.parse(readFileSync(join(envB.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8'))
+    expect(configA.mcp.orca.headers.Authorization).toBe('Bearer token-a')
+    expect(configB.mcp.orca.headers.Authorization).toBe('Bearer token-b')
+  })
+
+  it('writes a minimal config carrying just the mcp block when there is no existing user config', () => {
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-fresh', undefined, mcpConfig)
+
+    const configPath = join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc')
+    const written = JSON.parse(readFileSync(configPath, 'utf8'))
+    expect(written.mcp.orca.url).toBe(mcpConfig.endpoint)
+  })
+
+  it('installs the Orca status plugin into the same launch-scoped overlay', () => {
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-2', userConfigDir, mcpConfig)
+
+    expect(
+      existsSync(join(env.OPENCODE_CONFIG_DIR!, 'plugins', 'orca-opencode-status.js'))
+    ).toBe(true)
+  })
+
+  it('writes the overlay config file 0600 and hardens the overlay dir 0700 (POSIX)', () => {
+    if (process.platform === 'win32') {
+      return
+    }
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-mode', userConfigDir, mcpConfig)
+
+    const configPath = join(env.OPENCODE_CONFIG_DIR!, 'opencode.json')
+    expect(statSync(configPath).mode & 0o777).toBe(0o600)
+    expect(statSync(env.OPENCODE_CONFIG_DIR!).mode & 0o777).toBe(0o700)
+  })
+
+  it('hardens the overlay config file through the Windows ACL path', () => {
+    const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!
+    Object.defineProperty(process, 'platform', { configurable: true, value: 'win32' })
+    process.env.SystemRoot = 'C:\\Windows'
+    __resetSecureFileWindowsUserSidForTests()
+    vi.mocked(execFileSync).mockReset()
+    vi.mocked(execFile).mockReset()
+    vi.mocked(execFileSync).mockImplementation((file) => {
+      if (typeof file === 'string' && file.endsWith('whoami.exe')) {
+        return '"USER","S-1-5-21-1000"'
+      }
+      return ''
+    })
+    vi.mocked(execFile).mockImplementation((_file, _args, _opts, callback) => {
+      if (typeof callback === 'function') {
+        callback(null, '', '')
+      }
+      return {} as ReturnType<typeof execFile>
+    })
+    try {
+      const service = new OpenCodeHookService()
+      service.buildPtyEnv('mcp-pty-win32', userConfigDir, mcpConfig)
+
+      // The synchronous PowerShell ACL apply (writeSecureFile's file-hardening path) ran.
+      const powershellCall = vi
+        .mocked(execFileSync)
+        .mock.calls.find(([file]) => typeof file === 'string' && file.includes('powershell.exe'))
+      expect(powershellCall).toBeDefined()
+    } finally {
+      Object.defineProperty(process, 'platform', originalPlatform)
+      __resetSecureFileWindowsUserSidForTests()
+      vi.mocked(execFileSync).mockReset()
+      vi.mocked(execFile).mockReset()
+    }
+  })
+
+  it('tolerates JSONC comments in the user config when merging', () => {
+    writeFileSync(
+      join(userConfigDir, 'opencode.jsonc'),
+      '{\n  // a comment\n  "userTheme": "dark", // trailing\n}\n'
+    )
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-jsonc', userConfigDir, mcpConfig)
+
+    const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
+    expect(merged.userTheme).toBe('dark')
+    expect(merged.mcp.orca.url).toBe(mcpConfig.endpoint)
+  })
+
+  it('keeps a // sequence that lives inside a string value', () => {
+    writeFileSync(
+      join(userConfigDir, 'opencode.jsonc'),
+      '{\n  // comment\n  "note": "see http://x/y // and z"\n}\n'
+    )
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-jsonc-string', userConfigDir, mcpConfig)
+
+    const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
+    expect(merged.note).toBe('see http://x/y // and z')
+  })
+
+  it('deletes the launch-scoped overlay on clearPty, sparing the shared one', () => {
+    const service = new OpenCodeHookService()
+    const launchOverlay = service.buildPtyEnv('mcp-pty-clear', userConfigDir, mcpConfig)
+      .OPENCODE_CONFIG_DIR!
+    const sharedOverlay = service.buildPtyEnv('plain-pty', userConfigDir).OPENCODE_CONFIG_DIR!
+    expect(launchOverlay).not.toBe(sharedOverlay)
+
+    service.clearPty('mcp-pty-clear')
+
+    // Why: the overlay holds the launch's bearer token — it must not outlive its PTY.
+    expect(existsSync(launchOverlay)).toBe(false)
+    expect(existsSync(sharedOverlay)).toBe(true)
+  })
+
+  it('sweeps launch overlays whose PTY never reached clearPty, keeping fresh ones', () => {
+    const service = new OpenCodeHookService()
+    const stale = service.buildPtyEnv('mcp-pty-stale', userConfigDir, mcpConfig).OPENCODE_CONFIG_DIR!
+    const thirteenHoursAgo = new Date(Date.now() - 13 * 60 * 60 * 1000)
+    utimesSync(stale, thirteenHoursAgo, thirteenHoursAgo)
+
+    const fresh = service.buildPtyEnv('mcp-pty-fresh-2', userConfigDir, mcpConfig)
+      .OPENCODE_CONFIG_DIR!
+
+    expect(existsSync(stale)).toBe(false)
+    expect(existsSync(fresh)).toBe(true)
   })
 })

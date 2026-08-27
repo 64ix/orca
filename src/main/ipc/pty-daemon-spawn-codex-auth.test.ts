@@ -439,7 +439,8 @@ describe('registerPtyHandlers', () => {
         // Why: OpenCode loads config from a single dir, so the user's path is mirrored into a source-scoped overlay, not passed through.
         expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(
           expect.any(String),
-          '/user/custom/opencode'
+          '/user/custom/opencode',
+          null
         )
         expect(env.OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
         expect(env.ORCA_OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
@@ -452,7 +453,8 @@ describe('registerPtyHandlers', () => {
         })
         expect(openCodeBuildPtyEnvMock).toHaveBeenCalledWith(
           expect.any(String),
-          '/user/custom/opencode'
+          '/user/custom/opencode',
+          null
         )
         expect(env.OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
         expect(env.ORCA_OPENCODE_CONFIG_DIR).toBe('/tmp/orca-opencode-overlay')
