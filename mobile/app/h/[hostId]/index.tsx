@@ -52,6 +52,7 @@ import { NewWorktreeModalController } from '../../../src/components/NewWorktreeM
 import { NewWorkspaceFab, FAB_SIZE } from '../../../src/components/NewWorkspaceFab'
 import { MobileRepoIcon } from '../../../src/components/MobileRepoIcon'
 import { WorktreeListRow } from '../../../src/components/WorktreeListRow'
+import { BoardToolbarButton } from '../../../src/worktree/BoardToolbarButton'
 import { useNow } from '../../../src/hooks/use-now'
 import { useActiveWorktreeScroll } from '../../../src/hooks/use-active-worktree-scroll'
 import type { RepoIcon } from '../../../../src/shared/repo-icon'
@@ -957,6 +958,15 @@ export function HostScreen({
                 />
               </Pressable>
 
+              <BoardToolbarButton
+                style={[
+                  styles.embeddedToolbarIconButton,
+                  connState !== 'connected' && styles.toolbarIconDisabled
+                ]}
+                connected={connState === 'connected'}
+                onPress={() => navigateFromHostList(`/h/${hostId}/board`)}
+              />
+
               {floatingWorkspaceEnabled ? (
                 <Pressable
                   style={[
@@ -1068,6 +1078,12 @@ export function HostScreen({
                 color={connState === 'connected' ? colors.textSecondary : colors.textMuted}
               />
             </Pressable>
+
+            <BoardToolbarButton
+              style={styles.searchToggle}
+              connected={connState === 'connected'}
+              onPress={() => navigateFromHostList(`/h/${hostId}/board`)}
+            />
 
             <Pressable style={styles.searchToggle} onPress={() => setShowSearch((s) => !s)}>
               {showSearch ? (

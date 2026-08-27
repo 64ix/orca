@@ -46,7 +46,10 @@ describe('declareMobileWorktreeStage', () => {
 
   it('maps a stage_authority_refused RPC failure to the steering message, not the raw error', async () => {
     const calls: Call[] = []
-    const client = fakeClient(() => ({ code: STAGE_AUTHORITY_REFUSED_CODE, message: 'nope' }), calls)
+    const client = fakeClient(
+      () => ({ code: STAGE_AUTHORITY_REFUSED_CODE, message: 'nope' }),
+      calls
+    )
     const result = await declareMobileWorktreeStage(client, 'wt-1', 'shipped')
     expect(result).toEqual({ ok: false, refused: true, message: SHIPPED_STAGE_STEERING_MESSAGE })
   })

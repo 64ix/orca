@@ -80,7 +80,9 @@ describe('buildMobileStageBoardCards', () => {
   })
 
   it('old-host payload (no new fact fields) follows the declared stage, no crash', () => {
-    const cards = buildMobileStageBoardCards([worktree({ worktreeId: 'a', workflowStage: 'triage' })])
+    const cards = buildMobileStageBoardCards([
+      worktree({ worktreeId: 'a', workflowStage: 'triage' })
+    ])
     expect(cards).toHaveLength(1)
     expect(cards[0]!.effectiveStage).toBe('triage')
   })

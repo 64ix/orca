@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SHIPPED_STAGE_STEERING_MESSAGE } from '../../../src/shared/stage-authority/stage-write-authority'
-import { buildMobileStageActionOptions, runMobileStageAction } from './mobile-stage-action-sheet-model'
+import {
+  buildMobileStageActionOptions,
+  runMobileStageAction
+} from './mobile-stage-action-sheet-model'
 
 describe('buildMobileStageActionOptions', () => {
   it('offers the six working stages, shipped (refused), and clear, in stage order', () => {
@@ -88,7 +91,9 @@ describe('runMobileStageAction', () => {
   it('surfaces an ordinary RPC failure as failed, not as a steering refusal', async () => {
     const options = buildMobileStageActionOptions('idea')
     const implementing = options.find((o) => o.kind === 'implementing')!
-    const declare = vi.fn().mockResolvedValue({ ok: false, refused: false, message: 'network error' })
+    const declare = vi
+      .fn()
+      .mockResolvedValue({ ok: false, refused: false, message: 'network error' })
     const outcome = await runMobileStageAction(implementing, declare)
     expect(outcome).toEqual({ kind: 'failed', message: 'network error' })
   })
