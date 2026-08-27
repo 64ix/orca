@@ -22,15 +22,29 @@ export async function declareMobileWorktreeStage(
   worktreeId: string,
   stage: WorkflowStage | null
 ): Promise<MobileStageDeclarationResult> {
-  const response = await client.sendRequest('worktree.set', {
-    worktree: `id:${worktreeId}`,
-    workflowStage: stage
-  })
-  if (response.ok) {
-    return { ok: true }
+  try {
+    const response = await client.sendRequest('worktree.set', {
+      worktree: `id:${worktreeId}`,
+      workflowStage: stage
+    })
+    if (response.ok) {
+      return { ok: true }
+    }
+    if (response.error?.code === STAGE_AUTHORITY_REFUSED_CODE) {
+      return { ok: false, refused: true, message: SHIPPED_STAGE_STEERING_MESSAGE }
+    }
+    return {
+      ok: false,
+      refused: false,
+      message: response.error?.message || 'Failed to set the stage'
+    }
+  } catch (err) {
+    // Why: a phone loses its paired host mid-write; an escaping rejection would leave the
+    // sheet's caller with no outcome at all. Same normalization as mobile-pr-link.ts.
+    return {
+      ok: false,
+      refused: false,
+      message: err instanceof Error ? err.message : 'Failed to set the stage'
+    }
   }
-  if (response.error.code === STAGE_AUTHORITY_REFUSED_CODE) {
-    return { ok: false, refused: true, message: SHIPPED_STAGE_STEERING_MESSAGE }
-  }
-  return { ok: false, refused: false, message: response.error.message }
 }

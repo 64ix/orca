@@ -61,3 +61,15 @@ describe('declareMobileWorktreeStage', () => {
     expect(result).toEqual({ ok: false, refused: false, message: 'timed out' })
   })
 })
+
+describe('declareMobileWorktreeStage transport failures', () => {
+  it('normalizes a transport drop into a non-refusal failure instead of rejecting', async () => {
+    const client = {
+      sendRequest: async () => {
+        throw new Error('socket closed')
+      }
+    } as unknown as RpcClient
+    const result = await declareMobileWorktreeStage(client, 'wt-1', 'idea')
+    expect(result).toEqual({ ok: false, refused: false, message: 'socket closed' })
+  })
+})
