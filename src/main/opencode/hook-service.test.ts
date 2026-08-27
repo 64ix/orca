@@ -10,6 +10,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -662,5 +663,44 @@ describe('OpenCodeHookService MCP injection', () => {
     const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
     expect(merged.userTheme).toBe('dark')
     expect(merged.mcp.orca.url).toBe(mcpConfig.endpoint)
+  })
+
+  it('keeps a // sequence that lives inside a string value', () => {
+    writeFileSync(
+      join(userConfigDir, 'opencode.jsonc'),
+      '{\n  // comment\n  "note": "see http://x/y // and z"\n}\n'
+    )
+    const service = new OpenCodeHookService()
+    const env = service.buildPtyEnv('mcp-pty-jsonc-string', userConfigDir, mcpConfig)
+
+    const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
+    expect(merged.note).toBe('see http://x/y // and z')
+  })
+
+  it('deletes the launch-scoped overlay on clearPty, sparing the shared one', () => {
+    const service = new OpenCodeHookService()
+    const launchOverlay = service.buildPtyEnv('mcp-pty-clear', userConfigDir, mcpConfig)
+      .OPENCODE_CONFIG_DIR!
+    const sharedOverlay = service.buildPtyEnv('plain-pty', userConfigDir).OPENCODE_CONFIG_DIR!
+    expect(launchOverlay).not.toBe(sharedOverlay)
+
+    service.clearPty('mcp-pty-clear')
+
+    // Why: the overlay holds the launch's bearer token — it must not outlive its PTY.
+    expect(existsSync(launchOverlay)).toBe(false)
+    expect(existsSync(sharedOverlay)).toBe(true)
+  })
+
+  it('sweeps launch overlays whose PTY never reached clearPty, keeping fresh ones', () => {
+    const service = new OpenCodeHookService()
+    const stale = service.buildPtyEnv('mcp-pty-stale', userConfigDir, mcpConfig).OPENCODE_CONFIG_DIR!
+    const thirteenHoursAgo = new Date(Date.now() - 13 * 60 * 60 * 1000)
+    utimesSync(stale, thirteenHoursAgo, thirteenHoursAgo)
+
+    const fresh = service.buildPtyEnv('mcp-pty-fresh-2', userConfigDir, mcpConfig)
+      .OPENCODE_CONFIG_DIR!
+
+    expect(existsSync(stale)).toBe(false)
+    expect(existsSync(fresh)).toBe(true)
   })
 })

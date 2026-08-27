@@ -112,6 +112,30 @@ describe('buildOrcaMcpLaunchInjection', () => {
       const command = buildShellCommandFromArgv(['claude', ...injection!.extraArgv], 'posix')
       expect(command).not.toContain(SECRET_TOKEN)
     })
+
+    it.each(['--allowedTools Bash(git:*)', '--allowed-tools=Read', 'x --allowedTools Read'])(
+      'leaves the user\'s own allow-list untouched: %s',
+      (existingAgentArgs) => {
+        const injection = buildOrcaMcpLaunchInjection('claude', {
+          endpoint: ENDPOINT,
+          token: SECRET_TOKEN,
+          userDataPath: makeUserDataPath(),
+          existingAgentArgs
+        })
+        expect(injection!.extraArgv).not.toContain('--allowedTools')
+        expect(injection!.extraArgv).toContain('--mcp-config')
+      }
+    )
+
+    it('still pre-approves when the user set an unrelated flag', () => {
+      const injection = buildOrcaMcpLaunchInjection('claude', {
+        endpoint: ENDPOINT,
+        token: SECRET_TOKEN,
+        userDataPath: makeUserDataPath(),
+        existingAgentArgs: '--model opus --disallowedTools Bash'
+      })
+      expect(injection!.extraArgv).toContain('--allowedTools')
+    })
   })
 
   describe('codex', () => {

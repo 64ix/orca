@@ -21813,6 +21813,8 @@ export class OrcaRuntimeService {
     workspaceSelector: string
     platform: NodeJS.Platform
     shell?: AgentStartupShell
+    /** The user's own args — injection must not override a flag they already set. */
+    existingAgentArgs: string | null
   }): {
     envAppend: Record<string, string>
     argsAppend: string
@@ -21844,7 +21846,8 @@ export class OrcaRuntimeService {
       const injection = buildOrcaMcpLaunchInjection(args.agent, {
         endpoint,
         token,
-        userDataPath: app.getPath('userData')
+        userDataPath: app.getPath('userData'),
+        existingAgentArgs: args.existingAgentArgs
       })
       if (!injection) {
         return { envAppend: {}, argsAppend: '', mintedToken: token, mcpLaunchConfigPath: null }
@@ -21908,7 +21911,8 @@ export class OrcaRuntimeService {
       eligible: args.eligible,
       workspaceSelector: args.workspaceSelector,
       platform: args.platform,
-      shell: args.shell
+      shell: args.shell,
+      existingAgentArgs: args.agentArgs
     })
     return {
       agentArgs: [args.agentArgs ?? '', extras.argsAppend].filter(Boolean).join(' '),

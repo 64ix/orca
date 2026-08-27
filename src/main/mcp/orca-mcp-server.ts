@@ -207,6 +207,18 @@ export class OrcaMcpServer {
         'session_not_found: initialize again (server restarts invalidate sessions)'
       )
     }
+    if (
+      context.tokenWorkspaceSelector !== null &&
+      session.workspaceSelector !== context.tokenWorkspaceSelector
+    ) {
+      // Why: a scoped token may only drive sessions bound to its own workspace —
+      // otherwise a session id alone (not the token) would decide the target.
+      return jsonRpcError(
+        id,
+        MCP_SESSION_NOT_FOUND,
+        'session_not_found: this session belongs to another workspace'
+      )
+    }
     const toolName = params['name']
     if (typeof toolName !== 'string') {
       return jsonRpcError(

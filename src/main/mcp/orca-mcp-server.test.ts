@@ -444,6 +444,31 @@ describe('per-launch tokens', () => {
     )
   })
 
+  it("refuses a scoped token driving another workspace's session id", async () => {
+    const { server, runtime } = await startServer()
+    const tokenA = server.mintLaunchToken('id:wt-a')
+    const tokenB = server.mintLaunchToken('id:wt-b')
+    const sessionA = await initializeWithoutParams(server, tokenA)
+
+    // Why: the session id alone must never decide the target — B's token may only drive B's sessions.
+    const reply = await post(
+      server.endpoint(),
+      tokenB,
+      {
+        jsonrpc: '2.0',
+        id: 9,
+        method: 'tools/call',
+        params: { name: 'declare_stage', arguments: { stage: 'spec' } }
+      },
+      { 'mcp-session-id': sessionA }
+    )
+
+    expect(JSON.parse(reply.body)).toMatchObject({
+      error: { code: -32001, message: expect.stringContaining('another workspace') }
+    })
+    expect(runtime.updateManagedWorktreeMeta).not.toHaveBeenCalled()
+  })
+
   it('rebindLaunchToken repoints an already-minted token before any agent uses it', async () => {
     const { server, runtime } = await startServer()
     const token = server.mintLaunchToken('pending:placeholder-123')

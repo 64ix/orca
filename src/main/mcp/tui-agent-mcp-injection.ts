@@ -21,6 +21,8 @@ export type OrcaMcpLaunchContext = {
   endpoint: string
   token: string
   userDataPath: string
+  /** The user's own launch args, so injection never overrides a flag they already set. */
+  existingAgentArgs?: string | null
 }
 
 export type OrcaMcpLaunchInjection = {
@@ -53,6 +55,9 @@ const MCP_LAUNCH_CONFIG_DIR = 'mcp-launch'
 
 // Why: claude has no env var for a bearer token (verified against claude 2.1.246),
 // so the token rides a per-launch config file instead — never argv, never env.
+/** Both spellings claude accepts; a second occurrence would silently override the user's own list. */
+const CLAUDE_ALLOWED_TOOLS_FLAG = /(^|\s)--allowed-?tools(\s|=|$)/i
+
 function buildClaudeInjection(context: OrcaMcpLaunchContext): OrcaMcpLaunchInjection {
   const launchDir = join(context.userDataPath, MCP_LAUNCH_CONFIG_DIR)
   mkdirSync(launchDir, { recursive: true })
@@ -66,9 +71,15 @@ function buildClaudeInjection(context: OrcaMcpLaunchContext): OrcaMcpLaunchInjec
       }
     }
   })
+  // Why: a user who set their own --allowedTools owns that decision — appending
+  // ours would replace their list wholesale. They keep it; Orca's tools then go
+  // through the client's normal approval prompt instead of being pre-approved.
+  const userSetAllowedTools = CLAUDE_ALLOWED_TOOLS_FLAG.test(context.existingAgentArgs ?? '')
   return {
     env: {},
-    extraArgv: ['--mcp-config', configPath, '--allowedTools', MCP_ALLOWED_TOOL_ARGS.join(' ')],
+    extraArgv: userSetAllowedTools
+      ? ['--mcp-config', configPath]
+      : ['--mcp-config', configPath, '--allowedTools', MCP_ALLOWED_TOOL_ARGS.join(' ')],
     configFilePath: configPath
   }
 }

@@ -20,12 +20,56 @@ const OPENCODE_LEGACY_HOOKS_DIR = 'opencode-hooks'
 const OPENCODE_OVERLAY_DIR = 'opencode-config-overlays'
 const OPENCODE_SHARED_CONFIG_DIR = 'shared'
 const OPENCODE_OVERLAY_MANIFEST_FILE = '.orca-opencode-overlay-manifest.json'
+// Why: launch-scoped overlays live under their own root so a sweep can tell them
+// apart from the shared/source-keyed ones — both dir names are opaque hashes.
+const OPENCODE_LAUNCH_OVERLAY_DIR = 'launch'
+const STALE_LAUNCH_OVERLAY_MS = 12 * 60 * 60 * 1000
 const OPENCODE_CONFIG_FILE_NAMES = ['opencode.jsonc', 'opencode.json'] as const
 
 export type OpenCodeMcpInjectionConfig = { endpoint: string; token: string }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Strips JSONC comments and trailing commas, scanning strings so `//` inside a value survives. */
+function stripJsonComments(raw: string): string {
+  let out = ''
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < raw.length; i += 1) {
+    const char = raw[i]
+    if (inString) {
+      out += char
+      if (escaped) {
+        escaped = false
+      } else if (char === '\\') {
+        escaped = true
+      } else if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+    if (char === '"') {
+      inString = true
+      out += char
+      continue
+    }
+    if (char === '/' && raw[i + 1] === '/') {
+      while (i < raw.length && raw[i] !== '\n') {
+        i += 1
+      }
+      out += '\n'
+      continue
+    }
+    if (char === '/' && raw[i + 1] === '*') {
+      const end = raw.indexOf('*/', i + 2)
+      i = end === -1 ? raw.length : end + 1
+      continue
+    }
+    out += char
+  }
+  return out.replace(/,(\s*[}\]])/g, '$1')
 }
 
 /** Reads the user's opencode config for merging; tolerates JSONC comments, fails open to `{}`. */
@@ -35,13 +79,8 @@ function readOpenCodeConfigTolerant(path: string): Record<string, unknown> {
     try {
       return JSON.parse(raw) as Record<string, unknown>
     } catch {
-      // Why: opencode.jsonc allows // and /* */ comments that JSON.parse rejects;
-      // strip them defensively — this only affects our transient overlay copy.
-      const stripped = raw
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .replace(/(^|[^:])\/\/.*$/gm, '$1')
-        .replace(/,(\s*[}\]])/g, '$1')
-      return JSON.parse(stripped) as Record<string, unknown>
+      // Why: opencode.jsonc allows // and /* */ comments that JSON.parse rejects.
+      return JSON.parse(stripJsonComments(raw)) as Record<string, unknown>
     }
   } catch {
     return {}
@@ -1085,8 +1124,14 @@ export function getOpenCodeFamilyPluginSource(hookPathname: string): string {
 
 // Why: installs the plugin into OPENCODE_CONFIG_DIR so it POSTs to the shared agent-hooks server, unifying OpenCode status with Claude/Codex/Gemini (the old loopback-IPC path never reached agentStatusByPaneKey).
 export class OpenCodeHookService {
-  clearPty(_ptyId: string): void {
-    // Why: no-op — config dirs are app/source-scoped now, and recursive delete on the main-process hot path could freeze on Windows.
+  clearPty(ptyId: string): void {
+    // Why: the shared/source-keyed overlays are deliberately left behind — they
+    // outlive any single PTY and a recursive delete on the main-process hot path
+    // could freeze on Windows. A launch-scoped overlay belongs to this PTY alone
+    // and carries its bearer token, so it dies with it.
+    if (isUsableId(ptyId)) {
+      safeRemoveTree(this.getLaunchScopedOverlayDir(ptyId))
+    }
   }
 
   buildPtyEnv(
@@ -1140,6 +1185,7 @@ export class OpenCodeHookService {
     mcpConfig: OpenCodeMcpInjectionConfig
   ): Record<string, string> {
     const overlayDir = this.getLaunchScopedOverlayDir(ptyId)
+    this.sweepStaleLaunchScopedOverlays()
     try {
       mkdirSync(overlayDir, { recursive: true, mode: 0o700 })
       if (existingConfigDir && existsSync(existingConfigDir)) {
@@ -1155,7 +1201,33 @@ export class OpenCodeHookService {
   }
 
   private getLaunchScopedOverlayDir(ptyId: string): string {
-    return join(this.getOverlayRoot(), toSafeDirName(`pty:${ptyId}`))
+    return join(this.getOverlayRoot(), OPENCODE_LAUNCH_OVERLAY_DIR, toSafeDirName(ptyId))
+  }
+
+  /**
+   * Backstop for launch overlays whose PTY never reached clearPty (crash, kill -9):
+   * each one holds a bearer token, so none may linger. Mirrors the MCP launch
+   * token registry's own idle TTL; best-effort, never throws.
+   */
+  private sweepStaleLaunchScopedOverlays(): void {
+    const launchRoot = join(this.getOverlayRoot(), OPENCODE_LAUNCH_OVERLAY_DIR)
+    let entries: string[]
+    try {
+      entries = readdirSync(launchRoot)
+    } catch {
+      return
+    }
+    const cutoff = Date.now() - STALE_LAUNCH_OVERLAY_MS
+    for (const entry of entries) {
+      const entryPath = join(launchRoot, entry)
+      try {
+        if (statSync(entryPath).mtimeMs < cutoff) {
+          safeRemoveTree(entryPath)
+        }
+      } catch {
+        // Why: a dir removed concurrently (its PTY just exited) is not an error.
+      }
+    }
   }
 
   /**
