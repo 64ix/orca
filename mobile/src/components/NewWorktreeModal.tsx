@@ -11,6 +11,7 @@ import {
   Keyboard
 } from 'react-native'
 import { ChevronDown, ChevronUp, Monitor } from 'lucide-react-native'
+import type { GitHubWorkItem } from '../../../src/shared/github/work-item-types'
 import type { RpcClient } from '../transport/rpc-client'
 import type { RpcResponse, RpcSuccess } from '../transport/types'
 import { colors, spacing, radii, typography } from '../theme/mobile-theme'
@@ -146,6 +147,10 @@ type Props = {
   // what the suggestion logic must dedupe against.
   existingWorktreePaths?: readonly string[]
   existingWorktrees?: readonly { repoId: string; branch: string }[]
+  // Why: ghost-card Adopt (#100) enters this same create flow prefilled with the grabbed
+  // GitHub issue instead of a parallel creation path — selects the repo, then seeds the
+  // composer exactly as picking the issue from the Smart source drawer would.
+  initialGitHubWorkItem?: { repoId: string; item: GitHubWorkItem } | null
   onCreated: (worktreeId: string, name: string) => void
   onClose: () => void
 }
@@ -156,6 +161,7 @@ export function NewWorktreeModal({
   hostId,
   existingWorktreePaths,
   existingWorktrees,
+  initialGitHubWorkItem,
   onCreated,
   onClose
 }: Props) {
@@ -181,6 +187,7 @@ export function NewWorktreeModal({
       hostId={hostId}
       existingWorktreePaths={existingWorktreePaths}
       existingWorktrees={existingWorktrees}
+      initialGitHubWorkItem={initialGitHubWorkItem}
       onCreated={onCreated}
       onClose={onClose}
     />
@@ -193,6 +200,7 @@ function NewWorktreeModalContent({
   hostId,
   existingWorktreePaths,
   existingWorktrees,
+  initialGitHubWorkItem,
   onCreated,
   onClose
 }: Props) {
@@ -313,13 +321,37 @@ function NewWorktreeModalContent({
     const eligibleRepos = getMobileNewWorkspaceDialogEligibleRepos(repos)
     const preferredRepoId = resolveMobileNewWorkspaceDialogRepoId({
       eligibleRepos,
+      initialRepoId: initialGitHubWorkItem?.repoId,
       activeRepoId: lastVisitedRepo.repoId
     })
     const preferredRepo = repos.find((repo) => repo.id === preferredRepoId) ?? null
     if (preferredRepo) {
       setSelectedRepo(preferredRepo)
     }
-  }, [lastVisitedRepo.loaded, lastVisitedRepo.repoId, repos, selectedRepo, visible])
+  }, [
+    initialGitHubWorkItem,
+    lastVisitedRepo.loaded,
+    lastVisitedRepo.repoId,
+    repos,
+    selectedRepo,
+    visible
+  ])
+
+  // Ghost-card Adopt (#100): once the ghost's repo is selected, seed the composer exactly as
+  // picking the same issue from the Smart source drawer would — one-shot per open (the ref
+  // guard), since NewWorktreeModalContent remounts fresh each time the drawer opens.
+  const appliedInitialWorkItemRef = useRef(false)
+  useEffect(() => {
+    if (
+      appliedInitialWorkItemRef.current ||
+      !initialGitHubWorkItem ||
+      selectedRepo?.id !== initialGitHubWorkItem.repoId
+    ) {
+      return
+    }
+    appliedInitialWorkItemRef.current = true
+    composer.handleSmartGitHubItemSelect(initialGitHubWorkItem.item)
+  }, [composer, initialGitHubWorkItem, selectedRepo])
 
   useEffect(() => {
     if (!visible || !client) {

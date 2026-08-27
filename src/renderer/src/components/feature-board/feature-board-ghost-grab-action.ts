@@ -1,6 +1,9 @@
 import type { FeatureBoardAdoptionInput } from './feature-board-adoption-plan'
 import { runFeatureBoardAdoption } from './feature-board-adoption-action'
-import type { GhostCandidate, GhostCandidateIssue } from './feature-board-ghost-candidates'
+import type {
+  GhostCandidate,
+  GhostCandidateIssue
+} from '../../../../shared/feature-board/ghost-candidates'
 
 /**
  * Ghost-card grab (#49): rides the existing adoption/"Use issue" flow with the declared

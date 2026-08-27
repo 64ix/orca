@@ -1241,10 +1241,13 @@ export class OpenCodeHookService {
    * through it would corrupt their real file. Replace that symlink (if any) with a
    * real file carrying the same content plus our `mcp.orca` entry.
    */
-  private mergeMcpConfigIntoOverlay(overlayDir: string, mcpConfig: OpenCodeMcpInjectionConfig): void {
-    const existingConfigFile = OPENCODE_CONFIG_FILE_NAMES.map((name) => join(overlayDir, name)).find(
-      (path) => existsSync(path)
-    )
+  private mergeMcpConfigIntoOverlay(
+    overlayDir: string,
+    mcpConfig: OpenCodeMcpInjectionConfig
+  ): void {
+    const existingConfigFile = OPENCODE_CONFIG_FILE_NAMES.map((name) =>
+      join(overlayDir, name)
+    ).find((path) => existsSync(path))
     const targetPath = existingConfigFile ?? join(overlayDir, OPENCODE_CONFIG_FILE_NAMES[0])
     const base = existingConfigFile ? readOpenCodeConfigTolerant(existingConfigFile) : {}
     if (existingConfigFile) {

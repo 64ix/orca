@@ -1,8 +1,5 @@
-import type { WorkflowStage } from '../../../../shared/workflow-stages'
-import {
-  parseIssueReferenceNumbers,
-  type SpecTicketShape
-} from '../../../../shared/spec-ticket-shape'
+import type { WorkflowStage } from '../workflow-stages'
+import { parseIssueReferenceNumbers, type SpecTicketShape } from '../spec-ticket-shape'
 
 /** Minimal issue shape the derivation needs — callers pass richer records through `T`. */
 export type GhostCandidateIssue = {

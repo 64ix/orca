@@ -6,6 +6,7 @@ import type {
   AgentType
 } from './agent-status-types'
 import type { WorkflowStage } from './workflow-stages'
+import type { WorkflowIssueState } from './stage-derivation/stage-derivation'
 import type {
   BrowserCertificateFailure,
   BrowserCookieImportResult,
@@ -859,9 +860,13 @@ export type RuntimeWorktreePsSummary = {
   creatorProvenance?: Worktree['creatorProvenance']
   linkedIssue: number | null
   linkedPR: { number: number; state: string } | null
+  /** GitHub cache state of `linkedIssue`; absent when the host has no cached read (never a default). */
+  linkedIssueState?: WorkflowIssueState
   linkedLinearIssue: string | null
   linkedGitLabMR: number | null
   linkedGitLabIssue: number | null
+  /** PR numbers a human has already de-shipped once; absent = the host never evaluated it. */
+  consumedMergedPRNumbers?: number[]
   comment: string
   isPinned: boolean
   /** True for the worktree currently focused on the desktop/host

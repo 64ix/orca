@@ -5,9 +5,9 @@ import {
   parseReferencedIssueNumbers,
   type BuildGhostCandidatesParams,
   type GhostCandidateIssue
-} from './feature-board-ghost-candidates'
+} from './ghost-candidates'
 // Why: single source of both fields (#94) — mappers spread this, so it must feed the derivation the same way.
-import { deriveSpecTicketFields } from '../../../../shared/spec-ticket-shape'
+import { deriveSpecTicketFields } from '../spec-ticket-shape'
 
 const REPO = 'owner/orca'
 
@@ -181,7 +181,12 @@ describe('specShape routing (#94)', () => {
   it('never lets specShape "ticket" alone route to spec — such issues carry parentIssueNumber and are excluded instead', () => {
     const candidates = build({
       openIssues: [
-        issue({ number: 1, title: 'Ticket — Alliance UI', specShape: 'ticket', parentIssueNumber: 7 })
+        issue({
+          number: 1,
+          title: 'Ticket — Alliance UI',
+          specShape: 'ticket',
+          parentIssueNumber: 7
+        })
       ]
     })
     expect(candidates).toEqual([])

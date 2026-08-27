@@ -8,7 +8,10 @@ import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
 import { runFeatureBoardGhostGrab } from './feature-board-ghost-grab-action'
-import type { GhostCandidate, GhostCandidateBadge } from './feature-board-ghost-candidates'
+import type {
+  GhostCandidate,
+  GhostCandidateBadge
+} from '../../../../shared/feature-board/ghost-candidates'
 
 // Why static keys: translate() lookups stay lintable; fallbacks mirror en.json.
 const BADGE_LABEL_KEYS: Record<GhostCandidateBadge, string> = {

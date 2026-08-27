@@ -580,8 +580,12 @@ describe('OpenCodeHookService MCP injection', () => {
     const envB = service.buildPtyEnv('pty-b', userConfigDir, tokenB)
 
     expect(envA.OPENCODE_CONFIG_DIR).not.toBe(envB.OPENCODE_CONFIG_DIR)
-    const configA = JSON.parse(readFileSync(join(envA.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8'))
-    const configB = JSON.parse(readFileSync(join(envB.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8'))
+    const configA = JSON.parse(
+      readFileSync(join(envA.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8')
+    )
+    const configB = JSON.parse(
+      readFileSync(join(envB.OPENCODE_CONFIG_DIR!, 'opencode.json'), 'utf8')
+    )
     expect(configA.mcp.orca.headers.Authorization).toBe('Bearer token-a')
     expect(configB.mcp.orca.headers.Authorization).toBe('Bearer token-b')
   })
@@ -599,9 +603,9 @@ describe('OpenCodeHookService MCP injection', () => {
     const service = new OpenCodeHookService()
     const env = service.buildPtyEnv('mcp-pty-2', userConfigDir, mcpConfig)
 
-    expect(
-      existsSync(join(env.OPENCODE_CONFIG_DIR!, 'plugins', 'orca-opencode-status.js'))
-    ).toBe(true)
+    expect(existsSync(join(env.OPENCODE_CONFIG_DIR!, 'plugins', 'orca-opencode-status.js'))).toBe(
+      true
+    )
   })
 
   it('writes the overlay config file 0600 and hardens the overlay dir 0700 (POSIX)', () => {
@@ -660,7 +664,9 @@ describe('OpenCodeHookService MCP injection', () => {
     const service = new OpenCodeHookService()
     const env = service.buildPtyEnv('mcp-pty-jsonc', userConfigDir, mcpConfig)
 
-    const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
+    const merged = JSON.parse(
+      readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8')
+    )
     expect(merged.userTheme).toBe('dark')
     expect(merged.mcp.orca.url).toBe(mcpConfig.endpoint)
   })
@@ -673,14 +679,19 @@ describe('OpenCodeHookService MCP injection', () => {
     const service = new OpenCodeHookService()
     const env = service.buildPtyEnv('mcp-pty-jsonc-string', userConfigDir, mcpConfig)
 
-    const merged = JSON.parse(readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8'))
+    const merged = JSON.parse(
+      readFileSync(join(env.OPENCODE_CONFIG_DIR!, 'opencode.jsonc'), 'utf8')
+    )
     expect(merged.note).toBe('see http://x/y // and z')
   })
 
   it('deletes the launch-scoped overlay on clearPty, sparing the shared one', () => {
     const service = new OpenCodeHookService()
-    const launchOverlay = service.buildPtyEnv('mcp-pty-clear', userConfigDir, mcpConfig)
-      .OPENCODE_CONFIG_DIR!
+    const launchOverlay = service.buildPtyEnv(
+      'mcp-pty-clear',
+      userConfigDir,
+      mcpConfig
+    ).OPENCODE_CONFIG_DIR!
     const sharedOverlay = service.buildPtyEnv('plain-pty', userConfigDir).OPENCODE_CONFIG_DIR!
     expect(launchOverlay).not.toBe(sharedOverlay)
 
@@ -693,12 +704,19 @@ describe('OpenCodeHookService MCP injection', () => {
 
   it('sweeps launch overlays whose PTY never reached clearPty, keeping fresh ones', () => {
     const service = new OpenCodeHookService()
-    const stale = service.buildPtyEnv('mcp-pty-stale', userConfigDir, mcpConfig).OPENCODE_CONFIG_DIR!
+    const stale = service.buildPtyEnv(
+      'mcp-pty-stale',
+      userConfigDir,
+      mcpConfig
+    ).OPENCODE_CONFIG_DIR!
     const thirteenHoursAgo = new Date(Date.now() - 13 * 60 * 60 * 1000)
     utimesSync(stale, thirteenHoursAgo, thirteenHoursAgo)
 
-    const fresh = service.buildPtyEnv('mcp-pty-fresh-2', userConfigDir, mcpConfig)
-      .OPENCODE_CONFIG_DIR!
+    const fresh = service.buildPtyEnv(
+      'mcp-pty-fresh-2',
+      userConfigDir,
+      mcpConfig
+    ).OPENCODE_CONFIG_DIR!
 
     expect(existsSync(stale)).toBe(false)
     expect(existsSync(fresh)).toBe(true)

@@ -97,7 +97,10 @@ const STALE_MCP_LAUNCH_CONFIG_MS = 12 * 60 * 60 * 1000
 /** Deletes claude launch config files older than `maxAgeMs`; best-effort, never throws. */
 export function sweepStaleMcpLaunchConfigs(
   userDataPath: string,
-  { maxAgeMs = STALE_MCP_LAUNCH_CONFIG_MS, now = Date.now }: { maxAgeMs?: number; now?: () => number } = {}
+  {
+    maxAgeMs = STALE_MCP_LAUNCH_CONFIG_MS,
+    now = Date.now
+  }: { maxAgeMs?: number; now?: () => number } = {}
 ): void {
   const launchDir = join(userDataPath, MCP_LAUNCH_CONFIG_DIR)
   let entries: string[]

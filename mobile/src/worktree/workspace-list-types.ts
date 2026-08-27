@@ -1,5 +1,7 @@
 import type { ExecutionHostId } from '../../../src/shared/execution-host'
 import type { RuntimeWorktreeAgentRow } from '../../../src/shared/runtime-types'
+import type { WorkflowStage } from '../../../src/shared/workflow-stages'
+import type { WorkflowIssueState } from '../../../src/shared/stage-derivation/stage-derivation'
 
 export type Worktree = {
   sectionListKey?: string
@@ -40,6 +42,12 @@ export type Worktree = {
   isActive?: boolean
   linkedPR: { number: number; state: string } | null
   linkedIssue?: number | null
+  /** Declared stage only (from meta); absent = unstaged. See mobile-stage-facts.ts for the derived, fact-aware stage. */
+  workflowStage?: WorkflowStage | null
+  /** GitHub cache state of `linkedIssue`; absent = the host never evaluated it, never a default. */
+  linkedIssueState?: WorkflowIssueState
+  /** PR numbers a human already de-shipped once; absent = the host never evaluated it. */
+  consumedMergedPRNumbers?: number[]
   linkedLinearIssue?: string | null
   linkedGitLabMR?: number | null
   linkedGitLabIssue?: number | null

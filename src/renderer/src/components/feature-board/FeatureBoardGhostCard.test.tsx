@@ -5,7 +5,7 @@ import { cleanup, render } from '@testing-library/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
-import type { GhostCandidate } from './feature-board-ghost-candidates'
+import type { GhostCandidate } from '../../../../shared/feature-board/ghost-candidates'
 import { FeatureBoardGhostCard } from './FeatureBoardGhostCard'
 
 const initialState = useAppStore.getInitialState()

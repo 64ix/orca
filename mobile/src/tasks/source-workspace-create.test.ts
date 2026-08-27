@@ -58,7 +58,7 @@ describe('createWorkspaceFromComposerSource', () => {
     expect(calls[0]!.params).toMatchObject({
       repo: 'id:repo-9',
       linkedIssue: 7,
-      displayName: 'Bug'
+      displayName: 'Issue 7 Bug'
     })
   })
 

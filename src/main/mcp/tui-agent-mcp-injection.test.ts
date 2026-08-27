@@ -45,14 +45,22 @@ describe('buildOrcaMcpLaunchInjection', () => {
   it('returns null for an agent outside the carrier table', () => {
     const userDataPath = makeUserDataPath()
     expect(
-      buildOrcaMcpLaunchInjection('gemini', { endpoint: ENDPOINT, token: SECRET_TOKEN, userDataPath })
+      buildOrcaMcpLaunchInjection('gemini', {
+        endpoint: ENDPOINT,
+        token: SECRET_TOKEN,
+        userDataPath
+      })
     ).toBeNull()
   })
 
   it('returns null for opencode — it rides the OPENCODE_CONFIG_DIR overlay instead', () => {
     const userDataPath = makeUserDataPath()
     expect(
-      buildOrcaMcpLaunchInjection('opencode', { endpoint: ENDPOINT, token: SECRET_TOKEN, userDataPath })
+      buildOrcaMcpLaunchInjection('opencode', {
+        endpoint: ENDPOINT,
+        token: SECRET_TOKEN,
+        userDataPath
+      })
     ).toBeNull()
   })
 
@@ -114,7 +122,7 @@ describe('buildOrcaMcpLaunchInjection', () => {
     })
 
     it.each(['--allowedTools Bash(git:*)', '--allowed-tools=Read', 'x --allowedTools Read'])(
-      'leaves the user\'s own allow-list untouched: %s',
+      "leaves the user's own allow-list untouched: %s",
       (existingAgentArgs) => {
         const injection = buildOrcaMcpLaunchInjection('claude', {
           endpoint: ENDPOINT,

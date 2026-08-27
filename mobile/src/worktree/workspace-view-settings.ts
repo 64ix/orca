@@ -6,13 +6,15 @@
 import type { WorkspaceStatusDefinition } from '../../../src/shared/worktree/types'
 import { coerceMobileWorkspaceStatuses } from './mobile-workspace-statuses'
 
-export type MobileGroupMode = 'none' | 'workspaceStatus' | 'repo' | 'prStatus'
+// 'stage' groups by the fixed WORKFLOW_STAGE_IDS pipeline (#97), mirroring
+// desktop sidebar's "By stage" mode (#45).
+export type MobileGroupMode = 'none' | 'workspaceStatus' | 'repo' | 'prStatus' | 'stage'
 // Desktop sort adds 'manual'; mobile renders it but sorts by server order.
 export type MobileSortMode = 'smart' | 'name' | 'recent' | 'repo' | 'manual'
 
 // Desktop PersistedUIState fields this screen syncs (a structural subset).
 export type WorkspaceViewSettings = {
-  groupBy?: 'none' | 'workspace-status' | 'repo' | 'pr-status'
+  groupBy?: 'none' | 'workspace-status' | 'repo' | 'pr-status' | 'workflow-stage'
   sortBy?: 'name' | 'smart' | 'recent' | 'repo' | 'manual'
   hideSleepingWorkspaces?: boolean
   hideDefaultBranchWorkspace?: boolean
@@ -26,14 +28,16 @@ const GROUP_TO_DESKTOP: Record<MobileGroupMode, NonNullable<WorkspaceViewSetting
   none: 'none',
   workspaceStatus: 'workspace-status',
   repo: 'repo',
-  prStatus: 'pr-status'
+  prStatus: 'pr-status',
+  stage: 'workflow-stage'
 }
 
 const GROUP_FROM_DESKTOP: Record<NonNullable<WorkspaceViewSettings['groupBy']>, MobileGroupMode> = {
   none: 'none',
   'workspace-status': 'workspaceStatus',
   repo: 'repo',
-  'pr-status': 'prStatus'
+  'pr-status': 'prStatus',
+  'workflow-stage': 'stage'
 }
 
 const SORT_VALUES: readonly MobileSortMode[] = ['smart', 'name', 'recent', 'repo', 'manual']

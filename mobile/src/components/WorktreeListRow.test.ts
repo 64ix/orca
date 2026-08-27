@@ -209,3 +209,80 @@ describe('memoized worktree rows', () => {
     expect(agentStateDotRender).toHaveBeenCalledTimes(2)
   })
 })
+
+type JsonNode = {
+  type: string
+  props: Record<string, unknown>
+  children: (JsonNode | string)[] | null
+}
+
+// react-test-renderer's toJSON() tree, walked for rendered text — the row's
+// underlying elements are mocked to plain host-component strings ('Text', 'View').
+function collectText(node: JsonNode | string | null): string[] {
+  if (node === null) {
+    return []
+  }
+  if (typeof node === 'string') {
+    return [node]
+  }
+  return (node.children ?? []).flatMap((child) => collectText(child))
+}
+
+async function renderRowText(item: TestItem): Promise<string[]> {
+  let renderer!: ReactTestRenderer
+  const onPress = () => undefined
+  await act(async () => {
+    renderer = create(
+      createElement(WorktreeListRow, {
+        item,
+        isReadOnly: false,
+        now: 2_000,
+        repoColor: '#000000',
+        repoIcon: stableRepoIcon,
+        hideRepo: false,
+        status: item.status,
+        onPress
+      })
+    )
+  })
+  const text = collectText(renderer.toJSON() as JsonNode | null)
+  await act(async () => renderer.unmount())
+  return text
+}
+
+// #97: a neutral, label-only stage badge on every staged row, in every grouping mode
+// (the row component is shared across all of them) — never a per-stage color (STYLEGUIDE).
+describe('stage badge (#97)', () => {
+  it('shows the declared stage label on a staged row', async () => {
+    const text = await renderRowText({ ...baseItem, workflowStage: 'idea' })
+    expect(text).toContain('Idea')
+  })
+
+  it('shows no stage badge on an unstaged row', async () => {
+    const text = await renderRowText({ ...baseItem, workflowStage: null })
+    expect(text).not.toContain('Idea')
+    expect(text).not.toContain('No stage')
+  })
+
+  it('shows the fact-derived label, not the stale declaration, when a fact overrides it', async () => {
+    // An open linked PR promotes a declared "implementing" to the shared engine's "review".
+    const text = await renderRowText({
+      ...baseItem,
+      workflowStage: 'implementing',
+      linkedPR: { number: 42, state: 'open' }
+    })
+    expect(text).toContain('Review')
+    expect(text).not.toContain('Implementing')
+  })
+
+  // D6: old host, no linkedIssueState/consumedMergedPRNumbers on the wire — badge
+  // must still render, following the declared stage, never a phantom fact override.
+  it('follows the declared stage against an old host with no fact fields on the wire', async () => {
+    const item: TestItem = { ...baseItem, workflowStage: 'triage', linkedPR: null }
+    expect(item.linkedIssueState).toBeUndefined()
+    expect(item.consumedMergedPRNumbers).toBeUndefined()
+
+    const text = await renderRowText(item)
+    expect(text).toContain('Triage')
+  })
+})
