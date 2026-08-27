@@ -7,7 +7,7 @@ import { useAppStore } from '@/store'
 import { makeRepo } from '@/components/worktree-jump-palette-test-fixtures'
 import type { Repo } from '../../../../shared/repo-types'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
-import type { GhostCandidate } from './feature-board-ghost-candidates'
+import type { GhostCandidate } from '../../../../shared/feature-board/ghost-candidates'
 import type { FeatureBoardGhostEntry } from './use-feature-board-ghost-candidates'
 import { FeatureBoardColumn } from './FeatureBoardColumn'
 

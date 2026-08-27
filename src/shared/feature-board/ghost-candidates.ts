@@ -1,4 +1,4 @@
-import type { WorkflowStage } from '../../../../shared/workflow-stages'
+import type { WorkflowStage } from '../workflow-stages'
 
 /** Minimal issue shape the derivation needs — callers pass richer records through `T`. */
 export type GhostCandidateIssue = {

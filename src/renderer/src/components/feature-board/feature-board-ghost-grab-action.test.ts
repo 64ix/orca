@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildFeatureBoardGhostGrabInput } from './feature-board-ghost-grab-action'
-import type { GhostCandidateIssue } from './feature-board-ghost-candidates'
+import type { GhostCandidateIssue } from '../../../../shared/feature-board/ghost-candidates'
 
 const candidate: {
   issue: GhostCandidateIssue

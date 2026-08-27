@@ -165,5 +165,51 @@ export const boardStyles = StyleSheet.create({
     marginTop: 2,
     fontSize: typography.metaSize,
     color: colors.textMuted
+  },
+  // Ghost cards (#100): dashed border + muted opacity keeps them visually distinct from a real
+  // workspace card, mirroring desktop's FeatureBoardGhostCard treatment.
+  ghostCard: {
+    backgroundColor: colors.bgPanel,
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.borderSubtle,
+    padding: spacing.md,
+    opacity: 0.92
+  },
+  ghostCardPressed: {
+    backgroundColor: colors.bgRaised
+  },
+  ghostTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs
+  },
+  ghostNumber: {
+    fontSize: typography.metaSize,
+    color: colors.textMuted,
+    fontFamily: typography.monoFamily
+  },
+  ghostTitle: {
+    flex: 1,
+    fontSize: typography.bodySize,
+    fontWeight: '600',
+    color: colors.textPrimary
+  },
+  ghostBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs
+  },
+  ghostBadge: {
+    backgroundColor: colors.bgRaised,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999
+  },
+  ghostBadgeText: {
+    fontSize: 10,
+    color: colors.textSecondary
   }
 })
