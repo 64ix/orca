@@ -85,6 +85,7 @@ import { isFloatingWorkspaceWorktreeId } from '../../../../src/session/floating-
 import { SessionDockColumn } from '../../../../src/session/SessionDockColumn'
 import { MobileSessionHeaderIconButton } from '../../../../src/session/MobileSessionHeaderIconButton'
 import { MobileSessionHeaderMoreActionsSheet } from '../../../../src/session/MobileSessionHeaderMoreActionsSheet'
+import { MobileSessionWorkspaceRows } from '../../../../src/session/MobileSessionWorkspaceRows'
 import { QuickCommandsSheet } from '../../../../src/session/QuickCommandsSheet'
 import {
   buildMobileQuickCommandLaunch,
@@ -4410,6 +4411,16 @@ export default function SessionScreen() {
               />
             ) : null}
           </View>
+
+          {!isFolderWorkspaceRoute && !isFloatingWorkspaceRoute && (
+            <MobileSessionWorkspaceRows
+              hostId={hostId}
+              worktreeId={worktreeId}
+              client={client}
+              connState={connState}
+              worktreeName={worktreeName || ''}
+            />
+          )}
 
           {visibleTabs.length > 0 && (
             <View style={styles.tabBar}>

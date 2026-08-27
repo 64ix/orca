@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SHIPPED_STAGE_STEERING_MESSAGE } from '../../../src/shared/stage-authority/stage-write-authority'
-import { runMobileStageAction, type MobileStageActionOption } from '../worktree/mobile-stage-action-sheet-model'
+import {
+  runMobileStageAction,
+  type MobileStageActionOption
+} from '../worktree/mobile-stage-action-sheet-model'
 import {
   buildMobileSessionStageSheetActions,
   mobileSessionStageOutcomeAlert
@@ -70,9 +73,10 @@ describe('mobileSessionStageOutcomeAlert', () => {
   })
 
   it('labels a server-side refusal and an ordinary failure as a generic update error', () => {
-    expect(
-      mobileSessionStageOutcomeAlert({ kind: 'server-refused', message: 'nope' })
-    ).toEqual({ title: 'Could not update stage', message: 'nope' })
+    expect(mobileSessionStageOutcomeAlert({ kind: 'server-refused', message: 'nope' })).toEqual({
+      title: 'Could not update stage',
+      message: 'nope'
+    })
     expect(mobileSessionStageOutcomeAlert({ kind: 'failed', message: 'network error' })).toEqual({
       title: 'Could not update stage',
       message: 'network error'

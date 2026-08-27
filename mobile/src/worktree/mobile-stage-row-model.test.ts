@@ -8,7 +8,9 @@ function derived(overrides: Partial<DerivedWorkflowStage> = {}): DerivedWorkflow
 
 describe('buildMobileStageRowModel', () => {
   it('labels the effective stage and explains a declared stage as user-set (no fact claim)', () => {
-    const model = buildMobileStageRowModel(derived({ stage: 'implementing', reason: 'declared-stage' }))
+    const model = buildMobileStageRowModel(
+      derived({ stage: 'implementing', reason: 'declared-stage' })
+    )
     expect(model.stageLabel).toBe('Implementing')
     expect(model.explanation).toBe('You set this stage.')
     expect(model.shippedSourceLabel).toBeNull()
@@ -62,7 +64,9 @@ describe('buildMobileStageRowModel', () => {
   })
 
   it('explains an open issue', () => {
-    const model = buildMobileStageRowModel(derived({ stage: 'spec', reason: 'open-issue', factId: '3' }))
+    const model = buildMobileStageRowModel(
+      derived({ stage: 'spec', reason: 'open-issue', factId: '3' })
+    )
     expect(model.explanation).toBe('An open issue moves the stage to Spec.')
   })
 
