@@ -516,6 +516,7 @@ import { clampLinearIssueListLimit } from '../../shared/linear/issue-read-limits
 import { isFolderRepo } from '../../shared/repo-kind'
 import { DEFAULT_WORKSPACE_STATUS_ID } from '../../shared/workspace-statuses'
 import { normalizeWorkflowStage } from '../../shared/workflow-stages'
+import type { WorkflowIssueState } from '../../shared/stage-derivation/stage-derivation'
 import {
   buildSetupRunnerCommand,
   getSetupRunnerCommandPlatformForPath
@@ -19972,6 +19973,7 @@ export class OrcaRuntimeService {
       // so a stale same-path entry would nest replacement checkouts under old parents.
       const lineage = worktree.lineage
       const workflowStage = normalizeWorkflowStage(meta?.workflowStage)
+      const linkedIssueState = resolveLinkedIssueState(ghCache, repo, worktree.linkedIssue)
       summaries.set(worktree.id, {
         // Why: mobile mirrors desktop workspace grouping/order from persisted
         // metadata, while older runtimes may not have hydrated every field yet.
@@ -20005,9 +20007,13 @@ export class OrcaRuntimeService {
         ...(worktree.creatorProvenance ? { creatorProvenance: worktree.creatorProvenance } : {}),
         linkedIssue: worktree.linkedIssue,
         linkedPR,
+        ...(linkedIssueState ? { linkedIssueState } : {}),
         linkedLinearIssue: meta?.linkedLinearIssue ?? null,
         linkedGitLabMR: meta?.linkedGitLabMR ?? null,
         linkedGitLabIssue: meta?.linkedGitLabIssue ?? null,
+        ...(meta?.consumedMergedPRNumbers
+          ? { consumedMergedPRNumbers: meta.consumedMergedPRNumbers }
+          : {}),
         comment: meta?.comment ?? '',
         isPinned: meta?.isPinned ?? false,
         isActive: false,
@@ -20030,6 +20036,11 @@ export class OrcaRuntimeService {
         continue
       }
       const worktree = folderWorkspaceToWorktree(folderWorkspace)
+      // Why: folder workspaces have no matching git repo/branch, so the GitHub
+      // issue cache (keyed by repoId/repoPath) never has an entry for them —
+      // this always resolves to absent today, same as the git-worktree branch
+      // when there is no cache hit.
+      const linkedIssueState = resolveLinkedIssueState(ghCache, undefined, worktree.linkedIssue)
       summaries.set(worktree.id, {
         // Why: folder workspaces use the same mobile grouping/order contract as
         // git worktrees, but legacy records may be missing order metadata.
@@ -20055,9 +20066,13 @@ export class OrcaRuntimeService {
         ...(worktree.creatorProvenance ? { creatorProvenance: worktree.creatorProvenance } : {}),
         linkedIssue: worktree.linkedIssue ?? null,
         linkedPR: null,
+        ...(linkedIssueState ? { linkedIssueState } : {}),
         linkedLinearIssue: worktree.linkedLinearIssue ?? null,
         linkedGitLabMR: worktree.linkedGitLabMR ?? null,
         linkedGitLabIssue: worktree.linkedGitLabIssue ?? null,
+        ...(folderWorkspace.consumedMergedPRNumbers
+          ? { consumedMergedPRNumbers: folderWorkspace.consumedMergedPRNumbers }
+          : {}),
         comment: worktree.comment,
         isPinned: worktree.isPinned,
         isActive: false,
@@ -40557,6 +40572,27 @@ function parseRuntimeWorktreeId(
     return null
   }
   return parsed
+}
+
+// Why: mirrors the linkedPR lookup below it — the GitHub issue cache is keyed
+// `repoId::issueNumber` (repoId preferred, repoPath fallback for legacy entries),
+// which is a different suffix than the PR cache's `repoId::branch`. A 'merged'
+// IssueInfo.state (rare: the issues endpoint reporting a PR-as-issue) carries no
+// WorkflowIssueState meaning, so it — like a cache miss — resolves to absent,
+// never a coerced 'open'/'closed'.
+function resolveLinkedIssueState(
+  ghCache: ReturnType<Store['getGitHubCache']> | undefined,
+  repo: { id?: string; path?: string } | undefined,
+  linkedIssue: number | null
+): WorkflowIssueState | undefined {
+  if (!ghCache || linkedIssue == null) {
+    return undefined
+  }
+  const cached =
+    (repo?.id ? ghCache.issue[`${repo.id}::${linkedIssue}`] : undefined) ??
+    (repo?.path ? ghCache.issue[`${repo.path}::${linkedIssue}`] : undefined)
+  const state = cached?.data?.state
+  return state === 'open' || state === 'closed' ? state : undefined
 }
 
 type RuntimeWorktreeSummaryPathCandidate = {
