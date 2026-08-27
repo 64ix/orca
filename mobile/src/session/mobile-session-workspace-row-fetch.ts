@@ -20,24 +20,31 @@ export function findCachedMobileSessionWorkspaceRow(
   return cached?.find((w) => w.worktreeId === worktreeId) ?? null
 }
 
+/** `ok: true` with `worktree: null` means the host listed the catalog and this worktree
+ *  genuinely is not (or no longer) in it — a *confirmed* absence. `ok: false` means the RPC
+ *  itself failed and nothing was learned either way; callers must not treat that the same as
+ *  a confirmed absence (D6 — absence caused by an error is unknown, never a negative). */
+export type MobileSessionWorkspaceRowFetchResult =
+  | { ok: true; worktree: Worktree | null }
+  | { ok: false; message: string }
+
 /**
  * Refreshes the shared per-host worktree cache (single-flight, coalescing with any
  * concurrent worktree.ps read for the same host — e.g. the workspace list or board
- * polling in another panel) and returns this session's row, or null when the RPC
- * failed or the worktree is not (or no longer) in the catalog.
+ * polling in another panel) and returns this session's row.
  */
 export async function loadMobileSessionWorkspaceRow(
   client: RpcClient,
   hostId: string,
   worktreeId: string
-): Promise<Worktree | null> {
+): Promise<MobileSessionWorkspaceRowFetchResult> {
   const response = await sendSingleFlightRequest(client, hostId, 'worktree.ps', {
     limit: WORKTREE_PS_FULL_LIMIT
   })
   if (!response.ok) {
-    return null
+    return { ok: false, message: response.error.message }
   }
   const list = (response.result as { worktrees?: Worktree[] }).worktrees ?? []
   setCachedWorktrees(hostId, list, { proven: true })
-  return list.find((w) => w.worktreeId === worktreeId) ?? null
+  return { ok: true, worktree: list.find((w) => w.worktreeId === worktreeId) ?? null }
 }
