@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyMobileWorkspaceLineage,
-  getMobileWorkspaceLineageGroupKey
+  getMobileWorkspaceLineageGroupKey,
+  getMobileWorkspaceLineageRoot
 } from './mobile-workspace-lineage'
+import { getWorktreeRowIdentity } from './worktree-host-row-identity'
 import type { Worktree } from './workspace-list-sections'
 
 function worktree(overrides: Partial<Worktree> = {}): Worktree {
@@ -115,5 +117,53 @@ describe('applyMobileWorkspaceLineage', () => {
     const rows = applyMobileWorkspaceLineage([local, remote])
 
     expect(rows.map((row) => row.hostId)).toEqual(['local', 'ssh:builder'])
+  })
+})
+
+// #97: section membership in the "By stage" grouping walks to the root ancestor
+// (desktop's getWorkflowStageLaneRoot, #28) rather than each worktree's own stage.
+describe('getMobileWorkspaceLineageRoot', () => {
+  function byId(worktrees: Worktree[]): Map<string, Worktree> {
+    return new Map(worktrees.map((w) => [getWorktreeRowIdentity(w), w]))
+  }
+
+  it('returns the worktree itself when it has no parent', () => {
+    const root = worktree({ worktreeId: 'root' })
+    expect(getMobileWorkspaceLineageRoot(root, byId([root])).worktreeId).toBe('root')
+  })
+
+  it('walks a multi-level chain to the top-most ancestor', () => {
+    const grandparent = worktree({ worktreeId: 'grandparent' })
+    const parent = worktree({ worktreeId: 'parent', parentWorktreeId: 'grandparent' })
+    const child = worktree({ worktreeId: 'child', parentWorktreeId: 'parent' })
+
+    expect(
+      getMobileWorkspaceLineageRoot(child, byId([grandparent, parent, child])).worktreeId
+    ).toBe('grandparent')
+  })
+
+  it('stops at itself when the declared parent is not visible', () => {
+    const child = worktree({ worktreeId: 'child', parentWorktreeId: 'missing-parent' })
+    expect(getMobileWorkspaceLineageRoot(child, byId([child])).worktreeId).toBe('child')
+  })
+
+  it('stops at itself when lineage instance ids are stale', () => {
+    const parent = worktree({ worktreeId: 'parent', worktreeInstanceId: 'new-parent-instance' })
+    const child = worktree({
+      worktreeId: 'child',
+      parentWorktreeId: 'parent',
+      worktreeInstanceId: 'child-instance',
+      lineageWorktreeInstanceId: 'child-instance',
+      parentWorktreeInstanceId: 'old-parent-instance'
+    })
+
+    expect(getMobileWorkspaceLineageRoot(child, byId([parent, child])).worktreeId).toBe('child')
+  })
+
+  it('does not hang on cyclic lineage', () => {
+    const first = worktree({ worktreeId: 'first', parentWorktreeId: 'second' })
+    const second = worktree({ worktreeId: 'second', parentWorktreeId: 'first' })
+
+    expect(() => getMobileWorkspaceLineageRoot(first, byId([first, second]))).not.toThrow()
   })
 })
