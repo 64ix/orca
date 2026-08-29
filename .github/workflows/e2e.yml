@@ -98,7 +98,12 @@ jobs:
     needs: build
     if: inputs.test_files == ''
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Why 45: the scheduled full-suite shards can drift past 30m under runner
+    # contention (the upstream nightly hit "exceeded maximum execution time of 30m"
+    # and killed live shards). The changed-specs lane already budgets 45 for the
+    # same reason. Keep parity so a slow but healthy shard finishes instead of
+    # being torn down mid-run.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -123,6 +128,13 @@ jobs:
             shard_name: 9-of-10
           - shard: '10/10'
             shard_name: 10-of-10
+
+    # Why ORCA_E2E_RETRIES: schedule-triggered full runs absorb one transient
+    # infra flake (dbus/SSH-relay/paired-runtime teardown) per failed test so a
+    # single blip doesn't sink the shard. It is deliberately absent on PR/etc. so
+    # the trace-on-first-failure contract in playwright.config.ts is preserved.
+    env:
+      ORCA_E2E_RETRIES: ${{ github.event_name == 'schedule' && '1' || '0' }}
 
     steps:
       - name: Checkout

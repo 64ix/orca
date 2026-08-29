@@ -31,7 +31,11 @@ export default defineConfig({
   // on Xvfb/git enough to create false E2E failures, so CI scales by shards.
   workers: process.env.CI ? 1 : undefined,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // Why default 0: on PR/local runs a first-failure trace is the only reliable
+  // debugging artifact, so we never silently re-run. The scheduled E2E workflow
+  // sets ORCA_E2E_RETRIES=1 to absorb one transient infra flake per test without
+  // changing this contract for interactive or PR runs.
+  retries: process.env.ORCA_E2E_RETRIES ? Number(process.env.ORCA_E2E_RETRIES) : 0,
   reporter: 'list',
   use: {
     // Why: this suite intentionally runs with retries disabled so first-failure
