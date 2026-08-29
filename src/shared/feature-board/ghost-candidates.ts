@@ -1,5 +1,9 @@
 import type { WorkflowStage } from '../workflow-stages'
-import { parseIssueReferenceNumbers, type SpecTicketShape } from '../spec-ticket-shape'
+import {
+  matchesSpecTitleConvention,
+  parseIssueReferenceNumbers,
+  type SpecTicketShape
+} from '../spec-ticket-shape'
 
 /** Minimal issue shape the derivation needs — callers pass richer records through `T`. */
 export type GhostCandidateIssue = {
@@ -44,14 +48,16 @@ function isWayfinderArtifact(issue: GhostCandidateIssue): boolean {
   return issue.labels.includes('wayfinder:map')
 }
 
+/** Title-only spec convention — `[Spec]`, `Spec — …`, `PRD: …`; same rule the host derives with. */
 export function isOrphanSpecIssue(title: string): boolean {
-  return /^\s*\[Spec\]/i.test(title)
+  return matchesSpecTitleConvention(title)
 }
 
 /**
  * #94: an explicit specShape wins; when the host hasn't sent it yet (remote wire fallback),
- * classify by the legacy title-only [Spec] convention. Shared with the hook's linked-spec
- * lookup so both surfaces agree on what a spec is.
+ * classify by the title convention alone (`[Spec]`, `Spec — …`, `PRD: …`) — it must stay as wide
+ * as the host's, or a spec titled `Spec — …` lands in Idea against an older host (#325).
+ * Shared with the hook's linked-spec lookup so both surfaces agree on what a spec is.
  */
 export function isSpecShapedIssue(issue: GhostCandidateIssue): boolean {
   return (

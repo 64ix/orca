@@ -294,3 +294,26 @@ describe('parseReferencedIssueNumbers', () => {
     expect(parseReferencedIssueNumbers('#5 then #5 again')).toEqual([5])
   })
 })
+
+describe('title-only fallback when the host sends no specShape (#325)', () => {
+  it('routes `Spec — …` to the spec column', () => {
+    const candidates = build({
+      openIssues: [
+        issue({ title: "Spec — Le canal d'alliance : un chat que seuls les membres reçoivent" })
+      ]
+    })
+    expect(candidates[0].targetStage).toBe('spec')
+  })
+
+  it('routes `PRD: …` to the spec column', () => {
+    expect(build({ openIssues: [issue({ title: 'PRD: alliance chat' })] })[0].targetStage).toBe(
+      'spec'
+    )
+  })
+
+  it('leaves a title that merely starts with "Spec" in idea', () => {
+    expect(build({ openIssues: [issue({ title: 'Specialise the reducer' })] })[0].targetStage).toBe(
+      'idea'
+    )
+  })
+})

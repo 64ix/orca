@@ -8,6 +8,11 @@ export type SpecTicketShape = 'spec' | 'ticket'
 // "Specialise the reducer" is not a spec.
 const SPEC_TITLE_PATTERN = /^\s*(\[(?:spec|prd)\]|(?:spec|prd)\s*[:—–-])/i
 
+/** The title convention alone — the ghost board's fallback when a host sends no `specShape`. */
+export function matchesSpecTitleConvention(title: string): boolean {
+  return SPEC_TITLE_PATTERN.test(title)
+}
+
 /**
  * Extract plain-text issue refs (`#12`) from markdown, ignoring URLs (`.../issues/12`) and
  * heading anchors (`#summary`). Shared by ghost derivation's referenced-issue exclusion
@@ -57,7 +62,7 @@ export function deriveSpecTicketShape(args: {
   body: string
 }): SpecTicketShape | undefined {
   const { title, body } = args
-  if (SPEC_TITLE_PATTERN.test(title)) {
+  if (matchesSpecTitleConvention(title)) {
     return 'spec'
   }
   if (sectionAfterHeading(body, 'Success Criteria') !== undefined) {
