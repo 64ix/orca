@@ -129,12 +129,13 @@ jobs:
           - shard: '10/10'
             shard_name: 10-of-10
 
-    # Why ORCA_E2E_RETRIES: schedule-triggered full runs absorb one transient
-    # infra flake (dbus/SSH-relay/paired-runtime teardown) per failed test so a
-    # single blip doesn't sink the shard. It is deliberately absent on PR/etc. so
-    # the trace-on-first-failure contract in playwright.config.ts is preserved.
+    # Why ORCA_E2E_RETRIES: full-suite runs (schedule cron, or a manual
+    # workflow_dispatch of the whole matrix) absorb one transient infra flake
+    # (dbus/SSH-relay/paired-runtime teardown) per failed test so a single blip
+    # doesn't sink the shard. It is deliberately absent on PR pull_request runs
+    # so the trace-on-first-failure contract in playwright.config.ts holds.
     env:
-      ORCA_E2E_RETRIES: ${{ github.event_name == 'schedule' && '1' || '0' }}
+      ORCA_E2E_RETRIES: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '0' }}
 
     steps:
       - name: Checkout
