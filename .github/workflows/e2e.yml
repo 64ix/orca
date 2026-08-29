@@ -24,9 +24,11 @@ on:
         required: false
         type: string
   schedule:
-    # Why: GitHub cron uses UTC; these slots map to 10am and 3pm
-    # America/Phoenix for the default-branch E2E run.
-    - cron: '0 17,22 * * *'
+    # Why: GitHub cron uses UTC; this slot maps to 10am America/Phoenix for
+    # the daily default-branch E2E run. Single daily slot: the nightly full
+    # matrix is a regression canary for upstream-shared flakes, and running it
+    # more than once a day mostly re-pays the same contention cost.
+    - cron: '0 17 * * *'
 
 jobs:
   build:
