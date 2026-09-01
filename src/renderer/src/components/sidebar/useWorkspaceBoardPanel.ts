@@ -28,6 +28,20 @@ const WORKSPACE_BOARD_ESCAPE_BLOCKING_OVERLAY_SELECTOR = [
 
 export const TOGGLE_WORKSPACE_BOARD_EVENT = 'orca:toggle-workspace-board'
 
+/**
+ * #93: the workspace board is a sidebar companion drawer, not a page — over the feature board
+ * it floats across the columns with content showing through, reading as a stray popup. The two
+ * are mutually exclusive, resolved here at the action rather than through a pair of reactive
+ * "close the other" effects, which would see both surfaces open in the same render and shut
+ * them both.
+ */
+function leaveFeatureBoardPage(): void {
+  const state = useAppStore.getState()
+  if (state.activeView === 'board') {
+    state.closeBoardPage()
+  }
+}
+
 export type WorkspaceBoardPanelState = {
   workspaceBoardOpen: boolean
   workspaceBoardRenderedOpen: boolean
@@ -44,6 +58,7 @@ export type WorkspaceBoardPanelState = {
 }
 
 export function useWorkspaceBoardPanel(): WorkspaceBoardPanelState {
+  const activeView = useAppStore((s) => s.activeView)
   const [workspaceBoardOpen, setWorkspaceBoardOpen] = useState(false)
   const [workspaceBoardDragPreviewOpen, setWorkspaceBoardDragPreviewOpen] = useState(false)
   const [workspaceBoardMenuOpen, setWorkspaceBoardMenuOpen] = useState(false)
@@ -62,6 +77,7 @@ export function useWorkspaceBoardPanel(): WorkspaceBoardPanelState {
     }
     workspaceBoardOpenRef.current = true
     workspaceBoardDragPreviewOpenRef.current = false
+    leaveFeatureBoardPage()
     // Why: opening the board is the user action; recording here avoids a
     // post-render bookkeeping Effect in the drawer.
     useAppStore.getState().recordFeatureInteraction('workspace-board')
@@ -114,6 +130,7 @@ export function useWorkspaceBoardPanel(): WorkspaceBoardPanelState {
     }
     workspaceBoardOpenRef.current = true
     workspaceBoardDragPreviewOpenRef.current = false
+    leaveFeatureBoardPage()
     useAppStore.getState().recordFeatureInteraction('workspace-board')
     setWorkspaceBoardOpen(true)
     setWorkspaceBoardDragPreviewOpen(false)
@@ -156,6 +173,14 @@ export function useWorkspaceBoardPanel(): WorkspaceBoardPanelState {
     document.addEventListener('keydown', handleKeyDown, true)
     return () => document.removeEventListener('keydown', handleKeyDown, true)
   }, [closeWorkspaceBoard, workspaceBoardMenuOpen, workspaceBoardOpen])
+
+  // The other direction of #93's exclusion: reaching the feature board by any route — sidebar
+  // nav, command palette, a card deep link — dismisses the drawer it would otherwise sit under.
+  useEffect(() => {
+    if (activeView === 'board' && (workspaceBoardOpen || workspaceBoardDragPreviewOpen)) {
+      closeWorkspaceBoard()
+    }
+  }, [activeView, closeWorkspaceBoard, workspaceBoardDragPreviewOpen, workspaceBoardOpen])
 
   useEffect(() => {
     window.addEventListener(TOGGLE_WORKSPACE_BOARD_EVENT, toggleWorkspaceBoard)

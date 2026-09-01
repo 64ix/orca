@@ -10,15 +10,22 @@ import {
 } from './useWorkspaceBoardPanel'
 
 const mocks = vi.hoisted(() => ({
-  recordFeatureInteraction: vi.fn()
+  recordFeatureInteraction: vi.fn(),
+  closeBoardPage: vi.fn()
 }))
 
+// Why callable as well as `getState`: the panel subscribes to `activeView` for the feature
+// board exclusion (#93) on top of the imperative reads it already made.
+const storeState = {
+  activeView: 'terminal',
+  recordFeatureInteraction: mocks.recordFeatureInteraction,
+  closeBoardPage: mocks.closeBoardPage
+}
+
 vi.mock('@/store', () => ({
-  useAppStore: {
-    getState: () => ({
-      recordFeatureInteraction: mocks.recordFeatureInteraction
-    })
-  }
+  useAppStore: Object.assign((selector: (state: unknown) => unknown) => selector(storeState), {
+    getState: () => storeState
+  })
 }))
 
 let latestState: WorkspaceBoardPanelState | null = null
