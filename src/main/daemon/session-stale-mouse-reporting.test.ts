@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, type Mock } from 'vitest'
 import { disarmMouseReportingLeftByADeadForegroundProcess } from './session-stale-mouse-reporting'
 
-function target(disarmed = true): { disarmStaleMouseReporting: ReturnType<typeof vi.fn> } {
-  return { disarmStaleMouseReporting: vi.fn(() => disarmed) }
+// Why the explicit signature: a bare `vi.fn(() => x)` widens to `Mock<Constructable | Procedure>`,
+// which no longer satisfies the `() => boolean` the target contract declares.
+function target(disarmed = true): { disarmStaleMouseReporting: Mock<() => boolean> } {
+  return { disarmStaleMouseReporting: vi.fn<() => boolean>(() => disarmed) }
 }
 
 describe('disarmMouseReportingLeftByADeadForegroundProcess', () => {
