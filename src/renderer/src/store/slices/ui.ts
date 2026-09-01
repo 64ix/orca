@@ -824,6 +824,9 @@ export type UISlice = {
   featureBoardGhostDismissals: FeatureBoardGhostDismissals
   dismissFeatureBoardGhost: (repoId: string, issueNumber: number) => void
   restoreFeatureBoardGhost: (repoId: string, issueNumber: number) => void
+  /** Feature board project scope; `null` = sticky all-projects, so a project added later joins on its own. */
+  featureBoardProjectSelection: readonly string[] | null
+  setFeatureBoardProjectSelection: (selection: readonly string[] | null) => void
   setNewWorkspaceDraft: (draft: NonNullable<UISlice['newWorkspaceDraft']>) => void
   clearNewWorkspaceDraft: () => void
   openSettingsPage: () => void
@@ -1676,6 +1679,12 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
       issueNumber,
       false
     ),
+  featureBoardProjectSelection: null,
+  setFeatureBoardProjectSelection: (selection) => {
+    const next = selection === null ? null : [...selection]
+    window.api.ui.set({ featureBoardProjectSelection: next }).catch(console.error)
+    set({ featureBoardProjectSelection: next })
+  },
   setNewWorkspaceDraft: (draft) => set({ newWorkspaceDraft: draft }),
   clearNewWorkspaceDraft: () => set({ newWorkspaceDraft: null }),
   openSettingsPage: () => {
@@ -2663,6 +2672,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         featureBoardGhostDismissals: normalizeFeatureBoardGhostDismissals(
           ui.featureBoardGhostDismissals
         ),
+        featureBoardProjectSelection: Array.isArray(ui.featureBoardProjectSelection)
+          ? ui.featureBoardProjectSelection.filter((id) => typeof id === 'string')
+          : null,
         // Why: apply the desktop-owned overlay immediately since UI state can arrive after a catalog or from another client.
         repos: orderedRepos,
         hideDefaultBranchWorkspace: ui.hideDefaultBranchWorkspace ?? false,

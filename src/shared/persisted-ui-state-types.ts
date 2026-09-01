@@ -57,6 +57,8 @@ export type PersistedUIState = {
   featureBoardColumnOrder?: FeatureBoardColumnOrderEntry[]
   /** Dismissed ghost-card issue numbers per repo (#49); candidates themselves are never stored. */
   featureBoardGhostDismissals?: FeatureBoardGhostDismissals
+  /** Feature board project scope; `null`/absent = sticky all-projects so a new project appears on its own. */
+  featureBoardProjectSelection?: string[] | null
   /** Deprecated legacy positive-form setting. Ignored on hydration. */
   showSleepingWorkspaces?: boolean
   /** Deprecated legacy name used by a short-lived build. Ignored on hydration. */
