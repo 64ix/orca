@@ -13,6 +13,10 @@ import type { Worktree } from '../../../../shared/worktree/types'
 import type { FeatureBoardCard as FeatureBoardCardModel } from './feature-board-card-model'
 import { FeatureBoardBranchRow, FeatureBoardCardActions } from './FeatureBoardCardActions'
 import { featureBoardCardSurfaceClass } from './feature-board-card-surface'
+import { activateFeatureBoardCardWorkspace } from './feature-board-card-activation'
+
+/** Marks a child sub-entry so the parent's double-click capture yields the gesture to it. */
+const CARD_CHILD_ATTRIBUTE = 'data-feature-board-card-child'
 
 function stopNestedWorktreeCardBubble(event: React.SyntheticEvent<HTMLElement>): void {
   event.stopPropagation()
@@ -21,6 +25,7 @@ function stopNestedWorktreeCardBubble(event: React.SyntheticEvent<HTMLElement>):
 /** One child sub-entry: a compact, read-only nested WorktreeCard so it shows the same PR chip and branch presentation as any other card (#5). */
 function FeatureBoardCardChild({ worktree }: { worktree: Worktree }): React.JSX.Element {
   const repoMap = useRepoMap()
+  const childRepo = repoMap.get(worktree.repoId)
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
   const experimentalNewWorktreeCardStyle =
     useAppStore((s) => s.settings?.experimentalNewWorktreeCardStyle) === true
@@ -32,13 +37,17 @@ function FeatureBoardCardChild({ worktree }: { worktree: Worktree }): React.JSX.
 
   return (
     <div
+      {...{ [CARD_CHILD_ATTRIBUTE]: '' }}
       onClick={stopNestedWorktreeCardBubble}
-      onDoubleClick={stopNestedWorktreeCardBubble}
+      onDoubleClick={(event) => {
+        stopNestedWorktreeCardBubble(event)
+        activateFeatureBoardCardWorkspace(worktree, childRepo)
+      }}
       onDragStart={stopNestedWorktreeCardBubble}
     >
       <WorktreeCard
         worktree={worktree}
-        repo={repoMap.get(worktree.repoId)}
+        repo={childRepo}
         isActive={activeWorktreeId === worktree.id}
         isActiveSurface={false}
         nativeDragEnabled={false}
@@ -83,6 +92,27 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
     [card.id, openBoardCardDetail]
   )
 
+  // #86: double-click opens the workspace, the way the sidebar row does. Capture phase so the
+  // nested WorktreeCard's own double-click (the edit-meta modal) never wins the gesture; child
+  // sub-entries are yielded to so they open their own workspace, not the parent's.
+  const handleCardDoubleClickCapture = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (shouldIgnoreWorkspaceKanbanCardPointerDown(event.target, event.currentTarget)) {
+        return
+      }
+      if (
+        event.target instanceof Element &&
+        event.target.closest(`[${CARD_CHILD_ATTRIBUTE}]`) !== null
+      ) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      activateFeatureBoardCardWorkspace(card.worktree, repo)
+    },
+    [card.worktree, repo]
+  )
+
   return (
     <div
       className={featureBoardCardSurfaceClass({
@@ -94,6 +124,7 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
       data-feature-board-card-selected={isSelected ? 'true' : 'false'}
       aria-selected={isSelected}
       onClickCapture={handleCardClickCapture}
+      onDoubleClickCapture={handleCardDoubleClickCapture}
     >
       {card.isAwaitingInput ? (
         <Tooltip>
