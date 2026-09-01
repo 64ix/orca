@@ -23,6 +23,7 @@ import {
 import { useFeatureBoardSearchFilters } from './use-feature-board-search-filters'
 import { useFeatureBoardCardPointerDrag } from './use-feature-board-card-pointer-drag'
 import { useFeatureBoardCardDrop } from './use-feature-board-card-drop'
+import { useFeatureBoardColumnWorkspaceDrop } from './use-feature-board-column-workspace-drop'
 import { TaskDetailPanel } from './task-detail-panel/TaskDetailPanel'
 import { collectTaskDetailPanelVisibleCardIds } from './task-detail-panel/task-detail-panel-selection'
 import { useTaskDetailPanelSelection } from './task-detail-panel/use-task-detail-panel-selection'
@@ -115,6 +116,8 @@ export default function FeatureBoardPage(): React.JSX.Element {
     useWorkspaceKanbanColumnResize(featureBoardColumnWidth, setFeatureBoardColumnWidth)
 
   const handleDropCard = useFeatureBoardCardDrop(columns, cards)
+  // #105: the sidebar's own workspace drag payload lands on a column directly.
+  const workspaceDrop = useFeatureBoardColumnWorkspaceDrop()
 
   const handleDragActiveChange = useCallback((active: boolean) => {
     if (!active) {
@@ -219,7 +222,12 @@ export default function FeatureBoardPage(): React.JSX.Element {
               }
               columnWidth={columnWidth}
               isResizingColumn={isResizingColumn}
-              isDragTarget={dragOverStage === stage}
+              isDragTarget={
+                dragOverStage === stage || workspaceDrop.workspaceDragOverStage === stage
+              }
+              onWorkspaceDragOver={(event) => workspaceDrop.onColumnDragOver(event, stage)}
+              onWorkspaceDragLeave={workspaceDrop.onColumnDragLeave}
+              onWorkspaceDrop={(event) => workspaceDrop.onColumnDrop(event, stage)}
               onColumnResizeStart={onColumnResizeStart}
               onColumnResizeKeyDown={onColumnResizeKeyDown}
             />

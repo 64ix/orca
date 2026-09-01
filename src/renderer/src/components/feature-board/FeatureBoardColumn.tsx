@@ -33,6 +33,10 @@ export type FeatureBoardColumnProps = {
   columnWidth?: number
   isResizingColumn?: boolean
   isDragTarget?: boolean
+  /** #105: native HTML5 drop of a sidebar workspace row onto this column's stage. */
+  onWorkspaceDragOver?: (event: React.DragEvent) => void
+  onWorkspaceDragLeave?: (event: React.DragEvent) => void
+  onWorkspaceDrop?: (event: React.DragEvent) => void
   /** Zebra striping: every other lane sits on a tinted surface so the column boundaries read without a divider. */
   isAlternateSurface?: boolean
   onColumnResizeStart?: (event: React.PointerEvent<HTMLElement>) => void
@@ -49,6 +53,9 @@ export function FeatureBoardColumn({
   isResizingColumn = false,
   isDragTarget = false,
   isAlternateSurface = false,
+  onWorkspaceDragOver,
+  onWorkspaceDragLeave,
+  onWorkspaceDrop,
   onColumnResizeStart,
   onColumnResizeKeyDown
 }: FeatureBoardColumnProps): React.JSX.Element {
@@ -64,6 +71,9 @@ export function FeatureBoardColumn({
         isDragTarget && 'border-primary/60 bg-primary/5 dark:bg-primary/10'
       )}
       style={{ width: `${columnWidth}px` }}
+      onDragOver={onWorkspaceDragOver}
+      onDragLeave={onWorkspaceDragLeave}
+      onDrop={onWorkspaceDrop}
       data-feature-board-column={stage}
       data-feature-board-column-surface={isAlternateSurface ? 'alt' : 'base'}
     >
