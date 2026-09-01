@@ -116,6 +116,11 @@ export class SessionOutputPlane {
     return this.emulator.getCwd()
   }
 
+  /** See `HeadlessEmulator.disarmStaleMouseReporting`; the plane owns the emulator. */
+  disarmStaleMouseReporting(): boolean {
+    return this.disposed ? false : this.emulator.disarmStaleMouseReporting()
+  }
+
   getSnapshot(opts: { scrollbackRows?: number } = {}): TerminalSnapshot | null {
     if (this.disposed) {
       return null
