@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useAppStore } from '@/store'
 import {
   getDefaultTaskRepoSelection,
@@ -7,7 +7,6 @@ import {
   normalizeTaskRepoSelection,
   type TaskProjectPickerGroup
 } from '@/components/task-page-default-repo-selection'
-import { areStringSetsEqual } from '@/components/task-page-string-set-equality'
 
 export type FeatureBoardProjectSelection = {
   groups: TaskProjectPickerGroup[]
@@ -21,28 +20,28 @@ export type FeatureBoardProjectSelection = {
 /**
  * Board-scoped project picker state (reuses the TaskPage repo-selection pattern, per #44).
  * Unlike Tasks, every repo (git or folder) is eligible — folder workspaces run the board's
- * manual regime — and the selection is session-local, not persisted to a global setting.
+ * manual regime — and the pick persists across restarts as its own setting, never shared with
+ * the Tasks page. `null` is sticky all-projects (the `visibleWorkspaceHostIds` convention), so
+ * a project added later joins the board on its own instead of staying invisible behind a
+ * snapshot of the repo list taken the day the user last touched the picker.
  */
 export function useFeatureBoardProjectSelection(): FeatureBoardProjectSelection {
   const repos = useAppStore((s) => s.repos)
-  const [selected, setSelectedState] = useState<ReadonlySet<string>>(() =>
-    getDefaultTaskRepoSelection(repos)
-  )
+  const persisted = useAppStore((s) => s.featureBoardProjectSelection)
+  const persist = useAppStore((s) => s.setFeatureBoardProjectSelection)
 
-  useEffect(() => {
-    const validIds = new Set(repos.map((repo) => repo.id))
-    const pruned = new Set([...selected].filter((id) => validIds.has(id)))
-    const normalized =
-      pruned.size === 0
-        ? getDefaultTaskRepoSelection(repos)
-        : normalizeTaskRepoSelection(repos, pruned)
-    if (!areStringSetsEqual(normalized, selected)) {
-      setSelectedState(normalized)
+  // Why derived rather than reconciled in an effect: pruning at read means a removed project
+  // can never leave the board pointing at a repo id that no longer exists, not even for a frame.
+  const selected = useMemo(() => {
+    if (persisted === null) {
+      return getDefaultTaskRepoSelection(repos)
     }
-    // Why `selected` is a dep despite being reconciled here: the effect is idempotent once
-    // settled (normalized === selected triggers no update), so re-running on every `selected`
-    // change is harmless and keeps the exhaustive-deps contract honest.
-  }, [repos, selected])
+    const validIds = new Set(repos.map((repo) => repo.id))
+    const pruned = new Set(persisted.filter((id) => validIds.has(id)))
+    return pruned.size === 0
+      ? getDefaultTaskRepoSelection(repos)
+      : normalizeTaskRepoSelection(repos, pruned)
+  }, [persisted, repos])
 
   const groups = useMemo(() => getTaskProjectPickerGroups(repos, selected), [repos, selected])
 
@@ -62,11 +61,13 @@ export function useFeatureBoardProjectSelection(): FeatureBoardProjectSelection 
     return keys
   }, [groups, selected])
 
-  return {
-    groups,
-    selected,
-    setSelected: (next) => setSelectedState(normalizeTaskRepoSelection(repos, next)),
-    selectAll: () => setSelectedState(new Set(repos.map((repo) => repo.id))),
-    selectedProjectKeys
-  }
+  const setSelected = useCallback(
+    (next: ReadonlySet<string>) => persist([...normalizeTaskRepoSelection(repos, next)]),
+    [persist, repos]
+  )
+  // Why null and not every repo id: both normalize to one repo per project, but only null
+  // keeps the scope sticky as projects come and go.
+  const selectAll = useCallback(() => persist(null), [persist])
+
+  return { groups, selected, setSelected, selectAll, selectedProjectKeys }
 }

@@ -488,6 +488,7 @@ export function getDefaultUIState(): PersistedUIState {
     featureBoardColumnOrder: [],
     featureBoardGhostDismissals: {},
     featureBoardCollapsedGhostStages: [],
+    featureBoardProjectSelection: null,
     showSleepingWorkspaces: DEFAULT_SHOW_SLEEPING_WORKSPACES,
     hideDefaultBranchWorkspace: false,
     hideAutomationGeneratedWorkspaces: false,

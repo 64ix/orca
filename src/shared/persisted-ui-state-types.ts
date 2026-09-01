@@ -60,6 +60,8 @@ export type PersistedUIState = {
   featureBoardGhostDismissals?: FeatureBoardGhostDismissals
   /** Stages whose ghost group is folded away; absent/empty means every group is expanded. */
   featureBoardCollapsedGhostStages?: WorkflowStage[]
+  /** Feature board project scope; `null`/absent = sticky all-projects so a new project appears on its own. */
+  featureBoardProjectSelection?: string[] | null
   /** Deprecated legacy positive-form setting. Ignored on hydration. */
   showSleepingWorkspaces?: boolean
   /** Deprecated legacy name used by a short-lived build. Ignored on hydration. */

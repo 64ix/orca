@@ -832,6 +832,9 @@ export type UISlice = {
   /** Stages whose ghost group is folded away, so a long candidate list stops drowning real cards. */
   featureBoardCollapsedGhostStages: FeatureBoardCollapsedGhostStages
   setFeatureBoardGhostStageCollapsed: (stage: WorkflowStage, collapsed: boolean) => void
+  /** Feature board project scope; `null` = sticky all-projects, so a project added later joins on its own. */
+  featureBoardProjectSelection: readonly string[] | null
+  setFeatureBoardProjectSelection: (selection: readonly string[] | null) => void
   setNewWorkspaceDraft: (draft: NonNullable<UISlice['newWorkspaceDraft']>) => void
   clearNewWorkspaceDraft: () => void
   openSettingsPage: () => void
@@ -1693,6 +1696,12 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     )
     window.api.ui.set({ featureBoardCollapsedGhostStages: [...next] }).catch(console.error)
     set({ featureBoardCollapsedGhostStages: next })
+  },
+  featureBoardProjectSelection: null,
+  setFeatureBoardProjectSelection: (selection) => {
+    const next = selection === null ? null : [...selection]
+    window.api.ui.set({ featureBoardProjectSelection: next }).catch(console.error)
+    set({ featureBoardProjectSelection: next })
   },
   setNewWorkspaceDraft: (draft) => set({ newWorkspaceDraft: draft }),
   clearNewWorkspaceDraft: () => set({ newWorkspaceDraft: null }),
@@ -2684,6 +2693,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         featureBoardCollapsedGhostStages: normalizeFeatureBoardCollapsedGhostStages(
           ui.featureBoardCollapsedGhostStages
         ),
+        featureBoardProjectSelection: Array.isArray(ui.featureBoardProjectSelection)
+          ? ui.featureBoardProjectSelection.filter((id) => typeof id === 'string')
+          : null,
         // Why: apply the desktop-owned overlay immediately since UI state can arrive after a catalog or from another client.
         repos: orderedRepos,
         hideDefaultBranchWorkspace: ui.hideDefaultBranchWorkspace ?? false,
