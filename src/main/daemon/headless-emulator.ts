@@ -8,6 +8,7 @@ import {
   serializeWithAbsoluteCursor
 } from '../../shared/terminal-serialize-absolute-cursor'
 import { advancePartialEscapeTail } from '../../shared/terminal-partial-escape-tail'
+import { RESET_MOUSE_REPORTING } from '../../shared/terminal-mode-reset-profiles'
 import type { TerminalViewAttributes } from '../../shared/terminal-view-attributes'
 import { collectHeadlessOscLinkRanges } from './headless-osc-link-ranges'
 import { readTerminalModes } from './headless-emulator-modes'
@@ -331,6 +332,29 @@ export class HeadlessEmulator {
   clearScrollback(): void {
     this.restoredOscLinks = []
     this.terminal.clear()
+  }
+
+  /**
+   * Disarms mouse reporting the way the process that armed it should have on exit. Both channels
+   * have to clear: the mirror (which feeds `rehydrateSequences`) and xterm's own mode (which
+   * SerializeAddon re-emits into `snapshotAnsi`), so this goes through a real write rather than
+   * resetting the mirror alone. No-op on the alternate screen — a TUI holding it is alive and owns
+   * its modes (#8291) — and no-op when nothing is armed, so snapshots stay allocation-free.
+   */
+  disarmStaleMouseReporting(): boolean {
+    if (this.disposed || this.terminal.buffer.active.type === 'alternate') {
+      return false
+    }
+    if (this.mouseModes.mouseTrackingMode === 'none' && !this.mouseModes.sgrMouseMode) {
+      return false
+    }
+    // Why not queued `write`: callers disarm immediately before serializing, and an async write
+    // would snapshot the still-armed state.
+    if (!this.tryWriteSync(RESET_MOUSE_REPORTING)) {
+      this.terminal.write(RESET_MOUSE_REPORTING)
+      this.mouseModes.scan(RESET_MOUSE_REPORTING)
+    }
+    return true
   }
 
   dispose(): void {

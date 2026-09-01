@@ -12,6 +12,7 @@ import type { SessionOptions } from './session-options'
 import type { TuiAgent } from '../../shared/tui-agent'
 import { randomUUID } from 'node:crypto'
 import { PtyStartupIngress } from '../../shared/pty-startup-ingress'
+import { disarmMouseReportingLeftByADeadForegroundProcess } from './session-stale-mouse-reporting'
 
 import type {
   SessionState,
@@ -210,6 +211,10 @@ export class Session {
 
   getSnapshot(opts: { scrollbackRows?: number } = {}): TerminalSnapshot | null {
     this.startupIngress.snapshotBarrier()
+    disarmMouseReportingLeftByADeadForegroundProcess(
+      this.subprocess.getForegroundProcess(),
+      this.output
+    )
     return this.output.getSnapshot(opts)
   }
 
