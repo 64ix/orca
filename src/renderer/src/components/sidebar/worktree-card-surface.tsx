@@ -23,6 +23,7 @@ export function WorktreeCardSurface({ card }: { card: WorktreeCardController }):
     revealHighlight,
     revealHighlightTone,
     flushSurface,
+    parentOwnsSurfaceState,
     isLineageDropTarget,
     nativeDragEnabled,
     lineageChildren,
@@ -125,14 +126,21 @@ export function WorktreeCardSurface({ card }: { card: WorktreeCardController }):
         'rounded-lg',
         // Why: the live data attribute updates before React state during navigation,
         // so it must own the complete active style without stale utility classes.
-        isLineageDropTarget
-          ? 'border border-accent-foreground/20 bg-accent/80'
-          : isActiveSurface
-            ? 'border border-transparent'
-            : isMultiSelected
-              ? 'border border-worktree-sidebar-ring/35 bg-worktree-sidebar-accent/70 ring-1 ring-worktree-sidebar-ring/30'
-              : 'border border-transparent worktree-sidebar-card-hover',
-        isActiveSurface && isMultiSelected && 'ring-1 ring-worktree-sidebar-ring/35',
+        // Why the parent branch first: a card embedded in a surface that paints its own
+        // hover/active (the board card) must not tint the sub-region it happens to occupy.
+        parentOwnsSurfaceState
+          ? 'border border-transparent'
+          : isLineageDropTarget
+            ? 'border border-accent-foreground/20 bg-accent/80'
+            : isActiveSurface
+              ? 'border border-transparent'
+              : isMultiSelected
+                ? 'border border-worktree-sidebar-ring/35 bg-worktree-sidebar-accent/70 ring-1 ring-worktree-sidebar-ring/30'
+                : 'border border-transparent worktree-sidebar-card-hover',
+        !parentOwnsSurfaceState &&
+          isActiveSurface &&
+          isMultiSelected &&
+          'ring-1 ring-worktree-sidebar-ring/35',
         revealHighlight && [
           'scroll-to-current-workspace-reveal-highlight',
           revealHighlightTone === 'ai' && 'scroll-to-current-workspace-reveal-highlight--ai'
@@ -145,7 +153,9 @@ export function WorktreeCardSurface({ card }: { card: WorktreeCardController }):
         isRuntimeDisconnected && !isDeleting && 'opacity-60'
       )}
       data-worktree-card-surface="true"
-      data-worktree-card-active={isActiveSurface ? activeSurfaceVariant : undefined}
+      data-worktree-card-active={
+        isActiveSurface && !parentOwnsSurfaceState ? activeSurfaceVariant : undefined
+      }
       onClick={handleClick}
       onDoubleClick={affiliateListMode ? undefined : handleDoubleClick}
       draggable={!affiliateListMode && nativeDragEnabled && !isDeleting && !titleRenaming}

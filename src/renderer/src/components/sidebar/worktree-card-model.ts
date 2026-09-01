@@ -30,6 +30,12 @@ export type WorktreeCardProps = {
   renameRowKey?: string
   contentIndent?: number
   flushSurface?: boolean
+  /**
+   * The embedding surface paints hover/active/multi-select itself (the feature board card).
+   * Without this the nested card tints only the region it renders, leaving rows the parent
+   * adds below it untinted.
+   */
+  parentOwnsSurfaceState?: boolean
   lineageChildCount?: number
   lineageCollapsed?: boolean
   lineageChildren?: React.ReactNode
@@ -67,6 +73,7 @@ type DefaultedWorktreeCardProp =
   | 'inPinnedSection'
   | 'contentIndent'
   | 'flushSurface'
+  | 'parentOwnsSurfaceState'
   | 'lineageChildCount'
   | 'lineageCollapsed'
   | 'isLineageDropTarget'
@@ -84,6 +91,7 @@ export type ResolvedWorktreeCardProps = Omit<WorktreeCardProps, DefaultedWorktre
   inPinnedSection: boolean
   contentIndent: number
   flushSurface: boolean
+  parentOwnsSurfaceState: boolean
   lineageChildCount: number
   lineageCollapsed: boolean
   isLineageDropTarget: boolean

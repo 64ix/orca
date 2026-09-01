@@ -68,6 +68,7 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
   const repo = repoMap.get(card.worktree.repoId)
   const isFolder = repo ? isFolderRepo(repo) : false
   const isSelected = boardCardDetailId === card.id
+  const isCurrent = activeWorktreeId === card.worktree.id
   // Why a standalone row, not a WorktreeCard prop: the card's own branch row is gated behind
   // the user's sidebar `worktreeCardProperties` preference, but the board always needs it (#44).
   const branch = !isFolder ? branchName(card.worktree.branch) : ''
@@ -117,9 +118,12 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
     <div
       className={featureBoardCardSurfaceClass({
         isAwaitingInput: card.isAwaitingInput,
-        isSelected
+        isSelected,
+        isCurrent
       })}
       data-feature-board-card-id={card.id}
+      // Styleguide: a persistent "current" row carries data-current alongside its wash.
+      data-current={isCurrent ? 'true' : undefined}
       data-feature-board-awaiting-input={card.isAwaitingInput ? 'true' : 'false'}
       data-feature-board-card-selected={isSelected ? 'true' : 'false'}
       aria-selected={isSelected}
@@ -160,11 +164,13 @@ export function FeatureBoardCard({ card }: { card: FeatureBoardCardModel }): Rea
       <WorktreeCard
         worktree={card.worktree}
         repo={repo}
-        isActive={activeWorktreeId === card.worktree.id}
+        isActive={isCurrent}
         nativeDragEnabled={false}
         // Why: the board card now owns the outline, so the nested surface must inset evenly
         // inside it instead of hanging 4px past the right edge.
         flushSurface
+        // ...and the surface state with it, so the wash covers the branch row below too.
+        parentOwnsSurfaceState
       />
       <FeatureBoardCardActions
         menuLabel={translate('components.featureBoard.card.menu', 'Card actions')}
