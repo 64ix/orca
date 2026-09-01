@@ -37,6 +37,10 @@ export type FeatureBoardAdoptionDialogProps = {
   stage: WorkflowStage
   /** Eligible (git) repos in the board's current project scope. Never empty — the caller gates the "+". */
   repos: readonly Repo[]
+  /** Preselected project; defaults to the first eligible repo. */
+  initialRepoId?: string
+  /** Already-resolved link (a ghost card's issue) — seeded instead of re-looked-up. */
+  initialLinkedItem?: GitHubWorkItem | null
   onOpenChange: (open: boolean) => void
 }
 
@@ -46,14 +50,17 @@ export type FeatureBoardAdoptionDialogProps = {
 export function FeatureBoardAdoptionDialog({
   stage,
   repos,
+  initialRepoId,
+  initialLinkedItem = null,
   onOpenChange
 }: FeatureBoardAdoptionDialogProps): React.JSX.Element {
   const openModal = useAppStore((s) => s.openModal)
   const mountedRef = useMountedRef()
-  const [repoId, setRepoId] = useState(repos[0]?.id ?? '')
+  const seededLinkInput = initialLinkedItem ? `#${initialLinkedItem.number}` : ''
+  const [repoId, setRepoId] = useState(initialRepoId ?? repos[0]?.id ?? '')
   const [name, setName] = useState('')
-  const [linkInput, setLinkInput] = useState('')
-  const [linkedItem, setLinkedItem] = useState<GitHubWorkItem | null>(null)
+  const [linkInput, setLinkInput] = useState(seededLinkInput)
+  const [linkedItem, setLinkedItem] = useState<GitHubWorkItem | null>(initialLinkedItem)
   const [linkStatus, setLinkStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [submitting, setSubmitting] = useState(false)
 
@@ -64,6 +71,11 @@ export function FeatureBoardAdoptionDialog({
   const stageLabel = getFeatureBoardStageLabel(stage)
 
   useEffect(() => {
+    // Why: a seeded link is already resolved — re-looking it up would blank the field and
+    // spend a request to land back on the item the caller handed us.
+    if (initialLinkedItem && linkInput === seededLinkInput) {
+      return undefined
+    }
     setLinkedItem(null)
     setLinkStatus('idle')
     const query = parseFeatureBoardAdoptionLinkQuery(linkInput)
@@ -106,7 +118,7 @@ export function FeatureBoardAdoptionDialog({
       stale = true
       window.clearTimeout(timer)
     }
-  }, [linkInput, selectedRepo])
+  }, [initialLinkedItem, linkInput, seededLinkInput, selectedRepo])
 
   const canSubmit =
     selectedRepo !== null && (linkedItem !== null || name.trim().length > 0) && !submitting
