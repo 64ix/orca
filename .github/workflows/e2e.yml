@@ -24,9 +24,11 @@ on:
         required: false
         type: string
   schedule:
-    # Why: GitHub cron uses UTC; these slots map to 10am and 3pm
-    # America/Phoenix for the default-branch E2E run.
-    - cron: '0 17,22 * * *'
+    # Why: GitHub cron uses UTC; this slot maps to 10am America/Phoenix for
+    # the daily default-branch E2E run. Single daily slot: the nightly full
+    # matrix is a regression canary for upstream-shared flakes, and running it
+    # more than once a day mostly re-pays the same contention cost.
+    - cron: '0 17 * * *'
 
 jobs:
   build:
@@ -98,7 +100,12 @@ jobs:
     needs: build
     if: inputs.test_files == ''
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Why 45: the scheduled full-suite shards can drift past 30m under runner
+    # contention (the upstream nightly hit "exceeded maximum execution time of 30m"
+    # and killed live shards). The changed-specs lane already budgets 45 for the
+    # same reason. Keep parity so a slow but healthy shard finishes instead of
+    # being torn down mid-run.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -123,6 +130,14 @@ jobs:
             shard_name: 9-of-10
           - shard: '10/10'
             shard_name: 10-of-10
+
+    # Why ORCA_E2E_RETRIES: full-suite runs (schedule cron, or a manual
+    # workflow_dispatch of the whole matrix) absorb one transient infra flake
+    # (dbus/SSH-relay/paired-runtime teardown) per failed test so a single blip
+    # doesn't sink the shard. It is deliberately absent on PR pull_request runs
+    # so the trace-on-first-failure contract in playwright.config.ts holds.
+    env:
+      ORCA_E2E_RETRIES: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '1' || '0' }}
 
     steps:
       - name: Checkout
