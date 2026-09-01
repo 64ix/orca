@@ -16536,6 +16536,11 @@
           "needs-triage": "Needs triage"
         }
       },
+      "ghostGroup": {
+        "title": "Ghosts",
+        "expand": "Show ghost cards",
+        "collapse": "Hide ghost cards"
+      },
       "dismissed": {
         "label": "Dismissed ghost cards ({{value0}})",
         "tooltip": "Dismissed ghost cards",

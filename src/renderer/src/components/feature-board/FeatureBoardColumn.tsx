@@ -10,7 +10,7 @@ import { FeatureBoardCard } from './FeatureBoardCard'
 import { FeatureBoardColumnHeader } from './FeatureBoardColumnHeader'
 import type { FeatureBoardCard as FeatureBoardCardModel } from './feature-board-card-model'
 import type { FeatureBoardGhostEntry } from './use-feature-board-ghost-candidates'
-import { FeatureBoardGhostCard } from './FeatureBoardGhostCard'
+import { FeatureBoardGhostGroup } from './FeatureBoardGhostGroup'
 
 const EMPTY_GHOSTS: readonly FeatureBoardGhostEntry[] = []
 
@@ -85,14 +85,14 @@ export function FeatureBoardColumn({
             {cards.map((card) => (
               <FeatureBoardCard key={card.id} card={card} />
             ))}
-            {columnGhosts.map(({ repoId, candidate }) => (
-              <FeatureBoardGhostCard
-                key={`ghost-${repoId}-${candidate.issue.number}`}
-                candidate={candidate}
-                repoId={repoId}
-                showRepoName={showGhostRepoNames}
+            {columnGhosts.length > 0 ? (
+              <FeatureBoardGhostGroup
+                stage={stage}
+                ghosts={columnGhosts}
+                showRepoNames={showGhostRepoNames}
+                hasCardsAbove={cards.length > 0}
               />
-            ))}
+            ) : null}
           </>
         )}
       </div>
