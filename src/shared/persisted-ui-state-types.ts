@@ -9,6 +9,7 @@ import type { PersistedTrustedOrcaHooks } from './orca-yaml-hook-types'
 import type { CustomPet } from './pet-types'
 import type { FeatureBoardColumnOrderEntry } from './feature-board-column-order'
 import type { FeatureBoardGhostDismissals } from './feature-board-ghost-dismissals'
+import type { WorkflowStage } from './workflow-stages'
 import type {
   AgentActivityDisplayMode,
   ManualRepoOrderEntry,
@@ -57,6 +58,8 @@ export type PersistedUIState = {
   featureBoardColumnOrder?: FeatureBoardColumnOrderEntry[]
   /** Dismissed ghost-card issue numbers per repo (#49); candidates themselves are never stored. */
   featureBoardGhostDismissals?: FeatureBoardGhostDismissals
+  /** Stages whose ghost group is folded away; absent/empty means every group is expanded. */
+  featureBoardCollapsedGhostStages?: WorkflowStage[]
   /** Feature board project scope; `null`/absent = sticky all-projects so a new project appears on its own. */
   featureBoardProjectSelection?: string[] | null
   /** Deprecated legacy positive-form setting. Ignored on hydration. */

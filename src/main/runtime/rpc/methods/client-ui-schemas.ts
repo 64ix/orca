@@ -145,6 +145,7 @@ const UiUpdateFields = z
     featureBoardGhostDismissals: z
       .record(z.string(), z.array(z.number().int().positive()))
       .optional(),
+    featureBoardCollapsedGhostStages: z.array(z.enum(WORKFLOW_STAGE_IDS)).optional(),
     featureBoardProjectSelection: StringArray.nullable().optional(),
     ...ClientUiWorkspaceFilterFields,
     // Why: rides App.tsx's debounced writer, so omitting it rejected that entire

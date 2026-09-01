@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react'
+import React, { useState } from 'react'
 import { Ghost, RotateCcw, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,8 @@ import { useAppStore } from '@/store'
 import { useRepoMap } from '@/store/selectors'
 import { translate } from '@/i18n/i18n'
 import type { GitHubWorkItem } from '../../../../shared/github/work-item-types'
-import { runFeatureBoardGhostGrab } from './feature-board-ghost-grab-action'
+import type { WorkflowStage } from '../../../../shared/workflow-stages'
+import { FeatureBoardAdoptionDialog } from './FeatureBoardAdoptionDialog'
 import type {
   GhostCandidate,
   GhostCandidateBadge
@@ -38,44 +39,19 @@ function childTicketCountLabel(count: number): string {
 export function FeatureBoardGhostCard({
   candidate,
   repoId,
+  stage,
   showRepoName = false
 }: {
   candidate: GhostCandidate<GitHubWorkItem>
   repoId: string
+  /** Column the ghost sits in — the stage the prefilled dialog declares on create. */
+  stage: WorkflowStage
   /** #73: set once ghosts from several repos share the board. */
   showRepoName?: boolean
 }): React.JSX.Element {
-  const [grabbing, setGrabbing] = useState(false)
-  const openModal = useAppStore((s) => s.openModal)
-  const repoName = useRepoMap().get(repoId)?.displayName
-
-  // Setup-policy repos fall back to the composer modal with the issue prefetched — the same
-  // escape hatch the adoption "+" uses.
-  const openComposerFallback = useCallback(() => {
-    openModal('new-workspace-composer', {
-      initialRepoId: repoId,
-      telemetrySource: 'sidebar',
-      initialGitHubWorkItem: {
-        provider: 'github',
-        type: 'issue',
-        number: candidate.issue.number,
-        title: candidate.issue.title,
-        state: candidate.issue.state,
-        url: candidate.issue.url,
-        labels: [...candidate.issue.labels],
-        updatedAt: '',
-        author: null,
-        repoId
-      }
-    })
-  }, [candidate, openModal, repoId])
-
-  const onGrab = useCallback(() => {
-    setGrabbing(true)
-    void runFeatureBoardGhostGrab(candidate, repoId, openComposerFallback).finally(() =>
-      setGrabbing(false)
-    )
-  }, [candidate, openComposerFallback, repoId])
+  const [adopting, setAdopting] = useState(false)
+  const repo = useRepoMap().get(repoId)
+  const repoName = repo?.displayName
 
   return (
     <div
@@ -86,9 +62,9 @@ export function FeatureBoardGhostCard({
         <Ghost className="mt-0.5 size-3 shrink-0 text-muted-foreground" aria-hidden />
         <button
           type="button"
-          className="min-w-0 flex-1 text-left text-[12px] leading-snug text-foreground/80 hover:text-foreground hover:underline"
-          onClick={onGrab}
-          disabled={grabbing}
+          className="min-w-0 flex-1 text-left text-[12px] leading-snug text-foreground/80 hover:text-foreground hover:underline disabled:no-underline"
+          onClick={() => setAdopting(true)}
+          disabled={!repo}
         >
           <span className="text-muted-foreground">#{candidate.issue.number}</span>
           {showRepoName && repoName ? (
@@ -116,6 +92,19 @@ export function FeatureBoardGhostCard({
             </Badge>
           ))}
         </div>
+      ) : null}
+      {adopting && repo ? (
+        <FeatureBoardAdoptionDialog
+          stage={stage}
+          repos={[repo]}
+          initialRepoId={repoId}
+          initialLinkedItem={candidate.issue}
+          onOpenChange={(open) => {
+            if (!open) {
+              setAdopting(false)
+            }
+          }}
+        />
       ) : null}
     </div>
   )

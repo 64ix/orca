@@ -45,6 +45,11 @@ import {
   setFeatureBoardGhostDismissal,
   type FeatureBoardGhostDismissals
 } from '../../../../shared/feature-board-ghost-dismissals'
+import {
+  normalizeFeatureBoardCollapsedGhostStages,
+  withFeatureBoardGhostStageCollapsed,
+  type FeatureBoardCollapsedGhostStages
+} from '../../../../shared/feature-board-collapsed-ghost-stages'
 import type { WorkflowStage } from '../../../../shared/workflow-stages'
 import { isTopLevelView } from '../../../../shared/top-level-view'
 import { isReleaseChannel, type ReleaseChannel } from '../../../../shared/release-channel'
@@ -824,6 +829,9 @@ export type UISlice = {
   featureBoardGhostDismissals: FeatureBoardGhostDismissals
   dismissFeatureBoardGhost: (repoId: string, issueNumber: number) => void
   restoreFeatureBoardGhost: (repoId: string, issueNumber: number) => void
+  /** Stages whose ghost group is folded away, so a long candidate list stops drowning real cards. */
+  featureBoardCollapsedGhostStages: FeatureBoardCollapsedGhostStages
+  setFeatureBoardGhostStageCollapsed: (stage: WorkflowStage, collapsed: boolean) => void
   /** Feature board project scope; `null` = sticky all-projects, so a project added later joins on its own. */
   featureBoardProjectSelection: readonly string[] | null
   setFeatureBoardProjectSelection: (selection: readonly string[] | null) => void
@@ -1679,6 +1687,16 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
       issueNumber,
       false
     ),
+  featureBoardCollapsedGhostStages: [],
+  setFeatureBoardGhostStageCollapsed: (stage, collapsed) => {
+    const next = withFeatureBoardGhostStageCollapsed(
+      get().featureBoardCollapsedGhostStages,
+      stage,
+      collapsed
+    )
+    window.api.ui.set({ featureBoardCollapsedGhostStages: [...next] }).catch(console.error)
+    set({ featureBoardCollapsedGhostStages: next })
+  },
   featureBoardProjectSelection: null,
   setFeatureBoardProjectSelection: (selection) => {
     const next = selection === null ? null : [...selection]
@@ -2671,6 +2689,9 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         featureBoardColumnOrder: normalizeFeatureBoardColumnOrder(ui.featureBoardColumnOrder),
         featureBoardGhostDismissals: normalizeFeatureBoardGhostDismissals(
           ui.featureBoardGhostDismissals
+        ),
+        featureBoardCollapsedGhostStages: normalizeFeatureBoardCollapsedGhostStages(
+          ui.featureBoardCollapsedGhostStages
         ),
         featureBoardProjectSelection: Array.isArray(ui.featureBoardProjectSelection)
           ? ui.featureBoardProjectSelection.filter((id) => typeof id === 'string')
